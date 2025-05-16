@@ -497,29 +497,29 @@ async function processCardPlay(cardsToPlay) {
         const action = SPECIAL_CARDS[lastPlayedCard.value];
 
         switch (action) {
-            case 'change_suit':
-                if (lastPlayedCard.value === '8' || lastPlayedCard.value === 'J') {
-                    const canChangeSuit = gameState.lastSuitChangeMethod !== lastPlayedCard.value;
+    case 'change_suit':
+    if (lastPlayedCard.value === '8' || lastPlayedCard.value === 'J') {
+        const canChangeSuit = gameState.lastSuitChangeMethod !== lastPlayedCard.value;
 
-                    if (canChangeSuit) {
-                        // Allow changing suit
-                        gameState.lastSuitChangeMethod = lastPlayedCard.value;
-                        gameState.pendingAction = 'change_suit';
-                        updateData.pending_action = 'change_suit';
-                        updateData.current_player = users.phone;
-                        updateData.last_suit_change_method = lastPlayedCard.value;
-                        // DO NOT set current_suit here
-                        delete updateData.current_suit;
-                        showSuitSelector();
-                    } else {
-                        // Just drop the card, don't change suit or trigger suit selector
-                        updateData.current_player = opponentPhone;
-                        // DO NOT change updateData.current_suit
-                        // Also don't update last_suit_change_method
-                        delete updateData.current_suit;
-                    }
-                }
-                break;
+        if (canChangeSuit) {
+            // Allow changing suit
+            gameState.lastSuitChangeMethod = lastPlayedCard.value;
+            gameState.pendingAction = 'change_suit';
+            updateData.pending_action = 'change_suit';
+            updateData.current_player = users.phone;
+            updateData.last_suit_change_method = lastPlayedCard.value;
+            // DO NOT set current_suit here
+            delete updateData.current_suit;
+            showSuitSelector();
+        } else {
+            // Just drop the card, don't change suit or trigger suit selector
+            updateData.current_player = opponentPhone;
+            // DO NOT change updateData.current_suit
+            // Also don't update last_suit_change_method
+            delete updateData.current_suit;
+        }
+    }
+    break;
             case 'skip_turn':
                 updateData.current_player = users.phone;
                 break;
