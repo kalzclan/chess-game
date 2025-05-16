@@ -222,7 +222,7 @@ style.textContent = `
 document.head.appendChild(style);
 
 
-// Modify the canPlayCard function to implement the new rules
+
 
 
 // --- Game State ---
@@ -405,9 +405,8 @@ function canPlayCard(card) {
         return card.suit === gameState.currentSuitToMatch;
     }
     
-    // Handle 8 and J - can always be played, but with restrictions on suit changing
+    // Always allow playing 8 or J cards (they can be played regardless of suit)
     if (card.value === '8' || card.value === 'J') {
-        // The card can always be played, but we'll track if it can change suit in processCardPlay
         return true;
     }
     
@@ -489,26 +488,28 @@ async function processCardPlay(cardsToPlay) {
         const action = SPECIAL_CARDS[lastPlayedCard.value];
         
         switch (action) {
-          case 'change_suit':
-    if (lastPlayedCard.value === '8' || lastPlayedCard.value === 'J') {
-        // Check if this card type was used for the last suit change
-        const canChangeSuit = gameState.lastSuitChangeMethod !== lastPlayedCard.value;
-        
-        if (canChangeSuit) {
-            // Allow changing suit
-            gameState.lastSuitChangeMethod = lastPlayedCard.value;
-            gameState.pendingAction = 'change_suit';
-            updateData.pending_action = 'change_suit';
-            updateData.current_player = users.phone;
-            updateData.last_suit_change_method = lastPlayedCard.value;
-            showSuitSelector();
-        } else {
-            // Cannot change suit, just pass turn
-            updateData.current_player = opponentPhone;
-            // Important: Don't update lastSuitChangeMethod here
-        }
-    }
-    break;
+        case 'change_suit':
+              if (lastPlayedCard.value === '8' || lastPlayedCard.value === 'J') {
+                  // Check if this card type was used for the last suit change
+                  const canChangeSuit = gameState.lastSuitChangeMethod !== lastPlayedCard.value;
+                  
+                  if (canChangeSuit) {
+                      // Allow changing suit
+                      gameState.lastSuitChangeMethod = lastPlayedCard.value;
+                      gameState.pendingAction = 'change_suit';
+                      updateData.pending_action = 'change_suit';
+                      updateData.current_player = users.phone;
+                      updateData.last_suit_change_method = lastPlayedCard.value;
+                      showSuitSelector();
+                  } else {
+                      // Cannot change suit, just pass turn
+                      updateData.current_player = opponentPhone;
+                      // Reset the suit change method since we didn't change suit
+                      updateData.last_suit_change_method = null;
+                      gameState.lastSuitChangeMethod = null;
+                  }
+              }
+              break;
             case 'skip_turn':
                 updateData.current_player = users.phone;
                 break;
