@@ -452,11 +452,14 @@ function canPlayCard(card) {
 // ... (rest of your code remains unchanged)
 
 // Update the processCardPlay function to handle the new Ace behavior
+// ... (existing code above unchanged)
+
+// Update the processCardPlay function to make 7 alone act as skip card
 async function processCardPlay(cardsToPlay) {
     const users = JSON.parse(localStorage.getItem('user')) || {};
     const isCreator = gameState.playerRole === 'creator';
     const opponentPhone = isCreator ? gameState.opponent.phone : gameState.creator.phone;
-    
+
     // Remove cards from hand
     cardsToPlay.forEach(cardToRemove => {
         const index = gameState.playerHand.findIndex(
@@ -466,10 +469,10 @@ async function processCardPlay(cardsToPlay) {
             gameState.playerHand.splice(index, 1);
         }
     });
-    
+
     // Use the last card played for game state
     const lastPlayedCard = cardsToPlay[cardsToPlay.length - 1];
-    
+
     const updateData = {
         last_card: JSON.stringify(lastPlayedCard),
         current_suit: lastPlayedCard.suit,
@@ -478,7 +481,7 @@ async function processCardPlay(cardsToPlay) {
         current_suit_to_match: '',
         has_drawn_this_turn: false
     };
-    
+
     // Add played cards to discard pile (except last card)
     const cardsToDiscard = cardsToPlay.slice(0, -1);
     if (cardsToDiscard.length > 0) {
@@ -487,39 +490,39 @@ async function processCardPlay(cardsToPlay) {
             ...cardsToDiscard
         ]);
     }
-    
+
     // Handle special cards
     if (lastPlayedCard.value in SPECIAL_CARDS) {
         const action = SPECIAL_CARDS[lastPlayedCard.value];
-        
-        switch (action) {
-         case 'change_suit':
-    if (lastPlayedCard.value === '8' || lastPlayedCard.value === 'J') {
-        const canChangeSuit = gameState.lastSuitChangeMethod !== lastPlayedCard.value;
 
-        if (canChangeSuit) {
-            // Allow changing suit
-            gameState.lastSuitChangeMethod = lastPlayedCard.value;
-            gameState.pendingAction = 'change_suit';
-            updateData.pending_action = 'change_suit';
-            updateData.current_player = users.phone;
-            updateData.last_suit_change_method = lastPlayedCard.value;
-            // DO NOT set current_suit here
-            delete updateData.current_suit;
-            showSuitSelector();
-        } else {
-            // Just drop the card, don't change suit or trigger suit selector
-            updateData.current_player = opponentPhone;
-            // DO NOT change updateData.current_suit
-            // Also don't update last_suit_change_method
-            delete updateData.current_suit;
-        }
-    }
-    break;
+        switch (action) {
+            case 'change_suit':
+                if (lastPlayedCard.value === '8' || lastPlayedCard.value === 'J') {
+                    const canChangeSuit = gameState.lastSuitChangeMethod !== lastPlayedCard.value;
+
+                    if (canChangeSuit) {
+                        // Allow changing suit
+                        gameState.lastSuitChangeMethod = lastPlayedCard.value;
+                        gameState.pendingAction = 'change_suit';
+                        updateData.pending_action = 'change_suit';
+                        updateData.current_player = users.phone;
+                        updateData.last_suit_change_method = lastPlayedCard.value;
+                        // DO NOT set current_suit here
+                        delete updateData.current_suit;
+                        showSuitSelector();
+                    } else {
+                        // Just drop the card, don't change suit or trigger suit selector
+                        updateData.current_player = opponentPhone;
+                        // DO NOT change updateData.current_suit
+                        // Also don't update last_suit_change_method
+                        delete updateData.current_suit;
+                    }
+                }
+                break;
             case 'skip_turn':
                 updateData.current_player = users.phone;
                 break;
-                
+
             case 'draw_two':
                 // Handle draw two stacking
                 let drawCount = 2;
@@ -530,13 +533,13 @@ async function processCardPlay(cardsToPlay) {
                     // Start new draw two sequence
                     drawCount = 2;
                 }
-                
+
                 gameState.pendingAction = 'draw_two';
                 updateData.pending_action = 'draw_two';
                 updateData.pending_action_data = drawCount;
                 updateData.current_player = opponentPhone;
                 break;
-                
+
             case 'spade_ace_only':
                 // Only trigger if it's Ace of Spades
                 if (lastPlayedCard.suit === 'spades' && lastPlayedCard.value === 'A') {
@@ -549,20 +552,20 @@ async function processCardPlay(cardsToPlay) {
                     updateData.current_player = opponentPhone;
                 }
                 break;
-                
+
             case 'play_multiple':
                 // For 7 cards - check if playing with 8 or J
-                const playingWithSpecial = cardsToPlay.some(card => 
+                const playingWithSpecial = cardsToPlay.some(card =>
                     card.value === '8' || card.value === 'J'
                 );
-                
+
                 if (playingWithSpecial) {
                     // Check if any of the special cards can change suit
-                    const specialCard = cardsToPlay.find(card => 
-                        (card.value === '8' || card.value === 'J') && 
+                    const specialCard = cardsToPlay.find(card =>
+                        (card.value === '8' || card.value === 'J') &&
                         gameState.lastSuitChangeMethod !== card.value
                     );
-                    
+
                     if (specialCard) {
                         // If playing 7 with valid 8 or J, allow suit change
                         gameState.lastSuitChangeMethod = specialCard.value;
@@ -576,8 +579,16 @@ async function processCardPlay(cardsToPlay) {
                         updateData.current_player = opponentPhone;
                     }
                 } else {
-                    // Normal 7 behavior - pass turn
-                    updateData.current_player = opponentPhone;
+                    // ---- FEATURE: 7 played ALONE acts as skip card ----
+                    if (
+                        cardsToPlay.length === 1 && 
+                        lastPlayedCard.value === '7'
+                    ) {
+                        updateData.current_player = users.phone; // Skip opponent, play again!
+                    } else {
+                        // Normal 7 behavior - pass turn
+                        updateData.current_player = opponentPhone;
+                    }
                 }
                 break;
         }
@@ -587,27 +598,27 @@ async function processCardPlay(cardsToPlay) {
         gameState.lastSuitChangeMethod = null;
         updateData.last_suit_change_method = null;
     }
-    
+
     // Update hands in database
     if (isCreator) {
         updateData.creator_hand = JSON.stringify(gameState.playerHand);
     } else {
         updateData.opponent_hand = JSON.stringify(gameState.playerHand);
     }
-    
+
     // Check for win condition
     if (gameState.playerHand.length === 0) {
         updateData.status = 'finished';
         updateData.winner = users.phone;
         gameState.status = 'finished';
-        
+
         const winnings = Math.floor(gameState.betAmount * 1.8);
         const { data: userData } = await supabase
             .from('users')
             .select('balance')
             .eq('phone', users.phone)
             .single();
-            
+
         if (userData) {
             const newBalance = userData.balance + winnings;
             await supabase
@@ -615,20 +626,22 @@ async function processCardPlay(cardsToPlay) {
                 .update({ balance: newBalance })
                 .eq('phone', users.phone);
         }
-        
+
         showGameResult(true, winnings);
     }
-    
+
     // Update game in database
     const { error } = await supabase
         .from('card_games')
         .update(updateData)
         .eq('code', gameState.gameCode);
-        
+
     if (error) throw error;
-    
+
     updateGameUI();
 }
+
+// ... (rest of your code unchanged)
 function hasCardsOfSuit(suit) {
     return gameState.playerHand.some(card => card.suit === suit);
 }
