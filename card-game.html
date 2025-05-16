@@ -40,7 +40,12 @@
     min-height: 120px;
     margin: 20px 0;
 }
-
+.card[draggable="true"] {
+    cursor: grab;
+}
+.card[draggable="true"]:active {
+    cursor: grabbing;
+}
 .card.top-card {
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     z-index: 10;
