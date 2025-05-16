@@ -1,768 +1,514 @@
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cards Order Lobby</title>
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --primary-color: #2E7D32; /* Dark green */
-            --primary-dark: #1B5E20; /* Darker green */
-            --primary-light: #81C784; /* Light green */
-            --accent-color: #f8faf8; /* Very light green background */
-            --card-bg: #ffffff;
-            --text-color: #333333;
-            --text-light: #666666;
-            --btn-hover: #1B5E20;
-            --highlight-color: #E8F5E9; /* Very light green for accents */
-            --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-            --shadow-hover: 0 6px 16px rgba(0, 0, 0, 0.12);
-            --border-radius: 12px;
-            --border-radius-sm: 8px;
-            --danger-color: #e53935;
-            --success-color: #43a047;
-            --warning-color: #fb8c00;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Poppins', sans-serif;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        body {
-            background-color: var(--accent-color);
-            color: var(--text-color);
-            padding: 8px;
-            font-size: 14px;
-            line-height: 1.5;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 100%;
-            margin: 0 auto;
-        }
-
-        header {
-            padding: 12px 0;
-            margin-bottom: 12px;
-            position: sticky;
-            top: 0;
-            background-color: var(--card-bg);
-            z-index: 10;
-            box-shadow: var(--shadow);
-            border-radius: var(--border-radius);
-        }
-
-        .header-content {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 12px;
-        }
-
-        .header-left {
-            display: flex;
-            align-items: center;
-        }
-
-        #back-btn {
-            background: none;
-            border: none;
-            color: var(--text-color);
-            cursor: pointer;
-            margin-right: 12px;
-            padding: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            transition: all 0.2s;
-        }
-
-        #back-btn:active {
-            background-color: rgba(0, 0, 0, 0.1);
-        }
-
-        h1 {
-            font-size: 1.15rem;
-            font-weight: 600;
-            color: var(--primary-dark);
-        }
-
-        #info-btn {
-            background: none;
-            border: none;
-            color: var(--primary-color);
-            cursor: pointer;
-            padding: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            transition: all 0.2s;
-        }
-
-        #info-btn:active {
-            background-color: rgba(0, 0, 0, 0.1);
-        }
-
-        section {
-            background-color: var(--card-bg);
-            border-radius: var(--border-radius);
-            margin-bottom: 16px;
-            box-shadow: var(--shadow);
-            overflow: hidden;
-        }
-
-        .section-header {
-            background-color: var(--highlight-color);
-            padding: 14px 16px;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        h2 {
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--primary-dark);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .material-icons {
-            font-size: 20px;
-            color: var(--primary-color);
-        }
-
-        .section-content {
-            padding: 16px;
-        }
-
-        .bet-buttons {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            margin-bottom: 16px;
-        }
-
-        .bet-button {
-            background-color: var(--accent-color);
-            border: 1px solid rgba(0, 0, 0, 0.1);
-            border-radius: var(--border-radius-sm);
-            padding: 12px 8px;
-            text-align: center;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .bet-button:active {
-            background-color: var(--highlight-color);
-            transform: translateY(2px);
-        }
-
-        .bet-button.active {
-            background-color: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
-        }
-
-        .bet-amount {
-            font-size: 0.95rem;
-            font-weight: 600;
-        }
-
-        .bet-label {
-            font-size: 0.75rem;
-            opacity: 0.8;
-            margin-top: 2px;
-        }
-
-        .private-toggle-container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin: 16px 0;
-            padding: 12px 16px;
-            background-color: var(--accent-color);
-            border-radius: var(--border-radius-sm);
-            border: 1px solid rgba(0, 0, 0, 0.08);
-        }
-
-        .private-toggle-label {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.9rem;
-        }
-
-        .toggle-switch {
-            position: relative;
-            display: inline-block;
-            width: 50px;
-            height: 24px;
-        }
-
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 34px;
-        }
-
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 18px;
-            width: 18px;
-            left: 3px;
-            bottom: 3px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-
-        input:checked + .slider {
-            background-color: var(--primary-color);
-        }
-
-        input:checked + .slider:before {
-            transform: translateX(26px);
-        }
-
-        .create-game-btn {
-            width: 100%;
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: var(--border-radius-sm);
-            padding: 14px;
-            font-size: 0.95rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            box-shadow: var(--shadow);
-        }
-
-        .create-game-btn:active {
-            background-color: var(--primary-dark);
-            transform: translateY(2px);
-            box-shadow: var(--shadow-hover);
-        }
-
-        .status-message {
-            font-size: 0.85rem;
-            color: var(--text-light);
-            margin-top: 12px;
-            text-align: center;
-        }
-
-        .games-list {
-            list-style: none;
-        }
-
-        .game-item {
-            background-color: var(--card-bg);
-            border-radius: var(--border-radius-sm);
-            padding: 14px;
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: var(--shadow);
-            transition: all 0.2s;
-            border: 1px solid rgba(0, 0, 0, 0.05);
-        }
-
-        .game-item:active {
-            background-color: var(--highlight-color);
-            transform: translateY(2px);
-        }
-
-        .game-info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .game-creator {
-            font-weight: 500;
-            margin-bottom: 6px;
-            font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .creator-avatar {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background-color: var(--primary-color);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.7rem;
-            font-weight: 600;
-            flex-shrink: 0;
-        }
-
-        .game-details {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            font-size: 0.8rem;
-            color: var(--text-light);
-            margin-top: 8px;
-        }
-
-        .game-detail {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            background-color: var(--accent-color);
-            padding: 4px 8px;
-            border-radius: 12px;
-        }
-
-        .game-code {
-            background-color: var(--highlight-color);
-            color: var(--primary-dark);
-            font-weight: 500;
-        }
-
-        .join-btn {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: var(--border-radius-sm);
-            padding: 10px 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            flex-shrink: 0;
-            font-size: 0.85rem;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        .join-btn:active {
-            background-color: var(--primary-dark);
-            transform: translateY(2px);
-        }
-
-        .no-games {
-            text-align: center;
-            color: var(--text-light);
-            padding: 24px 16px;
-            font-size: 0.9rem;
-            background-color: var(--card-bg);
-            border-radius: var(--border-radius-sm);
-            margin-top: 8px;
-        }
-
-        .refresh-btn {
-            background: none;
-            border: none;
-            color: var(--primary-color);
-            font-size: 0.85rem;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px;
-            border-radius: var(--border-radius-sm);
-            transition: all 0.2s;
-        }
-
-        .refresh-btn:active {
-            background-color: var(--highlight-color);
-        }
-
-        .badge {
-            background-color: var(--primary-color);
-            color: white;
-            font-size: 0.7rem;
-            padding: 2px 6px;
-            border-radius: 10px;
-            margin-left: 6px;
-        }
-
-        .join-private-form {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-
-        .private-game-input {
-            flex: 1;
-            padding: 12px 14px;
-            border: 1px solid rgba(0, 0, 0, 0.1);
-            border-radius: var(--border-radius-sm);
-            font-size: 0.9rem;
-            background-color: var(--card-bg);
-            transition: all 0.2s;
-        }
-
-        .private-game-input:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.2);
-        }
-
-        .join-private-btn {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: var(--border-radius-sm);
-            padding: 0 14px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            flex-shrink: 0;
-        }
-
-        .join-private-btn:active {
-            background-color: var(--primary-dark);
-            transform: translateY(2px);
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .loading-spinner {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s ease-in-out infinite;
-        }
-
-        .time-ago {
-            font-size: 0.75rem;
-            color: var(--text-light);
-        }
-
-        /* Modal styles */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s ease;
-        }
-
-        .modal-overlay.active {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .modal {
-            background-color: var(--card-bg);
-            border-radius: var(--border-radius);
-            width: 90%;
-            max-width: 500px;
-            max-height: 80vh;
-            overflow-y: auto;
-            box-shadow: var(--shadow-hover);
-            transform: translateY(20px);
-            transition: all 0.3s ease;
-        }
-
-        .modal-overlay.active .modal {
-            transform: translateY(0);
-        }
-
-        .modal-header {
-            padding: 16px;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .modal-title {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: var(--primary-dark);
-        }
-
-        .modal-close {
-            background: none;
-            border: none;
-            color: var(--text-light);
-            cursor: pointer;
-            padding: 4px;
-            border-radius: 50%;
-            transition: all 0.2s;
-        }
-
-        .modal-close:active {
-            background-color: rgba(0, 0, 0, 0.1);
-        }
-
-        .modal-content {
-            padding: 16px;
-        }
-
-        .modal-section {
-            margin-bottom: 16px;
-        }
-
-        .modal-section-title {
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--primary-dark);
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .modal-section-content {
-            font-size: 0.9rem;
-            line-height: 1.6;
-            color: var(--text-color);
-        }
-
-        .modal-section-content ul {
-            padding-left: 20px;
-            margin: 8px 0;
-        }
-
-        .modal-section-content li {
-            margin-bottom: 6px;
-        }
-
-        .highlight {
-            background-color: var(--highlight-color);
-            padding: 2px 4px;
-            border-radius: 4px;
-            font-weight: 500;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <header>
-            <div class="header-content">
-                <div class="header-left">
-                    <button id="back-btn" class="icon-btn" title="Go back">
-                        <span class="material-icons">arrow_back</span>
-                    </button>
-                    <h1>CARD</h1>
-                </div>
-                <button id="info-btn" class="icon-btn" title="How to play">
-                    <span class="material-icons">info</span>
-                </button>
-            </div>
-        </header>
-
-        <section id="create-game-section">
-            <div class="section-header">
-                <h2>
-                    <span class="material-icons">add</span>
-                    Create New Game
-                </h2>
-            </div>
-            <div class="section-content">
-                <div class="bet-buttons" id="create-bet-buttons">
-                    <!-- Bet buttons will be generated by JavaScript -->
-                </div>
-                <div class="private-toggle-container">
-                    <div class="private-toggle-label">
-                        <span class="material-icons">lock</span>
-                        Private Game
-                    </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="private-game-toggle">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                <button class="create-game-btn" id="create-game-btn">
-                    <span class="material-icons">add</span>
-                    Create Game
-                </button>
-                <p id="create-game-status" class="status-message"></p>
-            </div>
-        </section>
-
-        <section id="available-games-section">
-            <div class="section-header">
-                <h2>
-                    <span class="material-icons">people</span>
-                    Available Games
-                    <span class="badge" id="games-count">0</span>
-                </h2>
-                <button class="refresh-btn" id="refresh-games-btn">
-                    <span class="material-icons">refresh</span>
-                    Refresh
-                </button>
-            </div>
-            <div class="section-content">
-                <ul class="games-list" id="available-games-list">
-                    <li class="no-games">No games available yet. Create one!</li>
-                </ul>
-            </div>
-        </section>
-
-        <section id="join-private-section">
-            <div class="section-header">
-                <h2>
-                    <span class="material-icons">vpn_key</span>
-                    Join Private Game
-                </h2>
-            </div>
-            <div class="section-content">
-                <div class="join-private-form">
-                    <input type="text" id="private-game-code" placeholder="Enter game code" class="private-game-input">
-                    <button class="join-private-btn" id="join-private-btn">
-                        <span class="material-icons">login</span>
-                        Join
-                    </button>
-                </div>
-                <p id="join-private-status" class="status-message"></p>
-            </div>
-        </section>
-    </div>
-
-    <!-- How to Play Modal -->
-    <div class="modal-overlay" id="how-to-play-modal">
-        <div class="modal">
-            <div class="modal-header">
-                <div class="modal-title">How to Play Guess Number Order</div>
-                <button class="modal-close" id="modal-close-btn">
-                    <span class="material-icons">close</span>
-                </button>
-            </div>
-            <div class="modal-content">
-                <div class="modal-section">
-                    <div class="modal-section-title">
-                        <span class="material-icons">help_outline</span>
-                        Game Objective
-                    </div>
-                    <div class="modal-section-content">
-                        Guess the 4-digit number that the computer has selected before your opponent does. 
-                        The number will have all unique digits (no repeats) and may include any digit from 0-9.
-                    </div>
-                </div>
-                
-                <div class="modal-section">
-                    <div class="modal-section-title">
-                        <span class="material-icons">rule</span>
-                        Game Rules
-                    </div>
-                    <div class="modal-section-content">
-                        <ul>
-                            <li>The computer generates a random 4-digit number with no repeating digits</li>
-                            <li>Both players compete to guess the number first</li>
-                            <li>Each guess must be a 4-digit number with unique digits</li>
-                            <li>After each guess, you'll get feedback on how close your guess was</li>
-                            <li>The first player to guess the exact number wins the game</li>
-                        </ul>
-                    </div>
-                </div>
-                
-                <div class="modal-section">
-                    <div class="modal-section-title">
-                        <span class="material-icons">feedback</span>
-                        Understanding Feedback
-                    </div>
-                    <div class="modal-section-content">
-                        After each guess, you'll receive feedback in this format: 
-                        <span class="highlight">X correct numbers, Y in correct position</span>
-                        <ul>
-                            <li><strong>Correct numbers</strong>: How many digits in your guess exist in the secret number</li>
-                            <li><strong>Correct position</strong>: How many digits are in the exact right position</li>
-                        </ul>
-                        Example: If the secret number is <span class="highlight">4278</span> and you guess <span class="highlight">4829</span>, 
-                        the feedback would be <span class="highlight">3 correct numbers (4,2,8), 1 in correct position (4)</span>
-                    </div>
-                </div>
-                
-                <div class="modal-section">
-                    <div class="modal-section-title">
-                        <span class="material-icons">tips_and_updates</span>
-                        Tips & Strategies
-                    </div>
-                    <div class="modal-section-content">
-                        <ul>
-                            <li>Start with a guess that includes a variety of digits to eliminate possibilities</li>
-                            <li>Use the feedback to systematically eliminate numbers that don't fit</li>
-                            <li>Pay attention to both correct numbers and their positions</li>
-                            <li>Try to determine which digits are in the number before focusing on their order</li>
-                            <li>Keep track of digits you've already tried</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script type="module" src="lobbycards.js"></script>
-    <script>
-        // Modal functionality
-        const infoBtn = document.getElementById('info-btn');
-        const modal = document.getElementById('how-to-play-modal');
-        const closeBtn = document.getElementById('modal-close-btn');
-        
-        infoBtn.addEventListener('click', () => {
-            modal.classList.add('active');
-        });
-        
-        closeBtn.addEventListener('click', () => {
-            modal.classList.remove('active');
-        });
-        
-        // Close modal when clicking outside
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modal.classList.remove('active');
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+// --- Supabase Setup ---
+const supabaseUrl = "https://evberyanshxxalxtwnnc.supabase.co";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2YmVyeWFuc2h4eGFseHR3bm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQwODMwOTcsImV4cCI6MjA1OTY1OTA5N30.pEoPiIi78Tvl5URw0Xy_vAxsd-3XqRlC8FTnX9HpgMw";
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// --- DOM Elements ---
+const usernameEl = document.getElementById('username');
+const userAvatarEl = document.getElementById('user-avatar');
+const balanceAmountEl = document.getElementById('balance-amount');
+const createBetButtonsContainer = document.getElementById('create-bet-buttons');
+const createGameStatusEl = document.getElementById('create-game-status');
+const availableGamesListEl = document.getElementById('available-games-list');
+const gamesCountEl = document.getElementById('games-count');
+const refreshGamesBtn = document.getElementById('refresh-games-btn');
+const createGameBtn = document.getElementById('create-game-btn');
+const joinPrivateBtn = document.getElementById('join-private-btn');
+const privateGameCodeInput = document.getElementById('private-game-code');
+const joinPrivateStatus = document.getElementById('join-private-status');
+
+// --- Game Configuration ---
+const betOptions = [10, 25, 50, 100, 250];
+const BASE_URL = window.location.origin;
+let user = {};
+let selectedBet = null;
+let isPrivateGame = false;
+let supabaseChannel = null;
+
+// Card game specific constants
+const CARD_VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+const CARD_SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
+
+// --- Utility Functions ---
+const displayMessage = (element, message, type = 'info') => {
+    if (!element) return;
+    
+    element.textContent = message;
+    element.className = `status-message ${type}`;
+    
+    if (type === 'success') {
+        setTimeout(() => {
+            element.textContent = '';
+            element.className = 'status-message';
+        }, 3000);
+    }
+};
+
+const formatBalance = (amount) => {
+    return amount?.toLocaleString() + ' ETB' || '0 ETB';
+};
+
+const generateAvatarColor = (username) => {
+    if (!username) return '#6c757d';
+    const colors = [
+        '#ff6b6b', '#51cf66', '#fcc419', '#228be6', 
+        '#be4bdb', '#20c997', '#fd7e14', '#868e96'
+    ];
+    const hash = username.split('').reduce((acc, char) => char.charCodeAt(0) + acc, 0);
+    return colors[hash % colors.length];
+};
+
+// --- User Management ---
+async function loadUserDetails() {
+    const users = JSON.parse(localStorage.getItem('user'));
+
+    try {
+        const { data, error } = await supabase
+            .from('users')
+            .select('username, balance')
+            .eq('phone', users.phone)
+            .single();
+
+        if (error) throw error;
+
+        user = data || {};
+        updateUserUI();
+    } catch (error) {
+        console.error('Error loading user details:', error);
+        displayMessage(createGameStatusEl, 'Failed to load user data', 'error');
+    }
+}
+
+function updateUserUI() {
+    if (usernameEl) usernameEl.textContent = user.username || 'Guest';
+    if (balanceAmountEl) balanceAmountEl.textContent = formatBalance(user.balance);
+    if (userAvatarEl) {
+        const initials = user.username ? user.username.charAt(0).toUpperCase() : 'U';
+        userAvatarEl.textContent = initials;
+        userAvatarEl.style.backgroundColor = generateAvatarColor(user.username);
+    }
+}
+
+async function updateUserBalance(newBalance) {
+    try {
+        const phone = localStorage.getItem('phone');
+        const { error } = await supabase
+            .from('users')
+            .update({ balance: newBalance })
+            .eq('phone', phone);
+
+        if (error) throw error;
+
+        user.balance = newBalance;
+        updateUserUI();
+        return true;
+    } catch (error) {
+        console.error('Error updating balance:', error);
+        return false;
+    }
+}
+
+// --- Card Game Specific Functions ---
+function createDeck() {
+    const deck = [];
+    for (const suit of CARD_SUITS) {
+        for (const value of CARD_VALUES) {
+            deck.push({ suit, value });
+        }
+    }
+    return deck;
+}
+
+function shuffleDeck(deck) {
+    for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+    return deck;
+}
+
+function dealCards(deck, playerCount) {
+    const hands = Array(playerCount).fill().map(() => []);
+    const cardsPerPlayer = Math.floor(deck.length / playerCount);
+    
+    for (let i = 0; i < cardsPerPlayer; i++) {
+        for (let p = 0; p < playerCount; p++) {
+            if (deck.length > 0) {
+                hands[p].push(deck.pop());
             }
+        }
+    }
+    
+    return hands;
+}
+
+// --- Game Creation ---
+function setupBetButtons() {
+    createBetButtonsContainer.innerHTML = '';
+    
+    betOptions.forEach(bet => {
+        const button = document.createElement('button');
+        button.textContent = `${bet} ETB`;
+        button.classList.add('bet-button');
+        
+        if (user.balance < bet) {
+            button.disabled = true;
+            button.classList.add('disabled');
+        }
+        
+        button.addEventListener('click', () => {
+            document.querySelectorAll('.bet-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            button.classList.add('active');
+            selectedBet = bet;
         });
-    </script>
-</body>
-</html>
+        
+        createBetButtonsContainer.appendChild(button);
+    });
+
+    document.getElementById('private-game-toggle')?.addEventListener('change', (e) => {
+        isPrivateGame = e.target.checked;
+    });
+
+    createGameBtn?.addEventListener('click', () => {
+        if (!selectedBet) {
+            displayMessage(createGameStatusEl, 'Please select a bet amount', 'error');
+            return;
+        }
+        createCardGame(selectedBet);
+    });
+}
+
+// --- Game Creation ---
+async function createCardGame(bet) {
+    if (!validateGameCreation(bet)) return;
+
+    displayMessage(createGameStatusEl, 'Creating card game...', 'info');
+
+    try {
+        const gameCode = generateGameCode();
+        const users = JSON.parse(localStorage.getItem('user'));
+        
+        // Create and shuffle a deck
+        const deck = shuffleDeck(createDeck());
+        
+        // Deal 6 cards to creator
+        const creatorHand = [];
+        for (let i = 0; i < 6 && deck.length > 0; i++) {
+            creatorHand.push(deck.pop());
+        }
+
+        const { data: createdGameData, error } = await supabase
+            .from('card_games')
+            .insert([{
+                code: gameCode,
+                creator_phone: users.phone,
+                creator_username: user.username,
+                bet: bet,
+                status: 'waiting',
+                is_private: isPrivateGame,
+                deck: JSON.stringify(deck),  // Store the remaining deck
+                creator_hand: JSON.stringify(creatorHand), // Store creator's initial hand
+                current_player: users.phone,  // Creator goes first
+                game_type: 'war'
+            }])
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        const newBalance = user.balance - bet;
+        await updateUserBalance(newBalance);
+
+        window.location.href = `${BASE_URL}/card-game?code=${createdGameData.code}`;
+    } catch (error) {
+        console.error('Error creating card game:', error);
+        displayMessage(createGameStatusEl, 'Failed to create game', 'error');
+    }
+}
+
+// --- Game Joining ---
+async function joinCardGame(gameCode, gameBet) {
+    if (!validateJoinGame(gameBet)) return;
+
+    displayMessage(createGameStatusEl, 'Joining card game...', 'info');
+
+    try {
+        const users = JSON.parse(localStorage.getItem('user'));
+
+        // Check if game exists and is available
+        const { data: gameData, error: fetchError } = await supabase
+            .from('card_games')
+            .select('creator_phone, opponent_phone, bet, is_private, status, deck, creator_hand')
+            .eq('code', gameCode)
+            .single();
+
+        if (fetchError) throw fetchError;
+        if (!gameData) throw new Error('Game not found');
+        if (gameData.opponent_phone) throw new Error('Game is already full');
+        if (gameData.bet !== gameBet) throw new Error('Bet amount mismatch');
+        if (gameData.creator_phone === users.phone) throw new Error('Cannot join your own game');
+
+        const newBalance = user.balance - gameBet;
+        await updateUserBalance(newBalance);
+
+        // Deal 6 cards to opponent from remaining deck
+        const deck = JSON.parse(gameData.deck);
+        const opponentHand = [];
+        for (let i = 0; i < 6 && deck.length > 0; i++) {
+            opponentHand.push(deck.pop());
+        }
+
+        // Update game with opponent info and dealt cards
+        const { error: joinError } = await supabase
+            .from('card_games')
+            .update({
+                opponent_phone: users.phone,
+                opponent_username: user.username,
+                status: 'ongoing',
+                deck: JSON.stringify(deck),  // Remaining deck (if any)
+                opponent_hand: JSON.stringify(opponentHand),
+                current_player: gameData.creator_phone  // Creator goes first
+            })
+            .eq('code', gameCode);
+
+        if (joinError) throw joinError;
+
+        window.location.href = `${BASE_URL}/card-game?code=${gameCode}`;
+    } catch (error) {
+        console.error('Error joining card game:', error);
+        displayMessage(createGameStatusEl, error.message || 'Failed to join game', 'error');
+    }
+}
+
+function validateGameCreation(bet) {
+    if (!bet || isNaN(bet)) {
+        displayMessage(createGameStatusEl, 'Invalid bet amount', 'error');
+        return false;
+    }
+
+    if (user.balance < bet) {
+        displayMessage(createGameStatusEl, 'Insufficient balance', 'error');
+        return false;
+    }
+
+    return true;
+}
+
+function generateGameCode() {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+// --- Game Listing ---
+async function fetchAvailableGames() {
+    try {
+        const { data, error } = await supabase
+            .from('card_games')  // Changed to card_games table
+            .select(`
+                code, 
+                creator_username, 
+                bet,
+                created_at,
+                is_private,
+                game_type
+            `)
+            .eq('status', 'waiting')
+            .eq('is_private', false)
+            .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        displayAvailableGames(data || []);
+        updateGamesCount(data?.length || 0);
+    } catch (error) {
+        console.error("Error fetching available games:", error);
+        displayMessage(createGameStatusEl, 'Failed to load games', 'error');
+    }
+}
+
+function displayAvailableGames(games) {
+    if (!availableGamesListEl) return;
+
+    availableGamesListEl.innerHTML = '';
+
+    if (!games.length) {
+        const emptyItem = document.createElement('li');
+        emptyItem.className = 'no-games';
+        emptyItem.textContent = 'No games available yet. Create one!';
+        availableGamesListEl.appendChild(emptyItem);
+        return;
+    }
+
+    games.forEach(game => {
+        const gameItem = document.createElement('li');
+        gameItem.className = 'game-item';
+        
+        gameItem.innerHTML = `
+            <div class="game-info">
+                <div class="game-creator">
+                    <div class="creator-avatar" style="background-color: ${generateAvatarColor(game.creator_username)}">
+                        ${game.creator_username?.charAt(0) || 'C'}
+                    </div>
+                    <span>${game.creator_username || 'Anonymous'}</span>
+                </div>
+                <div class="game-details">
+                    <div class="game-detail">
+                        <span class="material-icons" style="font-size: 16px;">attach_money</span>
+                        <span>${game.bet} ETB</span>
+                    </div>
+                    <div class="game-detail game-code">
+                        <span class="material-icons" style="font-size: 16px;">code</span>
+                        <span>${game.code}</span>
+                    </div>
+                    <div class="game-detail">
+                        <span class="material-icons" style="font-size: 16px;">games</span>
+                        <span>${game.game_type}</span>
+                    </div>
+                    <div class="game-detail">
+                        <span class="material-icons" style="font-size: 16px;">schedule</span>
+                        <span class="time-ago">${formatTimeAgo(game.created_at)}</span>
+                    </div>
+                </div>
+            </div>
+            <button class="join-btn" data-game-code="${game.code}" data-bet="${game.bet}">
+                <span class="material-icons" style="font-size: 16px;">login</span>
+                Join
+            </button>
+        `;
+
+        availableGamesListEl.appendChild(gameItem);
+    });
+
+    document.querySelectorAll('.join-btn').forEach(button => {
+        button.addEventListener('click', async () => {
+            const gameCode = button.dataset.gameCode;
+            const gameBet = parseInt(button.dataset.bet);
+            await joinCardGame(gameCode, gameBet);
+        });
+    });
+}
+
+const formatTimeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+    
+    let interval = Math.floor(seconds / 31536000);
+    if (interval >= 1) return `${interval}y ago`;
+    
+    interval = Math.floor(seconds / 2592000);
+    if (interval >= 1) return `${interval}mo ago`;
+    
+    interval = Math.floor(seconds / 86400);
+    if (interval >= 1) return `${interval}d ago`;
+    
+    interval = Math.floor(seconds / 3600);
+    if (interval >= 1) return `${interval}h ago`;
+    
+    interval = Math.floor(seconds / 60);
+    if (interval >= 1) return `${interval}m ago`;
+    
+    return 'Just now';
+};
+
+function updateGamesCount(count) {
+    if (gamesCountEl) {
+        gamesCountEl.textContent = count;
+        gamesCountEl.style.display = count > 0 ? 'inline-block' : 'none';
+    }
+}
+
+// --- Game Joining ---
+
+
+function validateJoinGame(gameBet) {
+    if (user.balance < gameBet) {
+        displayMessage(createGameStatusEl, 'Insufficient balance', 'error');
+        return false;
+    }
+    return true;
+}
+
+// --- Private Game Joining ---
+async function handleJoinPrivateGame() {
+    const gameCode = privateGameCodeInput.value.trim();
+    
+    if (!gameCode) {
+        displayMessage(joinPrivateStatus, 'Please enter a game code', 'error');
+        return;
+    }
+
+    try {
+        displayMessage(joinPrivateStatus, 'Checking game...', 'info');
+        
+        const { data: gameData, error: fetchError } = await supabase
+            .from('card_games')
+            .select('creator_phone, opponent_phone, bet, is_private, status')
+            .eq('code', gameCode)
+            .single();
+
+        if (fetchError) throw fetchError;
+        if (!gameData) throw new Error('Game not found');
+        if (!gameData.is_private) throw new Error('This is not a private game');
+        if (gameData.status !== 'waiting') throw new Error('Game is not available');
+        
+        await joinCardGame(gameCode, gameData.bet);
+    } catch (error) {
+        console.error('Error joining private game:', error);
+        displayMessage(joinPrivateStatus, error.message || 'Failed to join private game', 'error');
+    }
+}
+
+// --- Realtime Updates ---
+function setupRealtimeUpdates() {
+    if (supabaseChannel) {
+        supabaseChannel.unsubscribe();
+    }
+
+    supabaseChannel = supabase
+        .channel('card_games_changes')
+        .on(
+            'postgres_changes',
+            {
+                event: '*',
+                schema: 'public',
+                table: 'card_games'
+            },
+            () => {
+                fetchAvailableGames();
+            }
+        )
+        .subscribe();
+}
+
+// --- Event Listeners ---
+function setupEventListeners() {
+    refreshGamesBtn?.addEventListener('click', fetchAvailableGames);
+    joinPrivateBtn?.addEventListener('click', handleJoinPrivateGame);
+    privateGameCodeInput?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            handleJoinPrivateGame();
+        }
+    });
+}
+
+// --- Initialize App ---
+async function init() {
+    setupEventListeners();
+    await loadUserDetails();
+    setupBetButtons();
+    await fetchAvailableGames();
+    setupRealtimeUpdates();
+}
+
+// Start the application
+init();
+
+// Back button functionality
+document.getElementById('back-btn').addEventListener('click', () => {
+    window.location.href = 'home.html';
+});
