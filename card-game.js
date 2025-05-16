@@ -1,5 +1,6 @@
 
 
+
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 // --- Supabase Setup ---
@@ -222,7 +223,7 @@ style.textContent = `
 document.head.appendChild(style);
 
 
-
+// Modify the canPlayCard function to implement the new rules
 
 
 // --- Game State ---
@@ -315,8 +316,7 @@ async function loadGameData() {
         
         const users = JSON.parse(localStorage.getItem('user')) || {};
         gameState.playerRole = gameData.creator_phone === users.phone ? 'creator' : 'opponent';
-                gameState.lastSuitChangeMethod = gameData.last_suit_change_method;
-
+        
         // Update game state
         gameState.status = gameData.status;
         gameState.currentPlayer = gameData.current_player;
@@ -402,11 +402,18 @@ function canPlayCard(card) {
     
     // If must play specific suit, only that suit can be played
     if (gameState.mustPlaySuit && gameState.currentSuitToMatch) {
+        // Allow playing if the card is the same type (J or 8) that was used to change the suit
+        if (gameState.lastSuitChangeMethod && 
+            card.value === gameState.lastSuitChangeMethod) {
+            return true;
+        }
         return card.suit === gameState.currentSuitToMatch;
     }
     
-    // Always allow playing 8 or J cards (they can be played regardless of suit)
+    // Handle 8 and J - can always be played
     if (card.value === '8' || card.value === 'J') {
+        // Track if they can change suit (only if different from last change method)
+        gameState.canChangeSuit = gameState.lastSuitChangeMethod !== card.value;
         return true;
     }
     
@@ -445,7 +452,6 @@ function canPlayCard(card) {
     return card.suit === gameState.currentSuit || 
            card.value === gameState.lastCard.value;
 }
-
 // Update the processCardPlay function to handle the new Ace behavior
 async function processCardPlay(cardsToPlay) {
     const users = JSON.parse(localStorage.getItem('user')) || {};
@@ -488,28 +494,26 @@ async function processCardPlay(cardsToPlay) {
         const action = SPECIAL_CARDS[lastPlayedCard.value];
         
         switch (action) {
-        case 'change_suit':
-              if (lastPlayedCard.value === '8' || lastPlayedCard.value === 'J') {
-                  // Check if this card type was used for the last suit change
-                  const canChangeSuit = gameState.lastSuitChangeMethod !== lastPlayedCard.value;
-                  
-                  if (canChangeSuit) {
-                      // Allow changing suit
-                      gameState.lastSuitChangeMethod = lastPlayedCard.value;
-                      gameState.pendingAction = 'change_suit';
-                      updateData.pending_action = 'change_suit';
-                      updateData.current_player = users.phone;
-                      updateData.last_suit_change_method = lastPlayedCard.value;
-                      showSuitSelector();
-                  } else {
-                      // Cannot change suit, just pass turn
-                      updateData.current_player = opponentPhone;
-                      // Reset the suit change method since we didn't change suit
-                      updateData.last_suit_change_method = null;
-                      gameState.lastSuitChangeMethod = null;
-                  }
-              }
-              break;
+           case 'change_suit':
+                if (lastPlayedCard.value === '8' || lastPlayedCard.value === 'J') {
+                    // Check if card type can be used to change suit
+                    const canChangeSuit = gameState.lastSuitChangeMethod !== lastPlayedCard.value;
+                    
+                    if (gameState.lastSuitChangeMethod===null) {
+                        // Allow changing suit
+                        gameState.lastSuitChangeMethod = lastPlayedCard.value;
+                        gameState.pendingAction = 'change_suit';
+                        updateData.pending_action = 'change_suit';
+                        updateData.current_player = users.phone;
+                        updateData.last_suit_change_method = lastPlayedCard.value;
+                        showSuitSelector();
+                    } else {
+                        // Cannot change suit, just pass turn
+                        updateData.current_player = opponentPhone;
+                        // Important: Don't update lastSuitChangeMethod here
+                    }
+                }
+                break;
             case 'skip_turn':
                 updateData.current_player = users.phone;
                 break;
