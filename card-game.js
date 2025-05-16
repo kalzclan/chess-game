@@ -1112,27 +1112,15 @@ function renderDiscardPile() {
         const isTop = idx === recentCards.length - 1;
         const z = 100 + idx;
 
-        // Smaller card size
-        const cardWidth = 46;  // px
-        const cardHeight = 69; // px
-
         // Random scatter for visuals, except top card
-        // - X in cm (1cm = 37.8px): random between -2cm to +2cm
-        const xOffsetCm = isTop ? 0 : (Math.random() * 4 - 2); // -2 to +2 cm
-        const xOffset = xOffsetCm * 37.8;
-
-        // - Y in px: random between -8px to +8px
-        const yOffset = isTop ? 0 : (Math.random() * 16 - 8);
-
-        // - Degree: random between -18 to +18 deg
-        const rot = isTop ? 0 : (Math.random() * 36 - 18);
+        const rot = isTop ? 0 : (Math.random() * 10 - 5);
+        const xOffset = isTop ? 0 : (Math.random() * 20 - 10);
+        const yOffset = isTop ? 0 : (Math.random() * 10 - 5);
 
         const cardEl = document.createElement('div');
         cardEl.className = `card ${card.suit} ${isTop ? 'top-card' : 'stacked-card'}`;
         cardEl.style.zIndex = z;
         cardEl.style.position = 'absolute';
-        cardEl.style.width = cardWidth + 'px';
-        cardEl.style.height = cardHeight + 'px';
         cardEl.style.left = `calc(50% + ${xOffset}px)`;
         cardEl.style.top = `calc(50% + ${yOffset}px)`;
         cardEl.style.transform = `translate(-50%, -50%) rotate(${rot}deg)`;
@@ -1150,7 +1138,7 @@ function renderDiscardPile() {
             cardEl.style.filter = 'none';
         }
 
-        // Desktop drag (top card only)
+        // Desktop drag (optional: only for top card)
         if (isTop) {
             cardEl.draggable = true;
             cardEl.addEventListener('dragstart', (e) => {
@@ -1209,10 +1197,10 @@ function renderDiscardPile() {
         pileContainer.appendChild(countEl);
     }
 
-    // Ensure pileContainer is absolute/fixed positioned and sized for small cards
+    // Ensure pileContainer is absolute/fixed positioned
     pileContainer.style.position = "relative";
-    pileContainer.style.width = "100px";
-    pileContainer.style.height = "80px";
+    pileContainer.style.width = "140px";
+    pileContainer.style.height = "120px";
     pileContainer.style.margin = "0 auto";
 
     discardPileEl.appendChild(pileContainer);
