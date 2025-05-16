@@ -402,15 +402,9 @@ function canPlayCard(card) {
         return card.suit === gameState.currentSuitToMatch;
     }
     
-    // Handle 8 and J - can be played on any card but with restriction
+    // 8 or J can ALWAYS be dropped (even if it doesn't match suit/value)
     if (card.value === '8' || card.value === 'J') {
-        // Check if the previous suit change was done with the same card value
-        if (gameState.lastSuitChangeMethod === card.value) {
-            // Can still drop the card if it matches the current suit or value
-            return card.suit === gameState.currentSuit || 
-                   card.value === gameState.lastCard.value;
-        }
-        return true; // Can play if different method or no previous suit change
+        return true;
     }
     
     // Handle 2 cards - can only be played on same suit or another 2
