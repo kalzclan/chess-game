@@ -497,11 +497,9 @@ async function processCardPlay(cardsToPlay) {
         const action = SPECIAL_CARDS[lastPlayedCard.value];
 
         switch (action) {
-    case 'change_suit':
+case 'change_suit':
     if (lastPlayedCard.value === '8' || lastPlayedCard.value === 'J') {
-        const canChangeSuit = gameState.lastSuitChangeMethod !== lastPlayedCard.value;
-
-        if (canChangeSuit) {
+        if (gameState.lastSuitChangeMethod !== lastPlayedCard.value) {
             // Allow changing suit
             gameState.lastSuitChangeMethod = lastPlayedCard.value;
             gameState.pendingAction = 'change_suit';
