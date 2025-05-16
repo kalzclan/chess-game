@@ -1107,7 +1107,6 @@ function canPlayCard(card) {
 }
 function setupRealtimeUpdates() {
 
-   gameState.lastSuitChangeMethod = payload.new.last_suit_change_method;
     const channel = supabase
         .channel(`card_game_${gameState.gameCode}`)
         .on(
@@ -1124,7 +1123,8 @@ function setupRealtimeUpdates() {
                     gameState.currentPlayer = payload.new.current_player;
                     gameState.currentSuit = payload.new.current_suit;
                     gameState.hasDrawnThisTurn = payload.new.has_drawn_this_turn || false;
-                    
+                       gameState.lastSuitChangeMethod = payload.new.last_suit_change_method;
+
                     if (payload.new.last_card) {
                         try {
                             gameState.lastCard = typeof payload.new.last_card === 'string' ? 
