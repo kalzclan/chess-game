@@ -591,55 +591,7 @@ function hasCardsOfSuit(suit) {
     return gameState.playerHand.some(card => card.suit === suit);
 }
 
-function renderDiscardPile() {
-    if (!discardPileEl) return;
-    
-    discardPileEl.innerHTML = '';
-    
-    // Create a container for the discard pile with a nice layout
-    const pileContainer = document.createElement('div');
-    pileContainer.className = 'discard-pile-container';
-    
-    // Show the last card (top of the pile) prominently
-    if (gameState.lastCard) {
-        const topCard = document.createElement('div');
-        topCard.className = `card ${gameState.lastCard.suit} top-card`;
-        topCard.innerHTML = `
-            <div class="card-value">${gameState.lastCard.value}</div>
-            <div class="card-suit"></div>
-        `;
-        pileContainer.appendChild(topCard);
-    }
-    
-    // Show the rest of the discard pile as a stack
-    if (gameState.discardPile.length > 0) {
-        const pileCount = document.createElement('div');
-        pileCount.className = 'discard-pile-count';
-        pileCount.textContent = `${gameState.discardPile.length} cards`;
-        pileContainer.appendChild(pileCount);
-        
-        // Optional: Show a few cards from the pile as a visual stack
-        const maxVisibleCards = 3;
-        const visibleCards = Math.min(maxVisibleCards, gameState.discardPile.length);
-        
-        for (let i = 0; i < visibleCards; i++) {
-            const card = gameState.discardPile[gameState.discardPile.length - 1 - i];
-            if (card) {
-                const cardEl = document.createElement('div');
-                cardEl.className = `card ${card.suit} stacked-card`;
-                cardEl.style.transform = `rotate(${i * 5}deg) translate(${i * 2}px, ${i * 2}px)`;
-                cardEl.style.zIndex = i;
-                cardEl.innerHTML = `
-                    <div class="card-value">${card.value}</div>
-                    <div class="card-suit"></div>
-                `;
-                pileContainer.appendChild(cardEl);
-            }
-        }
-    }
-    
-    discardPileEl.appendChild(pileContainer);
-}
+
 
 async function playCard(cardIndex) {
     try {
@@ -1061,7 +1013,54 @@ function showGameResult(isWinner, amount) {
         });
     }
 }
-
+function renderDiscardPile() {
+    if (!discardPileEl) return;
+    
+    discardPileEl.innerHTML = '';
+    
+    // Create a container for the discard pile with a nice layout
+    const pileContainer = document.createElement('div');
+    pileContainer.className = 'discard-pile-container';
+    
+    // Show the last 5-7 cards played (adjust number as needed)
+    const cardsToShow = 7; // Number of recent cards to display
+    const allCards = [...gameState.discardPile];
+    if (gameState.lastCard) {
+        allCards.push(gameState.lastCard); // Include the current top card
+    }
+    
+    // Show cards in reverse order (newest first)
+    const recentCards = allCards.slice(-cardsToShow).reverse();
+    
+    recentCards.forEach((card, index) => {
+        const cardEl = document.createElement('div');
+        cardEl.className = `card ${card.suit} ${index === 0 ? 'top-card' : 'stacked-card'}`;
+        
+        // Stagger the cards slightly for visibility
+        cardEl.style.transform = `
+            rotate(${index * 2}deg) 
+            translate(${index * 5}px, ${index * 3}px)
+        `;
+        cardEl.style.zIndex = index;
+        
+        cardEl.innerHTML = `
+            <div class="card-value">${card.value}</div>
+            <div class="card-suit"></div>
+        `;
+        pileContainer.appendChild(cardEl);
+    });
+    
+    // Show count if there are more cards than we're displaying
+    if (allCards.length > cardsToShow) {
+        const remainingCount = allCards.length - cardsToShow;
+        const countEl = document.createElement('div');
+        countEl.className = 'discard-pile-count';
+        countEl.textContent = `+${remainingCount} more`;
+        pileContainer.appendChild(countEl);
+    }
+    
+    discardPileEl.appendChild(pileContainer);
+}
 function setupRealtimeUpdates() {
     const channel = supabase
         .channel(`card_game_${gameState.gameCode}`)
