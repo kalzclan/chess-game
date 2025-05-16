@@ -1,5 +1,4 @@
-1) WHY IS IT THAT WHEN I DROP 7 OF HEART NOT ALL OF THE HEARTS ARE NOT SHOWING UP TO BE DROPED WHY
-2)FIX WHY NOT THE LAST 3 PLAYED CARDS ARE NOT SHOWING UP IN THE BORED
+
 
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
