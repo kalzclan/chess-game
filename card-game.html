@@ -76,36 +76,7 @@
     left: 0;
     opacity: 0.9;
 }
-.discard-pile-container {
-    position: relative;
-    width: 100px;
-    height: 80px;
-    min-height: 60px;
-    user-select: none;
-}
-.card.stacked-card {
-    pointer-events: none; /* Only top card can be dragged */
-    transition: box-shadow 0.2s, filter 0.2s;
-}
-.card.top-card {
-    pointer-events: auto;
-    cursor: grab;
-    transition: box-shadow 0.2s, filter 0.2s;
-}
-.card.top-card:active {
-    cursor: grabbing;
-}
-.card {
-    font-size: 0.85rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 6px;
-    border: 1px solid #3334;
-    background: white;
-    box-sizing: border-box;
-    user-select: none;
-}
+
 .discard-pile-count {
     position: absolute;
     bottom: -20px;
