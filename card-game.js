@@ -1,3 +1,5 @@
+1) WHY IS IT THAT WHEN I DROP 7 OF HEART NOT ALL OF THE HEARTS ARE NOT SHOWING UP TO BE DROPED WHY
+2)FIX WHY NOT THE LAST 3 PLAYED CARDS ARE NOT SHOWING UP IN THE BORED
 
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
@@ -741,9 +743,11 @@ async function showSevenCardDialog(initialCardIndex) {
     const specialCards = gameState.playerHand.filter(
         (card, index) => (card.value === '8' || card.value === 'J') && index !== initialCardIndex
     );
-    
+    const sameSuitCards = gameState.playerHand.filter(
+        (card, index) => card.suit === initialCard.suit && index !== initialCardIndex
+    );
     // If no special cards to play with, treat as normal card
-    if (specialCards.length === 0) {
+    if (specialCards.length === 0&&sameSuitCards.length === 0) {
         await processCardPlay([initialCard]);
         return;
     }
@@ -756,6 +760,13 @@ async function showSevenCardDialog(initialCardIndex) {
             <h3>Select cards to play with ${initialCard.value} of ${initialCard.suit}</h3>
             <div class="card-selection-options">
                 ${specialCards.map((card, i) => `
+                    <div class="card-option ${card.suit}" data-index="${gameState.playerHand.findIndex(c => 
+                        c.suit === card.suit && c.value === card.value)}">
+                        <div class="card-value">${card.value}</div>
+                        <div class="card-suit"></div>
+                    </div>
+                `).join('')}
+                                ${sameSuitCards.map((card, i) => `
                     <div class="card-option ${card.suit}" data-index="${gameState.playerHand.findIndex(c => 
                         c.suit === card.suit && c.value === card.value)}">
                         <div class="card-value">${card.value}</div>
