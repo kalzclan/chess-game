@@ -243,7 +243,8 @@ let gameState = {
     mustPlaySuit: false,
     currentSuitToMatch: '',
     hasDrawnThisTurn: false,
-    discardPile: []
+    discardPile: [],
+    lastSuitChangeMethod: null // 'J' or '8' or null
 };
 
 // --- Initialize Game ---
@@ -352,7 +353,8 @@ async function loadGameData() {
             gameState.pendingAction = gameData.pending_action;
             gameState.pendingActionData = gameData.pending_action_data;
         }
-        
+            gameState.lastSuitChangeMethod = gameData.last_suit_change_method;
+
         updateGameUI();
         
     } catch (error) {
@@ -360,60 +362,6 @@ async function loadGameData() {
         if (gameStatusEl) gameStatusEl.textContent = 'Error loading game';
         setTimeout(() => window.location.href = '/', 3000);
     }
-}
-function canPlayCard(card) {
-    // If no last card played, any card can be played
-    if (!gameState.lastCard) return true;
-    
-    // If there's a pending draw action, only 2s can be played
-    if (gameState.pendingAction === 'draw_two') {
-        return card.value === '2' && 
-               (card.suit === gameState.currentSuit || 
-                card.value === gameState.lastCard.value);
-    }
-    
-    // If must play specific suit, only that suit can be played
-    if (gameState.mustPlaySuit && gameState.currentSuitToMatch) {
-        return card.suit === gameState.currentSuitToMatch;
-    }
-    
-    // Handle 8 and J - can be played on any card
-    if (card.value === '8' || card.value === 'J') {
-        return true;
-    }
-    
-    // Handle 2 cards - can only be played on same suit or another 2
-    if (card.value === '2') {
-        return card.suit === gameState.currentSuit || 
-               gameState.lastCard.value === '2';
-    }
-    
-    // Handle 7 card - can be played with any 8 or J regardless of suit
-    if (card.value === '7') {
-        // Can play on same suit or value as last card
-        if (card.suit === gameState.currentSuit || card.value === gameState.lastCard.value) {
-            return true;
-        }
-        
-        // Additionally, can be played with any 8 or J in hand
-        const hasEightOrJack = gameState.playerHand.some(c => 
-            (c.value === '8' || c.value === 'J') && c !== card
-        );
-        return hasEightOrJack;
-    }
-    
-    // Handle Ace - only Ace of Spades is special
-    if (card.value === 'A') {
-        // Only special if it's Ace of Spades
-        
-        // Normal Ace can only be played on same suit or value
-        return card.suit === gameState.currentSuit || 
-               card.value === gameState.lastCard.value;
-    }
-    
-    // Normal play rules - must match suit or value
-    return card.suit === gameState.currentSuit || 
-           card.value === gameState.lastCard.value;
 }
 function renderPlayerHand() {
     if (!playerHandEl) return;
@@ -480,15 +428,17 @@ async function processCardPlay(cardsToPlay) {
         const action = SPECIAL_CARDS[lastPlayedCard.value];
         
         switch (action) {
-            case 'change_suit':
+           case 'change_suit':
                 if (lastPlayedCard.value === '8' || lastPlayedCard.value === 'J') {
+                    // Track how the suit is being changed
+                    gameState.lastSuitChangeMethod = lastPlayedCard.value;
                     gameState.pendingAction = 'change_suit';
                     updateData.pending_action = 'change_suit';
                     updateData.current_player = users.phone;
+                    updateData.last_suit_change_method = lastPlayedCard.value; // Add to database update
                     showSuitSelector();
                 }
                 break;
-                
             case 'skip_turn':
                 updateData.current_player = users.phone;
                 break;
@@ -543,6 +493,8 @@ async function processCardPlay(cardsToPlay) {
         }
     } else {
         updateData.current_player = opponentPhone;
+        gameState.lastSuitChangeMethod = null;
+        updateData.last_suit_change_method = null;
     }
     
     // Rest of the function remains the same...
@@ -1093,8 +1045,69 @@ function renderDiscardPile() {
     
     discardPileEl.appendChild(pileContainer);
 }
-
+function canPlayCard(card) {
+    // If no last card played, any card can be played
+    if (!gameState.lastCard) return true;
+    
+    // If there's a pending draw action, only 2s can be played
+    if (gameState.pendingAction === 'draw_two') {
+        return card.value === '2' && 
+               (card.suit === gameState.currentSuit || 
+                card.value === gameState.lastCard.value);
+    }
+    
+    // If must play specific suit, only that suit can be played
+    if (gameState.mustPlaySuit && gameState.currentSuitToMatch) {
+        return card.suit === gameState.currentSuitToMatch;
+    }
+    
+    // Handle 8 and J - can be played on any card but with restriction
+    if (card.value === '8' || card.value === 'J') {
+        // Check if the previous suit change was done with the same card value
+        if (gameState.lastSuitChangeMethod === card.value) {
+            return false; // Can't use same method to change suit consecutively
+        }
+        return true; // Can play if different method or no previous suit change
+    }
+    
+    // Handle 2 cards - can only be played on same suit or another 2
+    if (card.value === '2') {
+        return card.suit === gameState.currentSuit || 
+               gameState.lastCard.value === '2';
+    }
+    
+    // Handle 7 card - can be played with any 8 or J regardless of suit
+    if (card.value === '7') {
+        // Can play on same suit or value as last card
+        if (card.suit === gameState.currentSuit || card.value === gameState.lastCard.value) {
+            return true;
+        }
+        
+        // Additionally, can be played with any 8 or J in hand
+        const hasEightOrJack = gameState.playerHand.some(c => 
+            (c.value === '8' || c.value === 'J') && c !== card
+        );
+        return hasEightOrJack;
+    }
+    
+    // Handle Ace - only Ace of Spades is special
+    if (card.value === 'A') {
+        // Only special if it's Ace of Spades
+        if (card.suit === 'spades') {
+            return true; // Ace of Spades can always be played
+        }
+        // Normal Ace can only be played on same suit or value
+        return card.suit === gameState.currentSuit || 
+               card.value === gameState.lastCard.value;
+    }
+    
+    // Normal play rules - must match suit or value
+    return card.suit === gameState.currentSuit || 
+           card.value === gameState.lastCard.value;
+}
 function setupRealtimeUpdates() {
+
+   gameState.lastSuitChangeMethod = payload.new.last_suit_change_method;
     const channel = supabase
         .channel(`card_game_${gameState.gameCode}`)
         .on(
