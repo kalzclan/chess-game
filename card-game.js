@@ -1023,6 +1023,7 @@ function showGameResult(isWinner, amount) {
         });
     }
 }
+
 function renderDiscardPile() {
     if (!discardPileEl) return;
     
@@ -1032,15 +1033,33 @@ function renderDiscardPile() {
     const pileContainer = document.createElement('div');
     pileContainer.className = 'discard-pile-container';
     
-    // Show the last 5-7 cards played (adjust number as needed)
+    // Show the last several cards played
     const cardsToShow = 7; // Number of recent cards to display
-    const allCards = [...gameState.discardPile];
+    const allCards = [];
+    
+    // Make sure we include the last card (top of discard pile)
     if (gameState.lastCard) {
-        allCards.push(gameState.lastCard); // Include the current top card
+        allCards.push(gameState.lastCard);
     }
     
-    // Show cards in reverse order (newest first)
-    const recentCards = allCards.slice(-cardsToShow).reverse();
+    // Then add the rest of the discard pile
+    if (gameState.discardPile && gameState.discardPile.length > 0) {
+        // Add the discard pile in reverse order (newest first)
+        // We don't need the last card if it's already in the discard pile
+        for (let i = gameState.discardPile.length - 1; i >= 0; i--) {
+            const card = gameState.discardPile[i];
+            // Skip if this card is the same as the last card (to avoid duplicates)
+            if (gameState.lastCard && 
+                card.suit === gameState.lastCard.suit && 
+                card.value === gameState.lastCard.value) {
+                continue;
+            }
+            allCards.push(card);
+        }
+    }
+    
+    // Show cards in reverse order (newest on top)
+    const recentCards = allCards.slice(0, cardsToShow);
     
     recentCards.forEach((card, index) => {
         const cardEl = document.createElement('div');
@@ -1048,10 +1067,10 @@ function renderDiscardPile() {
         
         // Stagger the cards slightly for visibility
         cardEl.style.transform = `
-            rotate(${index * 2}deg) 
+            rotate(${(index * 5) - 10}deg) 
             translate(${index * 5}px, ${index * 3}px)
         `;
-        cardEl.style.zIndex = index;
+        cardEl.style.zIndex = cardsToShow - index; // Higher z-index for newer cards
         
         cardEl.innerHTML = `
             <div class="card-value">${card.value}</div>
@@ -1061,8 +1080,11 @@ function renderDiscardPile() {
     });
     
     // Show count if there are more cards than we're displaying
-    if (allCards.length > cardsToShow) {
-        const remainingCount = allCards.length - cardsToShow;
+    const totalCards = (gameState.discardPile ? gameState.discardPile.length : 0) + 
+                      (gameState.lastCard ? 1 : 0);
+                      
+    if (totalCards > cardsToShow) {
+        const remainingCount = totalCards - cardsToShow;
         const countEl = document.createElement('div');
         countEl.className = 'discard-pile-count';
         countEl.textContent = `+${remainingCount} more`;
@@ -1071,6 +1093,7 @@ function renderDiscardPile() {
     
     discardPileEl.appendChild(pileContainer);
 }
+
 function setupRealtimeUpdates() {
     const channel = supabase
         .channel(`card_game_${gameState.gameCode}`)
