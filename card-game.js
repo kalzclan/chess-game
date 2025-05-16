@@ -1,7 +1,3 @@
-i want one feature people can not use j or 8 to change suite if the person changed it with j or 8 before them i want the ability to still drop the card even if it doesnt match the current suit this code doesnt allow me to play if i change the game to for example heart and  i have 8 or j of dimond or anything besides heart it doesnt allow me to drop it fix that
-
-
-
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 // --- Supabase Setup ---
