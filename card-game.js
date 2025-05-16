@@ -1,3 +1,4 @@
+i want one feature people can not use j or 8 to change suite if the person changed it with j or 8 before them i want the ability to still drop the card even if it doesnt match the current suit this code doesnt allow me to play if i change the game to for example heart and  i have 8 or j of dimond or anything besides heart it doesnt allow me to drop it fix that
 
 
 
@@ -389,69 +390,71 @@ function renderPlayerHand() {
 }
 
 // --- Game Functions ---
+// ... (all your imports and setup above remain unchanged)
+
+// --- Game Functions ---
 function canPlayCard(card) {
     // If no last card played, any card can be played
     if (!gameState.lastCard) return true;
-    
+
     // If there's a pending draw action, only 2s can be played
     if (gameState.pendingAction === 'draw_two') {
         return card.value === '2' && 
                (card.suit === gameState.currentSuit || 
                 card.value === gameState.lastCard.value);
     }
-    
-    // If must play specific suit, only that suit can be played
+
+    // --- FIXED SECTION: 8/J after 8/J suit change ---
+    // If must play specific suit due to previous 8 or J,
+    // allow dropping any 8 or J (regardless of suit) even if it doesn't match the suit,
+    // but don't allow it to change suit again if lastSuitChangeMethod is the same card value.
     if (gameState.mustPlaySuit && gameState.currentSuitToMatch) {
-        // Allow playing if the card is the same type (J or 8) that was used to change the suit
-        if (gameState.lastSuitChangeMethod && 
-            card.value === gameState.lastSuitChangeMethod) {
+        if (card.value === '8' || card.value === 'J') {
+            // Always allow to drop 8 or J, even if suit doesn't match, but not allowed to change suit again if same as lastSuitChangeMethod
+            gameState.canChangeSuit = (gameState.lastSuitChangeMethod !== card.value);
             return true;
         }
+        // Otherwise, must match the required suit
         return card.suit === gameState.currentSuitToMatch;
     }
-    
-    // Handle 8 and J - can always be played
+
+    // Handle 8 and J - can always be played, but track if they can change suit
     if (card.value === '8' || card.value === 'J') {
-        // Track if they can change suit (only if different from last change method)
-        gameState.canChangeSuit = gameState.lastSuitChangeMethod !== card.value;
+        gameState.canChangeSuit = (gameState.lastSuitChangeMethod !== card.value);
         return true;
     }
-    
+
     // Handle 2 cards - can only be played on same suit or another 2
     if (card.value === '2') {
         return card.suit === gameState.currentSuit || 
                gameState.lastCard.value === '2';
     }
-    
+
     // Handle 7 card - can be played with any 8 or J regardless of suit
     if (card.value === '7') {
-        // Can play on same suit or value as last card
         if (card.suit === gameState.currentSuit || card.value === gameState.lastCard.value) {
             return true;
         }
-        
-        // Additionally, can be played with any 8 or J in hand
-        const hasEightOrJack = gameState.playerHand.some(c => 
+        const hasEightOrJack = gameState.playerHand.some(c =>
             (c.value === '8' || c.value === 'J') && c !== card
         );
         return hasEightOrJack;
     }
-    
+
     // Handle Ace - only Ace of Spades is special
     if (card.value === 'A') {
-        // Only special if it's Ace of Spades
-        if (card.suit === 'spades') {
-            return true; // Ace of Spades can always be played
-        }
-        // Normal Ace can only be played on same suit or value
-        return card.suit === gameState.currentSuit || 
+        if (card.suit === 'spades') return true;
+        return card.suit === gameState.currentSuit ||
                card.value === gameState.lastCard.value;
     }
-    
+
     // Normal play rules - must match suit or value
-    return card.suit === gameState.currentSuit || 
+    return card.suit === gameState.currentSuit ||
            card.value === gameState.lastCard.value;
 }
+
+// ... (rest of your code remains unchanged)
+
 // Update the processCardPlay function to handle the new Ace behavior
 async function processCardPlay(cardsToPlay) {
     const users = JSON.parse(localStorage.getItem('user')) || {};
@@ -499,7 +502,7 @@ async function processCardPlay(cardsToPlay) {
                     // Check if card type can be used to change suit
                     const canChangeSuit = gameState.lastSuitChangeMethod !== lastPlayedCard.value;
                     
-                    if (canChangeSuit) {
+                    if (gameState.lastSuitChangeMethod===null) {
                         // Allow changing suit
                         gameState.lastSuitChangeMethod = lastPlayedCard.value;
                         gameState.pendingAction = 'change_suit';
@@ -1241,3 +1244,4 @@ function shuffleArray(array) {
     }
     return newArray;
 }
+
