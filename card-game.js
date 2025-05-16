@@ -740,7 +740,7 @@ async function showSevenCardDialog(initialCardIndex) {
     
     // Find all 8s and Js in hand (regardless of suit) that can be played with this 7
     const specialCards = gameState.playerHand.filter(
-        (card, index) => (card.value === '8' || card.value === 'J') && index !== initialCardIndex
+        (card, index) => (card.value === '8' || card.value === 'J') && index !== initialCardIndex&&card.suit !== initialCard.suit
     );
     const sameSuitCards = gameState.playerHand.filter(
         (card, index) => card.suit === initialCard.suit && index !== initialCardIndex
