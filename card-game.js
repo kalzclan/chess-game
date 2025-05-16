@@ -1085,130 +1085,125 @@ function renderDiscardPile() {
     const pileContainer = document.createElement('div');
     pileContainer.className = 'discard-pile-container';
 
-    // Reverse to show top card last (on top)
+    // Build the array: newest card LAST (top of pile)
     const allCards = [];
-    if (gameState.lastCard) allCards.push(gameState.lastCard);
     if (gameState.discardPile && gameState.discardPile.length > 0) {
-        for (let i = gameState.discardPile.length - 1; i >= 0; i--) {
-            const card = gameState.discardPile[i];
-            if (gameState.lastCard && card.suit === gameState.lastCard.suit && card.value === gameState.lastCard.value) continue;
-            allCards.push(card);
+        for (let i = 0; i < gameState.discardPile.length; i++) {
+            allCards.push(gameState.discardPile[i]);
         }
     }
-    const recentCards = allCards.slice(0, 7); // show up to 7 cards
+    if (gameState.lastCard) allCards.push(gameState.lastCard);
 
-    // --- Drag and Drop logic ---
-    let draggedIdx = null;
+    const cardsToShow = 7;
+    const startIdx = Math.max(0, allCards.length - cardsToShow);
+    const recentCards = allCards.slice(startIdx);
 
-    recentCards.forEach((card, index) => {
+    // For mobile: touch drag state
+    let touchDrag = {
+        dragging: false,
+        startX: 0,
+        startY: 0,
+        origX: 0,
+        origY: 0,
+        cardEl: null,
+    };
+
+    recentCards.forEach((card, idx) => {
+        const isTop = idx === recentCards.length - 1;
+        const z = 100 + idx;
+
+        // Random scatter for visuals, except top card
+        const rot = isTop ? 0 : (Math.random() * 10 - 5);
+        const xOffset = isTop ? 0 : (Math.random() * 20 - 10);
+        const yOffset = isTop ? 0 : (Math.random() * 10 - 5);
+
         const cardEl = document.createElement('div');
-        cardEl.className = `card ${card.suit} ${index === 0 ? 'top-card' : 'stacked-card'}`;
-        cardEl.draggable = true;  // Make draggable
-
+        cardEl.className = `card ${card.suit} ${isTop ? 'top-card' : 'stacked-card'}`;
+        cardEl.style.zIndex = z;
+        cardEl.style.position = 'absolute';
+        cardEl.style.left = `calc(50% + ${xOffset}px)`;
+        cardEl.style.top = `calc(50% + ${yOffset}px)`;
+        cardEl.style.transform = `translate(-50%, -50%) rotate(${rot}deg)`;
         cardEl.innerHTML = `
             <div class="card-value">${card.value}</div>
             <div class="card-suit"></div>
         `;
 
-        // Save index as dataset for drag logic
-        cardEl.dataset.idx = index;
+        // Black shadow for back cards
+        if (!isTop) {
+            cardEl.style.boxShadow = '0 0 16px 4px rgba(0,0,0,0.7)';
+            cardEl.style.filter = 'brightness(0.7)';
+        } else {
+            cardEl.style.boxShadow = '0 2px 16px 4px #2228, 0 0 0 transparent';
+            cardEl.style.filter = 'none';
+        }
 
-        // Drag events
-        cardEl.addEventListener('dragstart', (e) => {
-            draggedIdx = index;
-            cardEl.style.opacity = 0.5;
-        });
-        cardEl.addEventListener('dragend', (e) => {
-            cardEl.style.opacity = '';
-            draggedIdx = null;
-        });
-        cardEl.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            cardEl.style.boxShadow = '0 0 8px 2px #00e1ff';
-        });
-        cardEl.addEventListener('dragleave', (e) => {
-            cardEl.style.boxShadow = '';
-        });
-        cardEl.addEventListener('drop', (e) => {
-            e.preventDefault();
-            cardEl.style.boxShadow = '';
-            if (draggedIdx !== null && draggedIdx !== index) {
-                // Swap cards in array
-                const temp = recentCards[draggedIdx];
-                recentCards[draggedIdx] = recentCards[index];
-                recentCards[index] = temp;
-                // Re-render pile
-                renderCustomDiscardPile(recentCards);
-            }
-        });
+        // Desktop drag (optional: only for top card)
+        if (isTop) {
+            cardEl.draggable = true;
+            cardEl.addEventListener('dragstart', (e) => {
+                cardEl.style.opacity = 0.5;
+            });
+            cardEl.addEventListener('dragend', (e) => {
+                cardEl.style.opacity = '';
+            });
+        }
+
+        // --- Mobile touch drag for top card only ---
+        if (isTop) {
+            cardEl.addEventListener('touchstart', function(e) {
+                if (e.touches.length === 1) {
+                    touchDrag.dragging = true;
+                    touchDrag.startX = e.touches[0].clientX;
+                    touchDrag.startY = e.touches[0].clientY;
+                    // Get current transform offset
+                    const rect = cardEl.getBoundingClientRect();
+                    touchDrag.origX = rect.left;
+                    touchDrag.origY = rect.top;
+                    touchDrag.cardEl = cardEl;
+                    cardEl.style.transition = 'none';
+                }
+            }, {passive:false});
+            cardEl.addEventListener('touchmove', function(e) {
+                if (touchDrag.dragging && touchDrag.cardEl === cardEl) {
+                    e.preventDefault();
+                    const dx = e.touches[0].clientX - touchDrag.startX;
+                    const dy = e.touches[0].clientY - touchDrag.startY;
+                    cardEl.style.transform = `translate(-50%, -50%) rotate(0deg) translate(${dx}px, ${dy}px)`;
+                    cardEl.style.opacity = "0.7";
+                }
+            }, {passive:false});
+            cardEl.addEventListener('touchend', function(e) {
+                if (touchDrag.dragging && touchDrag.cardEl === cardEl) {
+                    cardEl.style.transition = '';
+                    cardEl.style.transform = `translate(-50%, -50%) rotate(0deg)`;
+                    cardEl.style.opacity = "";
+                    touchDrag.dragging = false;
+                    touchDrag.cardEl = null;
+                }
+            });
+        }
 
         pileContainer.appendChild(cardEl);
     });
 
     // Show count if there are more cards than we're displaying
-    const totalCards = (gameState.discardPile ? gameState.discardPile.length : 0) +
-        (gameState.lastCard ? 1 : 0);
-
-    if (totalCards > 7) {
-        const remainingCount = totalCards - 7;
+    const totalCards = allCards.length;
+    if (totalCards > cardsToShow) {
+        const remainingCount = totalCards - cardsToShow;
         const countEl = document.createElement('div');
         countEl.className = 'discard-pile-count';
         countEl.textContent = `+${remainingCount} more`;
         pileContainer.appendChild(countEl);
     }
 
+    // Ensure pileContainer is absolute/fixed positioned
+    pileContainer.style.position = "relative";
+    pileContainer.style.width = "140px";
+    pileContainer.style.height = "120px";
+    pileContainer.style.margin = "0 auto";
+
     discardPileEl.appendChild(pileContainer);
-
-    // Helper to re-render only the custom recent pile
-    function renderCustomDiscardPile(cardsArr) {
-        pileContainer.innerHTML = '';
-        cardsArr.forEach((card, idx) => {
-            const cardEl = document.createElement('div');
-            cardEl.className = `card ${card.suit} ${idx === 0 ? 'top-card' : 'stacked-card'}`;
-            cardEl.draggable = true;
-            cardEl.innerHTML = `
-                <div class="card-value">${card.value}</div>
-                <div class="card-suit"></div>
-            `;
-            cardEl.dataset.idx = idx;
-
-            cardEl.addEventListener('dragstart', (e) => {
-                draggedIdx = idx;
-                cardEl.style.opacity = 0.5;
-            });
-            cardEl.addEventListener('dragend', (e) => {
-                cardEl.style.opacity = '';
-                draggedIdx = null;
-            });
-            cardEl.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                cardEl.style.boxShadow = '0 0 8px 2px #00e1ff';
-            });
-            cardEl.addEventListener('dragleave', (e) => {
-                cardEl.style.boxShadow = '';
-            });
-            cardEl.addEventListener('drop', (e) => {
-                e.preventDefault();
-                cardEl.style.boxShadow = '';
-                if (draggedIdx !== null && draggedIdx !== idx) {
-                    const tmp = cardsArr[draggedIdx];
-                    cardsArr[draggedIdx] = cardsArr[idx];
-                    cardsArr[idx] = tmp;
-                    renderCustomDiscardPile(cardsArr);
-                }
-            });
-
-            pileContainer.appendChild(cardEl);
-        });
-        // Add the "+N more" if needed
-        if (totalCards > 7) {
-            const remainingCount = totalCards - 7;
-            const countEl = document.createElement('div');
-            countEl.className = 'discard-pile-count';
-            countEl.textContent = `+${remainingCount} more`;
-            pileContainer.appendChild(countEl);
-        }
-    }
 }
 function setupRealtimeUpdates() {
 
