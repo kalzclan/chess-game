@@ -420,6 +420,7 @@ function canPlayCard(card) {
         return true;
     }
 
+
     // Handle 2 cards - can only be played on same suit or another 2
     if (card.value === '2') {
         return card.suit === gameState.currentSuit || 
