@@ -40,6 +40,25 @@
     min-height: 120px;
     margin: 20px 0;
 }
+
+        .discard-pile-container {
+    position: relative;
+    width: 140px;
+    height: 120px;
+    min-height: 100px;
+}
+.card.stacked-card {
+    pointer-events: none; /* Only top card can be dragged */
+    transition: box-shadow 0.2s, filter 0.2s;
+}
+.card.top-card {
+    pointer-events: auto;
+    cursor: grab;
+    transition: box-shadow 0.2s, filter 0.2s;
+}
+.card.top-card:active {
+    cursor: grabbing;
+}
 .card[draggable="true"] {
     cursor: grab;
 }
