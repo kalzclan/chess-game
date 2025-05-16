@@ -596,15 +596,49 @@ function renderDiscardPile() {
     
     discardPileEl.innerHTML = '';
     
+    // Create a container for the discard pile with a nice layout
+    const pileContainer = document.createElement('div');
+    pileContainer.className = 'discard-pile-container';
+    
+    // Show the last card (top of the pile) prominently
     if (gameState.lastCard) {
-        const cardEl = document.createElement('div');
-        cardEl.className = `card ${gameState.lastCard.suit}`;
-        cardEl.innerHTML = `
+        const topCard = document.createElement('div');
+        topCard.className = `card ${gameState.lastCard.suit} top-card`;
+        topCard.innerHTML = `
             <div class="card-value">${gameState.lastCard.value}</div>
             <div class="card-suit"></div>
         `;
-        discardPileEl.appendChild(cardEl);
+        pileContainer.appendChild(topCard);
     }
+    
+    // Show the rest of the discard pile as a stack
+    if (gameState.discardPile.length > 0) {
+        const pileCount = document.createElement('div');
+        pileCount.className = 'discard-pile-count';
+        pileCount.textContent = `${gameState.discardPile.length} cards`;
+        pileContainer.appendChild(pileCount);
+        
+        // Optional: Show a few cards from the pile as a visual stack
+        const maxVisibleCards = 3;
+        const visibleCards = Math.min(maxVisibleCards, gameState.discardPile.length);
+        
+        for (let i = 0; i < visibleCards; i++) {
+            const card = gameState.discardPile[gameState.discardPile.length - 1 - i];
+            if (card) {
+                const cardEl = document.createElement('div');
+                cardEl.className = `card ${card.suit} stacked-card`;
+                cardEl.style.transform = `rotate(${i * 5}deg) translate(${i * 2}px, ${i * 2}px)`;
+                cardEl.style.zIndex = i;
+                cardEl.innerHTML = `
+                    <div class="card-value">${card.value}</div>
+                    <div class="card-suit"></div>
+                `;
+                pileContainer.appendChild(cardEl);
+            }
+        }
+    }
+    
+    discardPileEl.appendChild(pileContainer);
 }
 
 async function playCard(cardIndex) {
@@ -673,32 +707,36 @@ async function drawCard() {
         // Draw the required number of cards
         for (let i = 0; i < drawCount; i++) {
             // If deck is empty, reshuffle discard pile (except last card)
-            if (deck.length === 0) {
-                let discardPile = safeParseJSON(gameData.discard_pile) || [];
-                const lastCard = safeParseJSON(gameData.last_card);
-                
-                // Remove last card from discard pile (so it stays in play)
-                if (lastCard) {
-                    discardPile = discardPile.filter(card => 
-                        !(card.suit === lastCard.suit && card.value === lastCard.value));
-                }
-                
-                // Reshuffle the remaining cards
-                deck = shuffleArray(discardPile);
-                
-                // Update deck and clear discard pile (except last card)
-                const { error: updateDeckError } = await supabase
-                    .from('card_games')
-                    .update({
-                        deck: JSON.stringify(deck),
-                        discard_pile: lastCard ? JSON.stringify([lastCard]) : JSON.stringify([]),
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('code', gameState.gameCode);
-                    
-                if (updateDeckError) throw updateDeckError;
-            }
+             
+    // If deck is empty, reshuffle discard pile (except last card)
+    if (deck.length === 0) {
+        let discardPile = safeParseJSON(gameData.discard_pile) || [];
+        const lastCard = safeParseJSON(gameData.last_card);
+        
+        // Remove last card from discard pile (so it stays in play)
+        if (lastCard) {
+            discardPile = discardPile.filter(card => 
+                !(card.suit === lastCard.suit && card.value === lastCard.value));
+        }
+        
+        // Reshuffle the remaining cards
+        deck = shuffleArray(discardPile);
+        
+        // Update game state
+        gameState.discardPile = lastCard ? [lastCard] : [];
+        
+        // Update deck and clear discard pile (except last card)
+        const { error: updateDeckError } = await supabase
+            .from('card_games')
+            .update({
+                deck: JSON.stringify(deck),
+                discard_pile: JSON.stringify(gameState.discardPile),
+                updated_at: new Date().toISOString()
+            })
+            .eq('code', gameState.gameCode);
             
+        if (updateDeckError) throw updateDeckError;
+    }
             // Draw card if available
             if (deck.length > 0) {
                 cardsToAdd.push(deck.pop());
