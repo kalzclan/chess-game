@@ -384,6 +384,68 @@
       filter: blur(5px);
       user-select: none;
     }
+    
+    /* Eye icon toggle */
+    .eye-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    
+    .eye-toggle-btn {
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      color: var(--primary-color);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.8rem;
+    }
+    
+    .eye-toggle-btn .material-icons {
+      color: var(--primary-color);
+      font-size: 18px;
+    }
+    
+    /* Game card colors */
+    .game-card-1 {
+      border-left-color: #4CAF50;
+      background: linear-gradient(to right, #E8F5E9, white);
+    }
+    
+    .game-card-2 {
+      border-left-color: #2196F3;
+      background: linear-gradient(to right, #E3F2FD, white);
+    }
+    
+    .game-card-3 {
+      border-left-color: #FF9800;
+      background: linear-gradient(to right, #FFF3E0, white);
+    }
+    
+    .game-card-4 {
+      border-left-color: #9C27B0;
+      background: linear-gradient(to right, #F3E5F5, white);
+    }
+    
+    .game-card-1 .game-icon {
+      background: linear-gradient(135deg, #2E7D32, #4CAF50);
+    }
+    
+    .game-card-2 .game-icon {
+      background: linear-gradient(135deg, #1565C0, #2196F3);
+    }
+    
+    .game-card-3 .game-icon {
+      background: linear-gradient(135deg, #EF6C00, #FF9800);
+    }
+    
+    .game-card-4 .game-icon {
+      background: linear-gradient(135deg, #7B1FA2, #9C27B0);
+    }
   </style>
 </head>
 <body>
@@ -412,6 +474,7 @@
         // Initialize balance visibility toggle
         const balanceToggle = document.getElementById('balance-toggle');
         const balanceAmount = document.getElementById('user-balance');
+        const eyeIcon = document.getElementById('eye-icon');
         
         // Load saved preference or default to visible
         const balanceVisible = localStorage.getItem('balanceVisible') !== 'false';
@@ -422,12 +485,14 @@
           localStorage.setItem('balanceVisible', balanceToggle.checked);
           updateBalanceVisibility();
         });
-    
+        
         function updateBalanceVisibility() {
           if (balanceToggle.checked) {
             balanceAmount.classList.remove('hidden-balance');
+            eyeIcon.textContent = 'visibility';
           } else {
             balanceAmount.classList.add('hidden-balance');
+            eyeIcon.textContent = 'visibility_off';
           }
         }
     
@@ -491,6 +556,13 @@
             document.body.style.opacity = '1';
           }
         };
+        
+        // Toggle balance visibility with eye icon
+        window.toggleBalanceVisibility = function() {
+          balanceToggle.checked = !balanceToggle.checked;
+          localStorage.setItem('balanceVisible', balanceToggle.checked);
+          updateBalanceVisibility();
+        };
       </script>
   <header>
     <div class="header-left">
@@ -508,12 +580,12 @@
       <div>
         <div style="font-size: 0.85rem; color: var(--text-light);">Your Balance</div>
         <div class="balance-amount" id="user-balance">Loading...</div>
-        <div class="toggle-container">
-          <label class="toggle-switch">
-            <input type="checkbox" id="balance-toggle" checked>
-            <span class="toggle-slider"></span>
-          </label>
-          <span class="toggle-label">Show Balance</span>
+        <div class="eye-toggle">
+          <button class="eye-toggle-btn" onclick="toggleBalanceVisibility()">
+            <span class="material-icons" id="eye-icon">visibility</span>
+            <span>Show Balance</span>
+          </button>
+          <input type="checkbox" id="balance-toggle" checked style="display: none;">
         </div>
       </div>
       <button class="refresh-btn" onclick="fetchBalance()">
@@ -524,41 +596,54 @@
 
     <h2>Featured Games</h2>
     <div class="game-list">
-      <div class="game" onclick="location.href='guessnumberorderloby.html'">
+      <div class="game game-card-1" onclick="location.href='guessnumberorderloby.html'">
         <div class="game-content">
           <div class="game-icon">
-            <span class="material-icons">psychology</span>
+            <span class="material-icons">numbers</span>
           </div>
           <div class="game-info">
             <div class="game-title">Guess Number Order</div>
-            <div class="game-desc">You think your gone get the number first?</div>
+            <div class="game-desc">Predict the correct sequence to win</div>
           </div>
         </div>
         <span class="material-icons game-arrow">chevron_right</span>
-        <div class="notification-badge"></div>
+        <div class="notification-badge">New</div>
       </div>
       
-      <div class="game" onclick="location.href='loby.html'">
+      <div class="game game-card-2" onclick="location.href='loby.html'">
+        <div class="game-content">
+          <div class="game-icon">
+            <span class="material-icons">check_circle</span>
+          </div>
+          <div class="game-info">
+            <div class="game-title">Tic Tac Toe</div>
+            <div class="game-desc">Classic X and O game</div>
+          </div>
+        </div>
+        <span class="material-icons game-arrow">chevron_right</span>
+      </div>
+      
+      <div class="game game-card-3" onclick="location.href='checkerslobby.html'">
+        <div class="game-content">
+          <div class="game-icon">
+            <span class="material-icons">grid_on</span>
+          </div>
+          <div class="game-info">
+            <div class="game-title">Checkers</div>
+            <div class="game-desc">Strategic board game</div>
+          </div>
+        </div>
+        <span class="material-icons game-arrow">chevron_right</span>
+      </div>
+      
+      <div class="game game-card-4" onclick="location.href='chess.html'">
         <div class="game-content">
           <div class="game-icon">
             <span class="material-icons">sports_esports</span>
           </div>
           <div class="game-info">
             <div class="game-title">Chess</div>
-            <div class="game-desc">Classic chess game</div>
-          </div>
-        </div>
-        <span class="material-icons game-arrow">chevron_right</span>
-      </div>
-      
-      <div class="game" onclick="location.href='checkerslobby.html'">
-        <div class="game-content">
-          <div class="game-icon">
-            <span class="material-icons">casino</span>
-          </div>
-          <div class="game-info">
-            <div class="game-title">Checkers</div>
-            <div class="game-desc">Simple dama game</div>
+            <div class="game-desc">The classic strategy game</div>
           </div>
         </div>
         <span class="material-icons game-arrow">chevron_right</span>
@@ -577,7 +662,5 @@
       </div>
     </div>
   </div>
-
-
 </body>
 </html>
