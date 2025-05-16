@@ -1079,72 +1079,136 @@ function showGameResult(isWinner, amount) {
 
 function renderDiscardPile() {
     if (!discardPileEl) return;
-    
+
     discardPileEl.innerHTML = '';
-    
-    // Create a container for the discard pile with a nice layout
+
     const pileContainer = document.createElement('div');
     pileContainer.className = 'discard-pile-container';
-    
-    // Show the last several cards played
-    const cardsToShow = 7; // Number of recent cards to display
+
+    // Reverse to show top card last (on top)
     const allCards = [];
-    
-    // Make sure we include the last card (top of discard pile)
-    if (gameState.lastCard) {
-        allCards.push(gameState.lastCard);
-    }
-    
-    // Then add the rest of the discard pile
+    if (gameState.lastCard) allCards.push(gameState.lastCard);
     if (gameState.discardPile && gameState.discardPile.length > 0) {
-        // Add the discard pile in reverse order (newest first)
-        // We don't need the last card if it's already in the discard pile
         for (let i = gameState.discardPile.length - 1; i >= 0; i--) {
             const card = gameState.discardPile[i];
-            // Skip if this card is the same as the last card (to avoid duplicates)
-            if (gameState.lastCard && 
-                card.suit === gameState.lastCard.suit && 
-                card.value === gameState.lastCard.value) {
-                continue;
-            }
+            if (gameState.lastCard && card.suit === gameState.lastCard.suit && card.value === gameState.lastCard.value) continue;
             allCards.push(card);
         }
     }
-    
-    // Show cards in reverse order (newest on top)
-    const recentCards = allCards.slice(0, cardsToShow);
-    
+    const recentCards = allCards.slice(0, 7); // show up to 7 cards
+
+    // --- Drag and Drop logic ---
+    let draggedIdx = null;
+
     recentCards.forEach((card, index) => {
         const cardEl = document.createElement('div');
         cardEl.className = `card ${card.suit} ${index === 0 ? 'top-card' : 'stacked-card'}`;
-        
-        // Stagger the cards slightly for visibility
-        cardEl.style.transform = `
-            rotate(${(index * 5) - 10}deg) 
-            translate(${index * 5}px, ${index * 3}px)
-        `;
-        cardEl.style.zIndex = cardsToShow - index; // Higher z-index for newer cards
-        
+        cardEl.draggable = true;  // Make draggable
+
         cardEl.innerHTML = `
             <div class="card-value">${card.value}</div>
             <div class="card-suit"></div>
         `;
+
+        // Save index as dataset for drag logic
+        cardEl.dataset.idx = index;
+
+        // Drag events
+        cardEl.addEventListener('dragstart', (e) => {
+            draggedIdx = index;
+            cardEl.style.opacity = 0.5;
+        });
+        cardEl.addEventListener('dragend', (e) => {
+            cardEl.style.opacity = '';
+            draggedIdx = null;
+        });
+        cardEl.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            cardEl.style.boxShadow = '0 0 8px 2px #00e1ff';
+        });
+        cardEl.addEventListener('dragleave', (e) => {
+            cardEl.style.boxShadow = '';
+        });
+        cardEl.addEventListener('drop', (e) => {
+            e.preventDefault();
+            cardEl.style.boxShadow = '';
+            if (draggedIdx !== null && draggedIdx !== index) {
+                // Swap cards in array
+                const temp = recentCards[draggedIdx];
+                recentCards[draggedIdx] = recentCards[index];
+                recentCards[index] = temp;
+                // Re-render pile
+                renderCustomDiscardPile(recentCards);
+            }
+        });
+
         pileContainer.appendChild(cardEl);
     });
-    
+
     // Show count if there are more cards than we're displaying
-    const totalCards = (gameState.discardPile ? gameState.discardPile.length : 0) + 
-                      (gameState.lastCard ? 1 : 0);
-                      
-    if (totalCards > cardsToShow) {
-        const remainingCount = totalCards - cardsToShow;
+    const totalCards = (gameState.discardPile ? gameState.discardPile.length : 0) +
+        (gameState.lastCard ? 1 : 0);
+
+    if (totalCards > 7) {
+        const remainingCount = totalCards - 7;
         const countEl = document.createElement('div');
         countEl.className = 'discard-pile-count';
         countEl.textContent = `+${remainingCount} more`;
         pileContainer.appendChild(countEl);
     }
-    
+
     discardPileEl.appendChild(pileContainer);
+
+    // Helper to re-render only the custom recent pile
+    function renderCustomDiscardPile(cardsArr) {
+        pileContainer.innerHTML = '';
+        cardsArr.forEach((card, idx) => {
+            const cardEl = document.createElement('div');
+            cardEl.className = `card ${card.suit} ${idx === 0 ? 'top-card' : 'stacked-card'}`;
+            cardEl.draggable = true;
+            cardEl.innerHTML = `
+                <div class="card-value">${card.value}</div>
+                <div class="card-suit"></div>
+            `;
+            cardEl.dataset.idx = idx;
+
+            cardEl.addEventListener('dragstart', (e) => {
+                draggedIdx = idx;
+                cardEl.style.opacity = 0.5;
+            });
+            cardEl.addEventListener('dragend', (e) => {
+                cardEl.style.opacity = '';
+                draggedIdx = null;
+            });
+            cardEl.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                cardEl.style.boxShadow = '0 0 8px 2px #00e1ff';
+            });
+            cardEl.addEventListener('dragleave', (e) => {
+                cardEl.style.boxShadow = '';
+            });
+            cardEl.addEventListener('drop', (e) => {
+                e.preventDefault();
+                cardEl.style.boxShadow = '';
+                if (draggedIdx !== null && draggedIdx !== idx) {
+                    const tmp = cardsArr[draggedIdx];
+                    cardsArr[draggedIdx] = cardsArr[idx];
+                    cardsArr[idx] = tmp;
+                    renderCustomDiscardPile(cardsArr);
+                }
+            });
+
+            pileContainer.appendChild(cardEl);
+        });
+        // Add the "+N more" if needed
+        if (totalCards > 7) {
+            const remainingCount = totalCards - 7;
+            const countEl = document.createElement('div');
+            countEl.className = 'discard-pile-count';
+            countEl.textContent = `+${remainingCount} more`;
+            pileContainer.appendChild(countEl);
+        }
+    }
 }
 function setupRealtimeUpdates() {
 
