@@ -35,7 +35,35 @@
           margin: 0;
           padding: 0;
           font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-        }
+        }.discard-pile-container {
+    position: relative;
+    min-height: 120px;
+    margin: 20px 0;
+}
+
+.card.top-card {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    z-index: 10;
+}
+
+.card.stacked-card {
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0.9;
+}
+
+.discard-pile-count {
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+}
 
         body {
           background-color: var(--background-color);
