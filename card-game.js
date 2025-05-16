@@ -499,7 +499,7 @@ async function processCardPlay(cardsToPlay) {
                     // Check if card type can be used to change suit
                     const canChangeSuit = gameState.lastSuitChangeMethod !== lastPlayedCard.value;
                     
-                    if (gameState.lastSuitChangeMethod===null) {
+                    if (canChangeSuit) {
                         // Allow changing suit
                         gameState.lastSuitChangeMethod = lastPlayedCard.value;
                         gameState.pendingAction = 'change_suit';
