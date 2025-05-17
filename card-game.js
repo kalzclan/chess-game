@@ -1223,8 +1223,20 @@ function updateGameUI() {
     }
     
     // Render game elements
-    renderDiscardPile();
-    renderPlayerHand();
+     const bothJoined = gameState.creator.phone && gameState.opponent.phone;
+
+    if (bothJoined) {
+        renderPlayerHand();
+        renderDiscardPile();
+        if (opponentHandCountEl) {
+            opponentHandCountEl.textContent = `${gameState.opponentHandCount} cards`;
+        }
+    } else {
+        // Show waiting message instead of hands/pile
+        if (playerHandEl) playerHandEl.innerHTML = '<div class="waiting-msg">Waiting for both players…</div>';
+        if (discardPileEl) discardPileEl.innerHTML = '';
+        if (opponentHandCountEl) opponentHandCountEl.textContent = '';
+    }
     
     // Update game status
     if (gameStatusEl) {
