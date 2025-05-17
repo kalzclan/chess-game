@@ -618,54 +618,53 @@ async function handleOpponentJoined(gameData) {
     const users = JSON.parse(localStorage.getItem('user')) || {};
     const isCreator = users.phone === gameData.creator_phone;
 
-    // If opponent just joined AND bet not yet deducted
+    // Only if opponent has joined and bet not yet deducted
     if (
         isCreator &&
         !gameData.bet_deducted && // Only if not already paid
         gameData.opponent_phone // Opponent has joined
     ) {
-        // Deduct bet from creator's balance
-        const { data: userData, error: userError } = await supabase
+        // Fetch balances for BOTH players
+        const { data: creatorData, error: creatorError } = await supabase
             .from('users')
             .select('balance')
-            .eq('phone', users.phone)
+            .eq('phone', gameData.creator_phone)
             .single();
 
-        if (userError || !userData) {
-            console.error('Failed to fetch user balance:', userError);
-            return;
-        }
-
-        if (userData.balance < gameData.bet) {
-            alert('Insufficient balance to pay the bet.');
-            // Optionally, forfeit the game here
-            return;
-        }
-
-        // Deduct the bet
-        const newBalance = userData.balance - gameData.bet;
-        const { error: updateError } = await supabase
+        const { data: opponentData, error: opponentError } = await supabase
             .from('users')
-            .update({ balance: newBalance })
-            .eq('phone', users.phone);
+            .select('balance')
+            .eq('phone', gameData.opponent_phone)
+            .single();
 
-        if (updateError) {
-            console.error('Failed to deduct bet:', updateError);
+        if (creatorError || !creatorData || opponentError || !opponentData) {
+            console.error('Failed to fetch balances for deduction');
             return;
         }
 
-        // Mark bet as paid in game table
-        const { error: markPaidError } = await supabase
-            .from('card_games')
-            .update({ bet_deducted: true })
-            .eq('code', gameData.code);
-
-        if (markPaidError) {
-            console.error('Failed to mark bet as paid:', markPaidError);
-            // Optionally, refund here if needed
+        // Check both have enough
+        if (creatorData.balance < gameData.bet || opponentData.balance < gameData.bet) {
+            alert('One or both players do not have enough balance for the bet.');
+            // Optionally: Forfeit/cancel the game here if needed
+            return;
         }
+
+        // Deduct from both
+        const updates = [];
+        updates.push(
+            supabase.from('users').update({ balance: creatorData.balance - gameData.bet }).eq('phone', gameData.creator_phone)
+        );
+        updates.push(
+            supabase.from('users').update({ balance: opponentData.balance - gameData.bet }).eq('phone', gameData.opponent_phone)
+        );
+        updates.push(
+            supabase.from('card_games').update({ bet_deducted: true }).eq('code', gameData.code)
+        );
+
+        await Promise.all(updates.map(p => p));
     }
 }
+
 
 // --- Call this after loading game data in loadGameData ---
 async function loadGameData() {
