@@ -612,17 +612,79 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // First, update your Supabase game table to have a boolean column `bet_deducted` (default: false).
 // Assume this field exists. If not, you should add it in your Supabase dashboard.
+// --- Add/update these functions and relevant calls in your code ---
+
+// 1. Transaction recording utility (winner only!)
+// Call this function only for the winner when the game ends, and for both players when the bet is deducted.
+
+async function recordTransaction(transactionData) {
+    try {
+        // 1. First handle the user balance update
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('balance')
+            .eq('phone', transactionData.player_phone)
+            .single();
+
+        if (userError) throw userError;
+
+        const balance_before = userData?.balance || 0;
+        const balance_after = balance_before + transactionData.amount;
+
+        // 2. Attempt to create transaction record
+        const { error } = await supabase
+            .from('player_transactions')
+            .insert({
+                player_phone: transactionData.player_phone,
+                transaction_type: transactionData.transaction_type,
+                amount: transactionData.amount,
+                balance_before,
+                balance_after,
+                description: transactionData.description,
+                status: transactionData.status,
+                created_at: new Date().toISOString()
+            });
+
+        if (error) throw error;
+
+        // 3. Update user balance
+        const { error: updateError } = await supabase
+            .from('users')
+            .update({ balance: balance_after })
+            .eq('phone', transactionData.player_phone);
+
+        if (updateError) throw updateError;
+
+        console.log('Transaction recorded successfully:', transactionData);
+
+    } catch (error) {
+        console.error('Failed to record transaction:', error);
+        // Fallback: Store transaction data in local storage if Supabase fails
+        try {
+            const failedTransactions = JSON.parse(localStorage.getItem('failedTransactions') || '[]');
+            failedTransactions.push({
+                ...transactionData,
+                timestamp: new Date().toISOString()
+            });
+            localStorage.setItem('failedTransactions', JSON.stringify(failedTransactions));
+            console.warn('Transaction stored locally for later recovery');
+        } catch (localStorageError) {
+            console.error('Failed to store transaction locally:', localStorageError);
+        }
+        throw error;
+    }
+}
+
+// 2. Update bet deduction logic: only the creator records the transaction for both players at bet time.
 
 async function handleOpponentJoined(gameData) {
-    // Only the creator should run the deduction logic
     const users = JSON.parse(localStorage.getItem('user')) || {};
     const isCreator = users.phone === gameData.creator_phone;
 
-    // Only if opponent has joined and bet not yet deducted
     if (
         isCreator &&
-        !gameData.bet_deducted && // Only if not already paid
-        gameData.opponent_phone // Opponent has joined
+        !gameData.bet_deducted &&
+        gameData.opponent_phone
     ) {
         // Fetch balances for BOTH players
         const { data: creatorData, error: creatorError } = await supabase
@@ -642,10 +704,8 @@ async function handleOpponentJoined(gameData) {
             return;
         }
 
-        // Check both have enough
         if (creatorData.balance < gameData.bet || opponentData.balance < gameData.bet) {
             alert('One or both players do not have enough balance for the bet.');
-            // Optionally: Forfeit/cancel the game here if needed
             return;
         }
 
@@ -660,8 +720,23 @@ async function handleOpponentJoined(gameData) {
         updates.push(
             supabase.from('card_games').update({ bet_deducted: true }).eq('code', gameData.code)
         );
-
         await Promise.all(updates.map(p => p));
+
+        // Record transaction for both players ("bet placed" - negative amount)
+        await recordTransaction({
+            player_phone: gameData.creator_phone,
+            transaction_type: 'bet',
+            amount: -gameData.bet,
+            description: `Bet placed for game ${gameData.code}`,
+            status: 'success'
+        });
+        await recordTransaction({
+            player_phone: gameData.opponent_phone,
+            transaction_type: 'bet',
+            amount: -gameData.bet,
+            description: `Bet placed for game ${gameData.code}`,
+            status: 'success'
+        });
     }
 }
 
@@ -1056,7 +1131,58 @@ case 'change_suit':
                 .eq('phone', users.phone);
         }
 
-        showGameResult(true, winnings);
+
+if (gameState.playerHand.length === 0) {
+    updateData.status = 'finished';
+    updateData.winner = users.phone;
+    gameState.status = 'finished';
+
+    const winnings = Math.floor(gameState.betAmount * 1.8);
+
+    // 1. Update winner balance
+    const { data: userData } = await supabase
+        .from('users')
+        .select('balance')
+        .eq('phone', users.phone)
+        .single();
+
+    if (userData) {
+        const newBalance = userData.balance + winnings;
+        await supabase
+            .from('users')
+            .update({ balance: newBalance })
+            .eq('phone', users.phone);
+    }
+
+    // 2. Update loser balance (no change, but for transaction record)
+    const loserPhone = gameState.playerRole === 'creator' ? gameState.opponent.phone : gameState.creator.phone;
+
+    // 3. Record "result" transaction for WINNER
+    await recordTransaction({
+        player_phone: users.phone,
+        transaction_type: 'result',
+        amount: winnings,
+        description: `Won game ${gameState.gameCode}`,
+        status: 'success'
+    });
+
+    // 4. Record "result" transaction for LOSER (amount 0, just to record loss)
+    await recordTransaction({
+        player_phone: loserPhone,
+        transaction_type: 'result',
+        amount: -gameState.betAmount,
+        description: `Lost game ${gameState.gameCode}`,
+        status: 'success'
+    });
+
+    showGameResult(true, winnings);
+}
+
+
+
+
+
+        
     }
 
     // Update game in database
