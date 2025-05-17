@@ -37,20 +37,7 @@ const SPECIAL_CARDS = {
 // ...[keep your imports, setup, and all other code above unchanged]
 
 // --- Helper for suit SVGs (returns SVG as string, for inline use) ---
-function getSuitSVG(suit) {
-    switch (suit) {
-        case 'hearts':
-            return `<svg width="22" height="22" viewBox="0 0 24 24" fill="#d32f2f"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`;
-        case 'diamonds':
-            return `<svg width="22" height="22" viewBox="0 0 24 24" fill="#d32f2f"><path d="M19 12l-7-10-7 10 7 10 7-10z"/></svg>`;
-        case 'clubs':
-            return `<svg width="22" height="22" viewBox="0 0 200 200" fill="#263238"><circle cx="100" cy="60" r="35"/><circle cx="60" cy="130" r="35"/><circle cx="140" cy="130" r="35"/><path d="M100 100 L100 170 C100 185 85 185 85 170 L85 100 Z"/></svg>`;
-        case 'spades':
-            return `<svg width="22" height="22" viewBox="0 0 200 200" fill="#263238"><path d="M100 20 L160 120 L40 120 Z"/><path d="M100 110 L100 180 C100 195 85 195 85 180 L85 110 Z"/><circle cx="100" cy="115" r="20"/></svg>`;
-        default:
-            return '';
-    }
-}
+
 
 // --- Realistic Card HTML (player hand & discard pile) ---
 
@@ -1358,55 +1345,61 @@ async function drawCard() {
 // Update the showSevenCardDialog function to handle the new 7 card behavior
 async function showSevenCardDialog(initialCardIndex) {
     const initialCard = gameState.playerHand[initialCardIndex];
-    
-    // Find all 8s and Js in hand (regardless of suit) that can be played with this 7
+    // Find all 8s and Js in hand (can be played with this 7, but not the same suit)
     const specialCards = gameState.playerHand.filter(
-        (card, index) => (card.value === '8' || card.value === 'J') && index !== initialCardIndex&&card.suit !== initialCard.suit
+        (card, index) =>
+            (card.value === '8' || card.value === 'J') &&
+            index !== initialCardIndex &&
+            card.suit !== initialCard.suit
     );
-    const sameSuitCards = gameState.playerHand.filter(
-        (card, index) => card.suit === initialCard.suit && index !== initialCardIndex
+    // Also allow playing more 7s of any suit (except this one, already selected)
+    const otherSevens = gameState.playerHand.filter(
+        (card, index) => card.value === '7' && index !== initialCardIndex
     );
-    // If no special cards to play with, treat as normal card
-    if (specialCards.length === 0&&sameSuitCards.length === 0) {
+    // Also allow playing other cards of the SAME SUIT as the 7 (except itself, and not 8/J again for clarity)
+    const sameSuitNon7 = gameState.playerHand.filter(
+        (card, index) =>
+            card.suit === initialCard.suit &&
+            card.value !== '7' &&
+            index !== initialCardIndex &&
+            card.value !== '8' &&
+            card.value !== 'J'
+    );
+
+    // If no combinable cards, just play the 7
+    if (specialCards.length === 0 && otherSevens.length === 0 && sameSuitNon7.length === 0) {
         await processCardPlay([initialCard]);
         return;
     }
-    
+
     // Create selection modal
     const modal = document.createElement('div');
     modal.className = 'card-selection-modal';
     modal.innerHTML = `
-        <div class="selection-content">
-            <h3>Select cards to play with ${initialCard.value} of ${initialCard.suit}</h3>
-            <div class="card-selection-options">
-                ${specialCards.map((card, i) => `
-                    <div class="card-option ${card.suit}" data-index="${gameState.playerHand.findIndex(c => 
-                        c.suit === card.suit && c.value === card.value)}">
-                        <div class="card-value">${card.value}</div>
-                        <div class="card-suit"></div>
-                    </div>
-                `).join('')}
-                                ${sameSuitCards.map((card, i) => `
-                    <div class="card-option ${card.suit}" data-index="${gameState.playerHand.findIndex(c => 
-                        c.suit === card.suit && c.value === card.value)}">
-                        <div class="card-value">${card.value}</div>
-                        <div class="card-suit"></div>
+        <div class="selection-content" style="background: #155724; border-radius:16px; box-shadow:0 6px 24px #15572455;">
+            <h3 style="color: #fff;">Play ${initialCard.value} of ${initialCard.suit.toUpperCase()}<br><span style="font-size: 0.9em; color: #b2dfdb;">(Add more cards to combo)</span></h3>
+            <div class="card-selection-options" style="margin: 18px 0 10px;">
+                ${[...specialCards, ...otherSevens, ...sameSuitNon7].map((card, i) => `
+                    <div class="card-option ${card.suit}" 
+                        style="border:2px solid #35b86b;background:#e8f5e9;"
+                        data-index="${gameState.playerHand.findIndex(c =>
+                            c.suit === card.suit && c.value === card.value
+                        )}">
+                        <div class="card-value" style="font-size:1.2em; color:${card.value === '8' ? '#e65100' : card.value === 'J' ? '#1565c0' : '#00695c'};">${card.value}</div>
+                        <div class="card-suit" style="margin:0 auto;">${getSuitSVG(card.suit)}</div>
                     </div>
                 `).join('')}
             </div>
-            <div class="selection-actions">
-                <button id="play-selected-cards">Play Selected</button>
-                <button id="play-single-seven">Play Just This 7</button>
+            <div class="selection-actions" style="margin-top:8px;">
+                <button id="play-selected-cards" style="background:#43a047;color:#fff;">Play Selected</button>
+                <button id="play-single-seven" style="background:#fff;color:#388e3c;border:1.5px solid #388e3c;">Only Play 7</button>
             </div>
         </div>
     `;
-    
     document.body.appendChild(modal);
-    
+
     // Track selected cards
     const selectedIndices = new Set([initialCardIndex]);
-    
-    // Add selection handlers
     modal.querySelectorAll('.card-option').forEach(option => {
         option.addEventListener('click', () => {
             const index = parseInt(option.dataset.index);
@@ -1419,7 +1412,7 @@ async function showSevenCardDialog(initialCardIndex) {
             }
         });
     });
-    
+
     // Add action handlers
     return new Promise((resolve) => {
         modal.querySelector('#play-selected-cards').addEventListener('click', async () => {
@@ -1428,7 +1421,6 @@ async function showSevenCardDialog(initialCardIndex) {
             await processCardPlay(cardsToPlay);
             resolve();
         });
-        
         modal.querySelector('#play-single-seven').addEventListener('click', async () => {
             modal.remove();
             await processCardPlay([initialCard]);
@@ -1436,6 +1428,7 @@ async function showSevenCardDialog(initialCardIndex) {
         });
     });
 }
+
 function updateGameUI() {
         const users = JSON.parse(localStorage.getItem('user')) || {};
 
@@ -1560,36 +1553,35 @@ async function passTurn() {
     }
 }
 
+
+// --- Improved suit selection dialog for 8/J suit change ---
 function showSuitSelector() {
     const modal = document.createElement('div');
     modal.className = 'suit-selector-modal';
     modal.innerHTML = `
-        <div class="suit-selector">
-            <h3>Choose a suit:</h3>
-            <div class="suit-options">
+        <div class="suit-selector" style="background: #155724; border-radius:14px; box-shadow:0 6px 24px #15572455;">
+            <h3 style="color:#fff;">Choose a suit for your 8 or J!</h3>
+            <div class="suit-options" style="margin-top: 18px;">
                 ${SUITS.map(suit => `
-                    <button class="suit-option ${suit}" data-suit="${suit}">
-                        ${suit.toUpperCase()}
+                    <button class="suit-option ${suit}" data-suit="${suit}" 
+                        style="font-size:1.2em; font-weight:600; border:2px solid #fff; box-shadow:0 1.5px 7px #388e3c33;">
+                        ${getSuitSVG(suit)}
+                        <span style="margin-left:6px;">${suit[0].toUpperCase() + suit.slice(1)}</span>
                     </button>
                 `).join('')}
             </div>
         </div>
     `;
-    
     document.body.appendChild(modal);
-    
-    // Auto-close after selection
+
     modal.querySelectorAll('.suit-option').forEach(button => {
         button.addEventListener('click', async () => {
             const selectedSuit = button.dataset.suit;
-            
             try {
                 const users = JSON.parse(localStorage.getItem('user')) || {};
                 if (!users.phone) throw new Error('User not logged in');
-                
                 const isCreator = gameState.playerRole === 'creator';
                 const opponentPhone = isCreator ? gameState.opponent.phone : gameState.creator.phone;
-                
                 const { error } = await supabase
                     .from('card_games')
                     .update({
@@ -1603,11 +1595,8 @@ function showSuitSelector() {
                         has_drawn_this_turn: false
                     })
                     .eq('code', gameState.gameCode);
-                    
                 if (error) throw error;
-                
                 modal.remove();
-                
             } catch (error) {
                 console.error('Error selecting suit:', error);
                 modal.remove();
@@ -1616,6 +1605,23 @@ function showSuitSelector() {
     });
 }
 
+// ...[rest of your code unchanged]...
+
+// --- Helper for suit SVG used in dialogs ---
+function getSuitSVG(suit) {
+    switch (suit) {
+        case 'hearts':
+            return `<svg width="22" height="22" viewBox="0 0 24 24" fill="#d32f2f"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`;
+        case 'diamonds':
+            return `<svg width="22" height="22" viewBox="0 0 24 24" fill="#d32f2f"><path d="M19 12l-7-10-7 10 7 10 7-10z"/></svg>`;
+        case 'clubs':
+            return `<svg width="22" height="22" viewBox="0 0 200 200" fill="#263238"><circle cx="100" cy="60" r="35"/><circle cx="60" cy="130" r="35"/><circle cx="140" cy="130" r="35"/><path d="M100 100 L100 170 C100 185 85 185 85 170 L85 100 Z"/></svg>`;
+        case 'spades':
+            return `<svg width="22" height="22" viewBox="0 0 200 200" fill="#263238"><path d="M100 20 L160 120 L40 120 Z"/><path d="M100 110 L100 180 C100 195 85 195 85 180 L85 110 Z"/><circle cx="100" cy="115" r="20"/></svg>`;
+        default:
+            return '';
+    }
+}
 function setupEventListeners() {
     if (drawCardBtn) drawCardBtn.addEventListener('click', drawCard);
     if (passTurnBtn) passTurnBtn.addEventListener('click', passTurn);
