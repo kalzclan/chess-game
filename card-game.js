@@ -617,9 +617,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 // 1. Transaction recording utility (winner only!)
 // Call this function only for the winner when the game ends, and for both players when the bet is deducted.
 
+// --- 1. Transaction Recording Utility ---
 async function recordTransaction(transactionData) {
     try {
-        // 1. First handle the user balance update
+        // 1. Get user balance before transaction
         const { data: userData, error: userError } = await supabase
             .from('users')
             .select('balance')
@@ -631,7 +632,7 @@ async function recordTransaction(transactionData) {
         const balance_before = userData?.balance || 0;
         const balance_after = balance_before + transactionData.amount;
 
-        // 2. Attempt to create transaction record
+        // 2. Create transaction record
         const { error } = await supabase
             .from('player_transactions')
             .insert({
@@ -675,25 +676,23 @@ async function recordTransaction(transactionData) {
     }
 }
 
-// 2. Update bet deduction logic: only the creator records the transaction for both players at bet time.
-
+// --- 2. Bet Deduction Function (only creator runs this, for both players) ---
 async function handleOpponentJoined(gameData) {
     const users = JSON.parse(localStorage.getItem('user')) || {};
-    
-    // Only proceed if:
-    // 1. We're the creator
-    // 2. Game has an opponent
-    // 3. Bet hasn't been deducted yet
-    if (users.phone !== gameData.creator_phone || 
-        !gameData.opponent_phone || 
-        gameData.bet_deducted) {
-        return;
-    }
+    const isCreator = users.phone === gameData.creator_phone;
 
-    console.log("Attempting to deduct bets for game", gameData.code);
+    if (
+        isCreator &&
+        !gameData.bet_deducted &&
+        gameData.opponent_phone
+    ) {
+        // Set bet_deducted immediately (to prevent race/double-deduct)
+        await supabase
+            .from('card_games')
+            .update({ bet_deducted: true })
+            .eq('code', gameData.code);
 
-    try {
-        // Verify both players have sufficient balance
+        // Fetch balances for BOTH players
         const { data: creatorData, error: creatorError } = await supabase
             .from('users')
             .select('balance')
@@ -706,46 +705,17 @@ async function handleOpponentJoined(gameData) {
             .eq('phone', gameData.opponent_phone)
             .single();
 
-        if (creatorError || opponentError || !creatorData || !opponentData) {
-            console.error('Failed to fetch player balances:', creatorError || opponentError);
+        if (creatorError || !creatorData || opponentError || !opponentData) {
+            console.error('Failed to fetch balances for deduction');
             return;
         }
 
-        if (creatorData.balance < gameData.bet) {
-            console.error('Creator has insufficient balance');
+        if (creatorData.balance < gameData.bet || opponentData.balance < gameData.bet) {
+            alert('One or both players do not have enough balance for the bet.');
             return;
         }
 
-        if (opponentData.balance < gameData.bet) {
-            console.error('Opponent has insufficient balance');
-            return;
-        }
-
-        // Perform all updates in a transaction
-        const updates = [
-            supabase.from('users')
-                .update({ balance: creatorData.balance - gameData.bet })
-                .eq('phone', gameData.creator_phone),
-            supabase.from('users')
-                .update({ balance: opponentData.balance - gameData.bet })
-                .eq('phone', gameData.opponent_phone),
-            supabase.from('card_games')
-                .update({ bet_deducted: true })
-                .eq('code', gameData.code)
-        ];
-
-        const results = await Promise.all(updates);
-        
-        // Check for errors
-        const hasError = results.some(result => result.error);
-        if (hasError) {
-            console.error('Error updating balances:', results);
-            return;
-        }
-
-        console.log('Successfully deducted bets');
-
-        // Record transactions
+        // Deduct from both
         await recordTransaction({
             player_phone: gameData.creator_phone,
             transaction_type: 'bet',
@@ -753,7 +723,6 @@ async function handleOpponentJoined(gameData) {
             description: `Bet placed for game ${gameData.code}`,
             status: 'success'
         });
-
         await recordTransaction({
             player_phone: gameData.opponent_phone,
             transaction_type: 'bet',
@@ -761,13 +730,33 @@ async function handleOpponentJoined(gameData) {
             description: `Bet placed for game ${gameData.code}`,
             status: 'success'
         });
-
-    } catch (error) {
-        console.error('Error in handleOpponentJoined:', error);
     }
 }
 
+// --- 3. Game End Function (call when someone wins, winner sets for both winner & loser) ---
+// Place inside your win condition in processCardPlay
+async function handleGameEndTransactions(winnerPhone, loserPhone, winnings, gameCode) {
+    // Winner: winnings credited
+    await recordTransaction({
+        player_phone: winnerPhone,
+        transaction_type: 'Won',
+        amount: winnings,
+        description: `Won game ${gameCode}`,
+        status: 'success'
+    });
+    // Loser: just a result record, no balance change (amount 0)
+    await recordTransaction({
+        player_phone: loserPhone,
+        transaction_type: 'Lost',
+        amount: 0,
+        description: `Lost game ${gameCode}`,
+        status: 'success'
+    });
+}
+
+
 // --- Call this after loading game data in loadGameData ---
+// --- FULL loadGameData function ---
 async function loadGameData() {
     try {
         const { data: gameData, error } = await supabase
@@ -822,10 +811,8 @@ async function loadGameData() {
         }
         gameState.lastSuitChangeMethod = gameData.last_suit_change_method;
 
-        // Only handle bet deduction if opponent just joined
-        if (gameData.opponent_phone && (!gameState.opponent.phone || gameState.opponent.phone !== gameData.opponent_phone)) {
-            await handleOpponentJoined(gameData);
-        }
+        // Deduct bets if needed (only creator will actually run this)
+        await handleOpponentJoined(gameData);
 
         updateGameUI();
 
@@ -835,7 +822,9 @@ async function loadGameData() {
         setTimeout(() => window.location.href = '/', 3000);
     }
 }
-// --- Also, in setupRealtimeUpdates, listen for opponent joining and re-run handleOpponentJoined() ---
+
+
+// --- FULL setupRealtimeUpdates function ---
 function setupRealtimeUpdates() {
     const channel = supabase
         .channel(`card_game_${gameState.gameCode}`)
@@ -849,22 +838,31 @@ function setupRealtimeUpdates() {
             },
             async (payload) => {
                 try {
-                    // Store previous state for comparison
-                    const previousOpponentPhone = gameState.opponent?.phone;
-                    const previousStatus = gameState.status;
-
-                    // Update all game state from payload
                     gameState.status = payload.new.status;
                     gameState.currentPlayer = payload.new.current_player;
                     gameState.currentSuit = payload.new.current_suit;
                     gameState.hasDrawnThisTurn = payload.new.has_drawn_this_turn || false;
                     gameState.lastSuitChangeMethod = payload.new.last_suit_change_method;
 
-                    // Parse cards
-                    gameState.lastCard = payload.new.last_card ? safeParseJSON(payload.new.last_card) : null;
+                    if (payload.new.last_card) {
+                        try {
+                            gameState.lastCard = typeof payload.new.last_card === 'string' ?
+                                JSON.parse(payload.new.last_card) :
+                                payload.new.last_card;
+                        } catch (e) {
+                            console.error('Error parsing last_card:', e);
+                            gameState.lastCard = null;
+                        }
+                    } else {
+                        gameState.lastCard = null;
+                    }
+
+                    gameState.pendingAction = payload.new.pending_action;
+                    gameState.pendingActionData = payload.new.pending_action_data;
+                    gameState.mustPlaySuit = payload.new.must_play_suit || false;
+                    gameState.currentSuitToMatch = payload.new.current_suit_to_match || '';
                     gameState.discardPile = payload.new.discard_pile ? safeParseJSON(payload.new.discard_pile) : [];
 
-                    // Update player hands
                     const users = JSON.parse(localStorage.getItem('user')) || {};
                     const isCreator = gameState.playerRole === 'creator';
 
@@ -876,32 +874,25 @@ function setupRealtimeUpdates() {
                         gameState.opponentHandCount = safeParseJSON(payload.new.creator_hand)?.length || 0;
                     }
 
-                    // Update opponent info if changed
-                    if (payload.new.opponent_phone) {
+                    if (payload.new.opponent_phone && !gameState.opponent.phone) {
                         gameState.opponent = {
                             username: payload.new.opponent_username,
                             phone: payload.new.opponent_phone
                         };
 
-                        // Check if opponent just joined
-                        if (!previousOpponentPhone && payload.new.opponent_phone) {
-                            if (gameState.status === 'waiting') {
-                                gameState.status = 'ongoing';
-                            }
-
-                            // Deduct bets if we're the creator
-                            if (isCreator) {
-                                await handleOpponentJoined(payload.new);
-                            }
+                        if (gameState.status === 'waiting') {
+                            gameState.status = 'ongoing';
                         }
                     }
 
-                    // Handle game completion
-                    if (payload.new.status === 'finished' && previousStatus !== 'finished') {
+                    if (payload.new.status === 'finished') {
                         const isWinner = payload.new.winner === users.phone;
                         const amount = Math.floor(gameState.betAmount * 1.8);
                         showGameResult(isWinner, amount);
                     }
+
+                    // Deduct bets if needed (only creator will actually run this)
+                    await handleOpponentJoined(payload.new);
 
                     updateGameUI();
                 } catch (error) {
