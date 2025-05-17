@@ -36,6 +36,79 @@
           padding: 0;
           font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
         }
+        #waiting-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    z-index: 1000;
+    font-size: 1.5rem;
+    text-align: center;
+}
+
+#game-container {
+    opacity: 0;
+    transition: opacity 0.5s;
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+.discard-pile-container {
+    position: relative;
+    width: 140px;
+    height: 120px;
+    min-height: 100px;
+}
+.card.stacked-card {
+    pointer-events: none; /* Only top card can be dragged */
+    transition: box-shadow 0.2s, filter 0.2s;
+}
+.card.top-card {
+    pointer-events: auto;
+    cursor: grab;
+    transition: box-shadow 0.2s, filter 0.2s;
+}
+.card.top-card:active {
+    cursor: grabbing;
+}
+.card[draggable="true"] {
+    cursor: grab;
+}
+.card[draggable="true"]:active {
+    cursor: grabbing;
+}
+.card.top-card {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    z-index: 10;
+}
+
+.card.stacked-card {
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0.9;
+}
+
+.discard-pile-count {
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+}
 
         body {
           background-color: var(--background-color);
@@ -46,118 +119,17 @@
           overflow: hidden;
         }
 
-        /* Waiting Screen */
-        #waiting-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: var(--secondary-color);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            z-index: 1000;
-            font-size: 1.5rem;
-            text-align: center;
-            transition: opacity 0.5s;
+        /* Game Container - Optimized for Telegram viewport */
+        .game-container {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          padding: 0;
+          overflow: hidden;
         }
 
-        #waiting-screen h2 {
-            margin-bottom: 20px;
-            font-size: 1.8rem;
-        }
-
-        #waiting-game-code {
-            font-family: monospace;
-            background: rgba(255,255,255,0.2);
-            padding: 8px 16px;
-            border-radius: 8px;
-            margin: 10px 0;
-            font-size: 1.8rem;
-        }
-
-        .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid rgba(255,255,255,0.3);
-            border-top: 5px solid white;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-top: 30px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        @keyframes fadeOut {
-            from { opacity: 1; }
-            to { opacity: 0; }
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        /* Game Container */
-        #game-container {
-            opacity: 0;
-            height: 100%;
-            transition: opacity 0.5s;
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* Animations */
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
-        }
-
-        @keyframes cardSlideIn {
-            from { transform: translateX(-100px) rotate(-30deg); opacity: 0; }
-            to { transform: translateX(0) rotate(0); opacity: 1; }
-        }
-
-        @keyframes cardPlay {
-            0% { transform: translateY(0); }
-            50% { transform: translateY(-30px) scale(1.1); }
-            100% { transform: translateY(0); }
-        }
-
-        /* Card animations */
-        .card.playable {
-            animation: pulse 2s infinite;
-            cursor: pointer;
-        }
-
-        .card.playable:hover {
-            transform: translateY(-10px) scale(1.05) !important;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2) !important;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .card.played {
-            animation: cardPlay 0.5s ease-out;
-        }
-
-        /* Discard pile animations */
-        .discard-pile .top-card {
-            transition: transform 0.3s, box-shadow 0.3s;
-        }
-
-        .discard-pile .top-card:hover {
-            transform: translate(-50%, -50%) scale(1.05) !important;
-            box-shadow: 0 5px 25px rgba(0,0,0,0.4) !important;
-        }
-
-        /* Game Header */
+        /* Header - Fixed height */
         .game-header {
           display: flex;
           justify-content: space-between;
@@ -181,11 +153,6 @@
           gap: 4px;
           font-weight: 500;
           font-size: 14px;
-          transition: background 0.2s;
-        }
-
-        #back-btn:hover {
-            background: var(--secondary-color);
         }
 
         #game-code-display {
@@ -198,7 +165,7 @@
           font-size: 14px;
         }
 
-        /* Game Main Area */
+        /* Main Game Area - Flexible space between header and footer */
         .game-main {
           flex: 1;
           overflow-y: auto;
@@ -215,14 +182,12 @@
           padding: 8px;
           border-radius: 8px;
           box-shadow: var(--card-shadow);
-          animation: fadeIn 0.5s;
         }
 
         #current-suit {
           font-size: 16px;
           font-weight: bold;
           margin-bottom: 4px;
-          transition: all 0.3s;
         }
 
         .suit-hearts { color: var(--heart-color); }
@@ -235,7 +200,6 @@
           border-radius: 16px;
           font-weight: 500;
           font-size: 14px;
-          transition: all 0.3s;
         }
 
         .status-your-turn {
@@ -257,9 +221,31 @@
           background: white;
           border-radius: 8px;
           box-shadow: var(--card-shadow);
-          animation: fadeIn 0.5s;
         }
+.card-stack {
+    position: relative;
+    display: inline-block;
+}
 
+.top-card {
+    position: relative;
+    z-index: 1;
+}
+
+.stacked-card {
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0.8;
+}
+
+.card {
+    transition: transform 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-10px);
+}
         #opponent-avatar, #player-avatar {
           width: 36px;
           height: 36px;
@@ -271,12 +257,6 @@
           font-weight: bold;
           background: var(--primary-color);
           font-size: 16px;
-          transition: transform 0.3s;
-        }
-
-        #opponent-avatar.active-turn, #player-avatar.active-turn {
-            transform: scale(1.1);
-            box-shadow: 0 0 0 3px var(--accent-color);
         }
 
         #opponent-name, #player-name {
@@ -298,7 +278,7 @@
 
         /* Discard Pile */
         .discard-pile {
-          min-height: 120px;
+          min-height: 100px;
           display: flex;
           justify-content: center;
           align-items: center;
@@ -306,17 +286,9 @@
           border-radius: 8px;
           box-shadow: var(--card-shadow);
           margin: 4px 0;
-          position: relative;
         }
 
-        .discard-pile-container {
-            position: relative;
-            width: 140px;
-            height: 120px;
-            margin: 0 auto;
-        }
-
-        /* Cards */
+        /* Cards - Optimized for small screens */
         .card {
           width: 60px;
           height: 90px;
@@ -333,7 +305,6 @@
           transition: transform 0.2s, box-shadow 0.2s;
           border: var(--card-border);
           font-weight: 600;
-          animation: cardSlideIn 0.5s ease-out;
         }
 
         .card::before {
@@ -348,6 +319,15 @@
           pointer-events: none;
         }
 
+        .card.playable {
+          cursor: pointer;
+        }
+
+        .card.playable:hover {
+          transform: translateY(-8px);
+          box-shadow: 0 5px 10px rgba(0,0,0,0.15);
+        }
+
         .card.hearts, .card.diamonds { color: var(--heart-color); }
         .card.clubs, .card.spades { color: var(--club-color); }
 
@@ -358,13 +338,16 @@
           z-index: 1;
         }
 
+        .card-value.top { align-self: flex-start; }
+        .card-value.bottom { align-self: flex-end; transform: rotate(180deg); }
+
         .card-suit {
           align-self: center;
           position: relative;
           z-index: 1;
         }
 
-        /* Card suit icons */
+        /* Realistic card suit icons */
         .card-suit::after {
             content: '';
             display: inline-block;
@@ -392,7 +375,7 @@
             transform: rotate(180deg);
         }
 
-        /* Player Hand */
+        /* Player Hand - Fixed height with scrolling */
         .player-hand {
           display: flex;
           flex-wrap: nowrap;
@@ -402,15 +385,15 @@
           border-radius: 8px;
           box-shadow: var(--card-shadow);
           min-height: 110px;
-          scrollbar-width: none;
-          -ms-overflow-style: none;
+          scrollbar-width: none; /* Firefox */
+          -ms-overflow-style: none; /* IE/Edge */
         }
 
         .player-hand::-webkit-scrollbar {
-          display: none;
+          display: none; /* Chrome/Safari */
         }
 
-        /* Game Controls */
+        /* Game Controls - Fixed footer */
         .game-controls {
           display: flex;
           justify-content: center;
@@ -433,19 +416,9 @@
           cursor: pointer;
           flex: 1;
           max-width: 150px;
-          transition: all 0.2s;
         }
 
-        #draw-card-btn:hover, #pass-turn-btn:hover {
-            background: var(--secondary-color);
-            transform: translateY(-2px);
-        }
-
-        #draw-card-btn:active, #pass-turn-btn:active {
-            transform: translateY(0);
-        }
-
-        /* Modals */
+        /* Modals - For suit selection */
         .suit-selector-modal {
           position: fixed;
           top: 0;
@@ -457,7 +430,6 @@
           justify-content: center;
           align-items: center;
           z-index: 1000;
-          animation: fadeIn 0.3s;
         }
 
         .suit-selector {
@@ -467,7 +439,6 @@
           width: 90%;
           max-width: 300px;
           box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-          animation: fadeIn 0.3s;
         }
 
         .suit-selector h3 {
@@ -491,19 +462,47 @@
           font-weight: bold;
           text-align: center;
           font-size: 14px;
-          transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .suit-option:hover {
-            transform: scale(1.05);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
 
         .suit-option.hearts { background: var(--heart-color); color: white; }
         .suit-option.diamonds { background: var(--diamond-color); color: white; }
         .suit-option.clubs { background: var(--club-color); color: white; }
         .suit-option.spades { background: var(--spade-color); color: white; }
+/* Discard Pile Styles */
+.discard-pile-container {
+    position: relative;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
 
+.top-card {
+    position: relative;
+    z-index: 10;
+    margin-bottom: -80px;
+    transform: rotate(-5deg);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.stacked-card {
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0.8;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.discard-pile-count {
+    position: absolute;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    z-index: 20;
+}
         /* Responsive adjustments */
         @media (min-width: 400px) {
           .card {
@@ -518,15 +517,7 @@
     </style>
 </head>
 <body>
-    <!-- Waiting Screen -->
-    <div id="waiting-screen">
-        <h2>Waiting for opponent...</h2>
-        <div id="waiting-game-code">GAME-CODE</div>
-        <div class="loading-spinner"></div>
-    </div>
-
-    <!-- Game Container (hidden until opponent joins) -->
-    <div id="game-container" class="game-container">
+    <div class="game-container">
         <div class="game-header">
             <button id="back-btn">
                 <i class="material-icons" style="font-size: 18px;">arrow_back</i> Back
@@ -547,8 +538,10 @@
             </div>
             
             <div id="discard-pile" class="discard-pile">
-                <div class="discard-pile-container">
-                    <!-- Cards will be added here dynamically -->
+                <div class="card hearts">
+                    <div class="card-value top">Q</div>
+                    <div class="card-suit"></div>
+                    <div class="card-value bottom">Q</div>
                 </div>
             </div>
             
@@ -558,7 +551,31 @@
             </div>
             
             <div id="player-hand" class="player-hand">
-                <!-- Cards will be added here dynamically -->
+                <div class="card clubs playable">
+                    <div class="card-value top">A</div>
+                    <div class="card-suit"></div>
+                    <div class="card-value bottom">A</div>
+                </div>
+                <div class="card hearts playable">
+                    <div class="card-value top">7</div>
+                    <div class="card-suit"></div>
+                    <div class="card-value bottom">7</div>
+                </div>
+                <div class="card diamonds playable">
+                    <div class="card-value top">K</div>
+                    <div class="card-suit"></div>
+                    <div class="card-value bottom">K</div>
+                </div>
+                <div class="card spades">
+                    <div class="card-value top">2</div>
+                    <div class="card-suit"></div>
+                    <div class="card-value bottom">2</div>
+                </div>
+                <div class="card clubs playable">
+                    <div class="card-value top">10</div>
+                    <div class="card-suit"></div>
+                    <div class="card-value bottom">10</div>
+                </div>
             </div>
         </div>
         
@@ -568,84 +585,6 @@
         </div>
     </div>
 
-    <script>
-        // Sound Effects
-        const sounds = {
-            playCard: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-unlock-game-notification-253.mp3'),
-            drawCard: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-arcade-game-jump-coin-216.mp3'),
-            win: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-winning-chimes-2015.mp3'),
-            lose: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-retro-arcade-lose-2027.mp3'),
-            error: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-software-interface-remove-2578.mp3'),
-            suitChange: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-magic-spell-675.mp3')
-        };
-
-        // Preload sounds
-        Object.values(sounds).forEach(sound => {
-            sound.volume = 0.3;
-            sound.load();
-        });
-
-        // Game state
-        let gameState = {
-            opponentJoined: false,
-            // ... other game state properties
-        };
-
-        // Show game board when opponent joins
-        function showGameBoard() {
-            sounds.drawCard.play();
-            
-            const waitingScreen = document.getElementById('waiting-screen');
-            const gameContainer = document.getElementById('game-container');
-            
-            waitingScreen.style.animation = 'fadeOut 0.5s forwards';
-            
-            setTimeout(() => {
-                waitingScreen.style.display = 'none';
-                gameContainer.style.opacity = '1';
-                
-                // Animate cards in
-                const cards = document.querySelectorAll('.card');
-                cards.forEach((card, index) => {
-                    card.style.animation = `cardSlideIn 0.3s ease-out ${index * 0.1}s forwards`;
-                });
-            }, 500);
-        }
-
-        // Simulate opponent joining (for demo)
-        setTimeout(() => {
-            document.getElementById('waiting-game-code').textContent = 
-                document.getElementById('game-code-display').textContent = 'ABCD12';
-            showGameBoard();
-        }, 2000);
-
-        // Card animation example
-        function animateCardPlay(cardElement) {
-            sounds.playCard.play();
-            cardElement.classList.add('played');
-            setTimeout(() => {
-                cardElement.classList.remove('played');
-            }, 500);
-        }
-
-        // Example card click handler
-        document.addEventListener('click', function(e) {
-            if (e.target.closest('.card.playable')) {
-                const card = e.target.closest('.card');
-                animateCardPlay(card);
-            }
-        });
-
-        // Button click handlers
-        document.getElementById('draw-card-btn').addEventListener('click', function() {
-            sounds.drawCard.play();
-            // Add draw card logic here
-        });
-
-        document.getElementById('pass-turn-btn').addEventListener('click', function() {
-            // Add pass turn logic here
-        });
-    </script>
     <script type="module" src="card-game.js"></script>
 </body>
 </html>
