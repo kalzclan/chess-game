@@ -1437,8 +1437,9 @@ async function showSevenCardDialog(initialCardIndex) {
     });
 }
 function updateGameUI() {
+        const users = JSON.parse(localStorage.getItem('user')) || {};
+
             const isMyTurn = users.phone === gameState.currentPlayer;
-    const users = JSON.parse(localStorage.getItem('user')) || {};
     const isCreator = gameState.playerRole === 'creator';
 
     // Top section: Always show the other player (opponent for creator, creator for opponent)
