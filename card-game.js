@@ -287,16 +287,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     if (gameCodeDisplay) gameCodeDisplay.textContent = gameState.gameCode;
-      
+    
     try {
-
         await loadGameData();
         setupEventListeners();
         setupRealtimeUpdates();
-                // Check if opponent has joined
-        if (gameState.opponent.phone) {
-            showGameBoard();
-        }
     } catch (error) {
         console.error('Game initialization failed:', error);
         if (gameStatusEl) gameStatusEl.textContent = 'Game initialization failed';
@@ -653,6 +648,34 @@ function hasCardsOfSuit(suit) {
 
 
 
+async function playCard(cardIndex) {
+    try {
+        const users = JSON.parse(localStorage.getItem('user')) || {};
+        if (!users.phone) throw new Error('User not logged in');
+        
+        if (gameState.currentPlayer !== users.phone) {
+            displayMessage(gameStatusEl, "It's not your turn!", 'error');
+            return;
+        }
+
+        const card = gameState.playerHand[cardIndex];
+        if (!card) throw new Error('Invalid card index');
+        
+        // Handle 7 card - show selection dialog
+        if (card.value === '7') {
+            await showSevenCardDialog(cardIndex);
+            return;
+        }
+        
+        // For other cards, proceed normally
+        await processCardPlay([card]);
+        
+    } catch (error) {
+        console.error('Error playing card:', error);
+        if (gameStatusEl) gameStatusEl.textContent = 'Error playing card';
+    }
+}
+
 
 
 async function drawCard() {
@@ -664,15 +687,7 @@ async function drawCard() {
             displayMessage(gameStatusEl, "It's not your turn!", 'error');
             return;
         }
-// Play suit change sound
-            soundEffects.suitChange.play();
-            
-            // Animate the selection
-            button.style.transform = 'scale(1.2)';
-            setTimeout(() => {
-                button.style.transform = '';
-            }, 200);
-            
+
         // Determine how many cards to draw
         let drawCount = 1;
         if (gameState.pendingAction === 'draw_two') {
@@ -962,6 +977,61 @@ async function passTurn() {
     }
 }
 
+function showSuitSelector() {
+    const modal = document.createElement('div');
+    modal.className = 'suit-selector-modal';
+    modal.innerHTML = `
+        <div class="suit-selector">
+            <h3>Choose a suit:</h3>
+            <div class="suit-options">
+                ${SUITS.map(suit => `
+                    <button class="suit-option ${suit}" data-suit="${suit}">
+                        ${suit.toUpperCase()}
+                    </button>
+                `).join('')}
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Auto-close after selection
+    modal.querySelectorAll('.suit-option').forEach(button => {
+        button.addEventListener('click', async () => {
+            const selectedSuit = button.dataset.suit;
+            
+            try {
+                const users = JSON.parse(localStorage.getItem('user')) || {};
+                if (!users.phone) throw new Error('User not logged in');
+                
+                const isCreator = gameState.playerRole === 'creator';
+                const opponentPhone = isCreator ? gameState.opponent.phone : gameState.creator.phone;
+                
+                const { error } = await supabase
+                    .from('card_games')
+                    .update({
+                        current_suit: selectedSuit,
+                        current_player: opponentPhone,
+                        pending_action: null,
+                        pending_action_data: null,
+                        updated_at: new Date().toISOString(),
+                        must_play_suit: true,
+                        current_suit_to_match: selectedSuit,
+                        has_drawn_this_turn: false
+                    })
+                    .eq('code', gameState.gameCode);
+                    
+                if (error) throw error;
+                
+                modal.remove();
+                
+            } catch (error) {
+                console.error('Error selecting suit:', error);
+                modal.remove();
+            }
+        });
+    });
+}
 
 function setupEventListeners() {
     if (drawCardBtn) drawCardBtn.addEventListener('click', drawCard);
@@ -1136,156 +1206,8 @@ function renderDiscardPile() {
 
     discardPileEl.appendChild(pileContainer);
 }
-
-function safeParseJSON(json) {
-    try {
-        return typeof json === 'string' ? JSON.parse(json) : json;
-    } catch (e) {
-        console.error('Error parsing JSON:', e);
-        return null;
-    }
-}
-
-function displayMessage(element, message, type = 'info') {
-    if (!element) return;
-    
-    element.textContent = message;
-    element.className = `status-message ${type}`;
-    
-    if (type === 'success') {
-        setTimeout(() => {
-            element.textContent = '';
-            element.className = 'status-message';
-        }, 3000);
-    }
-}
-
-function shuffleArray(array) {
-    const newArray = [...array];
-    for (let i = newArray.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
-    }
-    return newArray;
-}
-
-
-// --- Sound Effects ---
-const soundEffects = {
-    cardPlay: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-unlock-game-notification-253.mp3'),
-    cardDraw: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-arcade-game-jump-coin-216.mp3'),
-    suitChange: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-magic-spell-675.mp3'),
-    win: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-winning-chimes-2015.mp3'),
-    lose: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-retro-arcade-lose-2027.mp3'),
-    error: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-software-interface-remove-2578.mp3')
-};
-
-// Preload sounds
-Object.values(soundEffects).forEach(sound => {
-    sound.volume = 0.3;
-    sound.load();
-});
-
-// --- Animation Functions ---
-function animateCardPlay(cardEl, callback) {
-    cardEl.style.transition = 'transform 0.3s ease-out, opacity 0.3s';
-    cardEl.style.transform = 'translateY(-20px) scale(1.1)';
-    cardEl.style.opacity = '0.8';
-    
-    setTimeout(() => {
-        cardEl.style.transform = '';
-        cardEl.style.opacity = '';
-        cardEl.style.transition = '';
-        if (callback) callback();
-    }, 300);
-}
-
-function animateCardDraw(cardEl) {
-    cardEl.style.transform = 'scale(0)';
-    cardEl.style.opacity = '0';
-    
-    setTimeout(() => {
-        cardEl.style.transition = 'transform 0.3s ease-out, opacity 0.3s';
-        cardEl.style.transform = 'scale(1)';
-        cardEl.style.opacity = '1';
-        
-        setTimeout(() => {
-            cardEl.style.transition = '';
-        }, 300);
-    }, 10);
-}
-
-function animateSuitChange() {
-    const suitDisplay = document.getElementById('current-suit');
-    if (!suitDisplay) return;
-    
-    suitDisplay.style.animation = 'pulse 0.5s 2';
-    setTimeout(() => {
-        suitDisplay.style.animation = '';
-    }, 1000);
-}
-
-// Add animation styles
-const animationStyles = document.createElement('style');
-animationStyles.textContent = `
-@keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.2); }
-    100% { transform: scale(1); }
-}
-
-@keyframes cardSlideIn {
-    from { transform: translateX(-100px) rotate(-30deg); opacity: 0; }
-    to { transform: translateX(0) rotate(0); opacity: 1; }
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-.card.playable {
-    animation: pulse 2s infinite;
-    cursor: pointer;
-}
-
-.card.playable:hover {
-    transform: translateY(-10px) !important;
-    box-shadow: 0 10px 20px rgba(0,0,0,0.3) !important;
-}
-
-.discard-pile .top-card {
-    transition: transform 0.3s, box-shadow 0.3s;
-}
-
-.discard-pile .top-card:hover {
-    transform: translate(-50%, -50%) scale(1.05) !important;
-    box-shadow: 0 5px 25px rgba(0,0,0,0.4) !important;
-}
-`;
-document.head.appendChild(animationStyles);
-
-
-
-// --- New Functions ---
-function showGameBoard() {
-    const waitingScreen = document.getElementById('waiting-screen');
-    const gameContainer = document.getElementById('game-container');
-    
-    // Play join sound
-    soundEffects.cardDraw.play();
-    
-    // Animation
-    waitingScreen.style.animation = 'fadeOut 0.5s forwards';
-    setTimeout(() => {
-        waitingScreen.style.display = 'none';
-        gameContainer.style.display = 'block';
-        gameContainer.style.animation = 'fadeIn 0.5s forwards';
-    }, 500);
-}
-
-// --- Updated Realtime Updates ---
 function setupRealtimeUpdates() {
+
     const channel = supabase
         .channel(`card_game_${gameState.gameCode}`)
         .on(
@@ -1298,16 +1220,11 @@ function setupRealtimeUpdates() {
             },
             (payload) => {
                 try {
-                    // Check if opponent just joined
-                    const opponentJustJoined = payload.new.opponent_phone && 
-                                             !gameState.opponent.phone;
-                    
-                    // Update game state (your existing code)
                     gameState.status = payload.new.status;
                     gameState.currentPlayer = payload.new.current_player;
                     gameState.currentSuit = payload.new.current_suit;
                     gameState.hasDrawnThisTurn = payload.new.has_drawn_this_turn || false;
-                    gameState.lastSuitChangeMethod = payload.new.last_suit_change_method;
+                       gameState.lastSuitChangeMethod = payload.new.last_suit_change_method;
 
                     if (payload.new.last_card) {
                         try {
@@ -1350,29 +1267,15 @@ function setupRealtimeUpdates() {
                         }
                     }
                     
-                    // Show game board if opponent just joined
-                    if (opponentJustJoined) {
-                        showGameBoard();
-                    }
-                    
                     if (payload.new.status === 'finished') {
                         const isWinner = payload.new.winner === users.phone;
                         const amount = Math.floor(gameState.betAmount * 1.8);
-                        
-                        // Play win/lose sound
-                        if (isWinner) {
-                            soundEffects.win.play();
-                        } else {
-                            soundEffects.lose.play();
-                        }
-                        
                         showGameResult(isWinner, amount);
                     }
                     
                     updateGameUI();
                 } catch (error) {
                     console.error('Error processing realtime update:', error);
-                    soundEffects.error.play();
                 }
             }
         )
@@ -1381,125 +1284,34 @@ function setupRealtimeUpdates() {
     return channel;
 }
 
-// --- Updated Card Play Functions ---
-async function playCard(cardIndex) {
+function safeParseJSON(json) {
     try {
-        const users = JSON.parse(localStorage.getItem('user')) || {};
-        if (!users.phone) throw new Error('User not logged in');
-        
-        if (gameState.currentPlayer !== users.phone) {
-            displayMessage(gameStatusEl, "It's not your turn!", 'error');
-            soundEffects.error.play();
-            return;
-        }
-
-        const card = gameState.playerHand[cardIndex];
-        if (!card) throw new Error('Invalid card index');
-        
-        // Animate card play
-        const cardEl = playerHandEl.children[cardIndex];
-        if (cardEl) {
-            animateCardPlay(cardEl);
-            soundEffects.cardPlay.play();
-        }
-        
-        // Handle 7 card - show selection dialog
-        if (card.value === '7') {
-            await showSevenCardDialog(cardIndex);
-            return;
-        }
-        
-        // For other cards, proceed normally
-        await processCardPlay([card]);
-        
-    } catch (error) {
-        console.error('Error playing card:', error);
-        soundEffects.error.play();
-        if (gameStatusEl) gameStatusEl.textContent = 'Error playing card';
+        return typeof json === 'string' ? JSON.parse(json) : json;
+    } catch (e) {
+        console.error('Error parsing JSON:', e);
+        return null;
     }
 }
 
-
-// --- Updated Suit Change Function ---
-function showSuitSelector() {
-    const modal = document.createElement('div');
-    modal.className = 'suit-selector-modal';
-    modal.innerHTML = `
-        <div class="suit-selector">
-            <h3>Choose a suit:</h3>
-            <div class="suit-options">
-                ${SUITS.map(suit => `
-                    <button class="suit-option ${suit}" data-suit="${suit}">
-                        ${suit.toUpperCase()}
-                    </button>
-                `).join('')}
-            </div>
-        </div>
-    `;
+function displayMessage(element, message, type = 'info') {
+    if (!element) return;
     
-    document.body.appendChild(modal);
+    element.textContent = message;
+    element.className = `status-message ${type}`;
     
-    // Add animation to buttons
-    modal.querySelectorAll('.suit-option').forEach(button => {
-        button.style.animation = 'fadeIn 0.5s ease-out';
-    });
-    
-    // Auto-close after selection
-    modal.querySelectorAll('.suit-option').forEach(button => {
-        button.addEventListener('click', async () => {
-            const selectedSuit = button.dataset.suit;
-            
-            // Play suit change sound
-            soundEffects.suitChange.play();
-            
-            // Animate the selection
-            button.style.transform = 'scale(1.2)';
-            setTimeout(() => {
-                button.style.transform = '';
-            }, 200);
-            
-            try {
-                // ... (rest of your existing suit selection code)
-                
-                // Animate the suit change in the UI
-                animateSuitChange();
-                
-            } catch (error) {
-                console.error('Error selecting suit:', error);
-                soundEffects.error.play();
-            } finally {
-                modal.remove();
-            }
-        });
-    });
+    if (type === 'success') {
+        setTimeout(() => {
+            element.textContent = '';
+            element.className = 'status-message';
+        }, 3000);
+    }
 }
 
-// Add this to your CSS section or style element:
-/*
-#waiting-screen {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.8);
-    display: none;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    color: white;
-    z-index: 1000;
-    font-size: 1.5rem;
-    text-align: center;
+function shuffleArray(array) {
+    const newArray = [...array];
+    for (let i = newArray.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+    }
+    return newArray;
 }
-
-#game-container {
-    opacity: 0;
-    transition: opacity 0.5s;
-}
-
-@keyframes fadeOut {
-    from { opacity: 1; }
-    to { opacity: 0; }
-}
-*/
