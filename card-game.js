@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 // --- Supabase Setup ---
@@ -31,6 +32,289 @@ const SPECIAL_CARDS = {
     '2': 'draw_two',
     'A': 'spade_ace_only'  // Changed to only work with Ace of Spades
 };
+
+
+
+// ...[keep your imports, setup, and all other code above unchanged]
+
+// --- Helper for suit SVGs (returns SVG as string, for inline use) ---
+function getSuitSVG(suit) {
+    switch (suit) {
+        case 'hearts':
+            return `<svg width="22" height="22" viewBox="0 0 24 24" fill="#d32f2f"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`;
+        case 'diamonds':
+            return `<svg width="22" height="22" viewBox="0 0 24 24" fill="#d32f2f"><path d="M19 12l-7-10-7 10 7 10 7-10z"/></svg>`;
+        case 'clubs':
+            return `<svg width="22" height="22" viewBox="0 0 200 200" fill="#263238"><circle cx="100" cy="60" r="35"/><circle cx="60" cy="130" r="35"/><circle cx="140" cy="130" r="35"/><path d="M100 100 L100 170 C100 185 85 185 85 170 L85 100 Z"/></svg>`;
+        case 'spades':
+            return `<svg width="22" height="22" viewBox="0 0 200 200" fill="#263238"><path d="M100 20 L160 120 L40 120 Z"/><path d="M100 110 L100 180 C100 195 85 195 85 180 L85 110 Z"/><circle cx="100" cy="115" r="20"/></svg>`;
+        default:
+            return '';
+    }
+}
+
+// --- Realistic Card HTML (player hand & discard pile) ---
+function renderCardHTML(card, {isTop = false, isStacked = false, isPlayable = false, forDeck = false} = {}) {
+    // Realistic gloss/shine/edge
+    // forDeck: render as card back
+    if (forDeck) {
+        return `
+        <div class="card-back-realistic">
+            <div class="card-back-inner"></div>
+        </div>
+        `;
+    }
+    // Normal face card
+    return `
+    <div class="card-realistic ${card.suit} ${isPlayable ? 'playable' : ''} ${isStacked ? 'stacked-card' : ''} ${isTop ? 'top-card' : ''}">
+        <div class="card-gloss"></div>
+        <div class="card-inner">
+            <div class="card-corner card-corner-top">
+                <span class="card-value">${card.value}</span>
+                <span class="card-suit-svg">${getSuitSVG(card.suit)}</span>
+            </div>
+            <div class="card-center">${getSuitSVG(card.suit)}</div>
+            <div class="card-corner card-corner-bottom">
+                <span class="card-value">${card.value}</span>
+                <span class="card-suit-svg">${getSuitSVG(card.suit)}</span>
+            </div>
+        </div>
+    </div>
+    `;
+}
+
+// --- Updated renderPlayerHand (realistic cards) ---
+function renderPlayerHand() {
+    if (!playerHandEl) return;
+    playerHandEl.innerHTML = '';
+    const users = JSON.parse(localStorage.getItem('user')) || {};
+    const isMyTurn = gameState.currentPlayer === users.phone;
+
+    gameState.playerHand.forEach((card, index) => {
+        const isPlayable = isMyTurn && canPlayCard(card);
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = renderCardHTML(card, {isPlayable});
+        const cardEl = wrapper.firstElementChild;
+        if (isPlayable) {
+            cardEl.addEventListener('click', () => playCard(index));
+        }
+        playerHandEl.appendChild(cardEl);
+    });
+}
+
+// --- Updated renderDiscardPile (realistic cards) ---
+function renderDiscardPile() {
+    if (!discardPileEl) return;
+
+    discardPileEl.innerHTML = '';
+    const pileContainer = document.createElement('div');
+    pileContainer.className = 'discard-pile-container';
+
+    // Gather cards (discard pile + last card)
+    const allCards = [];
+    if (gameState.discardPile && gameState.discardPile.length > 0) {
+        for (let i = 0; i < gameState.discardPile.length; i++) {
+            allCards.push(gameState.discardPile[i]);
+        }
+    }
+    if (gameState.lastCard) allCards.push(gameState.lastCard);
+
+    const cardsToShow = 7;
+    const startIdx = Math.max(0, allCards.length - cardsToShow);
+    const recentCards = allCards.slice(startIdx);
+
+    recentCards.forEach((card, idx) => {
+        const isTop = idx === recentCards.length - 1;
+        const z = 100 + idx;
+        const rot = isTop ? 0 : (Math.random() * 10 - 5);
+        const xOffset = isTop ? 0 : (Math.random() * 20 - 10);
+        const yOffset = isTop ? 0 : (Math.random() * 10 - 5);
+
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = renderCardHTML(card, {
+            isTop,
+            isStacked: !isTop,
+            isPlayable: false
+        });
+        const cardEl = wrapper.firstElementChild;
+        cardEl.style.zIndex = z;
+        cardEl.style.position = 'absolute';
+        cardEl.style.left = `calc(50% + ${xOffset}px)`;
+        cardEl.style.top = `calc(50% + ${yOffset}px)`;
+        cardEl.style.transform = `translate(-50%, -50%) rotate(${rot}deg)`;
+        pileContainer.appendChild(cardEl);
+    });
+
+    // Count badge if many cards
+    const totalCards = allCards.length;
+    if (totalCards > cardsToShow) {
+        const remainingCount = totalCards - cardsToShow;
+        const countEl = document.createElement('div');
+        countEl.className = 'discard-pile-count';
+        countEl.textContent = `+${remainingCount} more`;
+        pileContainer.appendChild(countEl);
+    }
+    pileContainer.style.position = "relative";
+    pileContainer.style.width = "140px";
+    pileContainer.style.height = "120px";
+    pileContainer.style.margin = "0 auto";
+    discardPileEl.appendChild(pileContainer);
+}
+
+// --- (Optional/Advanced) If you have a draw deck UI, render its cards with forDeck: true ---
+// Example usage: wrapper.innerHTML = renderCardHTML(null, {forDeck:true});
+
+
+// --- CSS for realistic cards (add this to your <style> or inject with JS) ---
+const realismCSS = `
+.card-realistic {
+    --card-width: 64px;
+    --card-height: 96px;
+    width: var(--card-width);
+    height: var(--card-height);
+    background: linear-gradient(130deg,#fff8f0 85%,#f5e9d8 100%);
+    border-radius: 11px;
+    margin: 4px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.18), 0 1.5px 6px rgba(0,0,0,0.07);
+    position: relative;
+    border: 1.5px solid #ececec;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.13s, box-shadow 0.13s, filter 0.13s;
+    user-select: none;
+    overflow: visible;
+}
+.card-realistic.playable {
+    cursor: pointer;
+    box-shadow: 0 8px 22px rgba(76,175,80,0.13), 0 1.5px 8px rgba(50,150,50,0.06);
+}
+.card-realistic.playable:active,
+.card-realistic.playable:focus {
+    filter: brightness(0.97) drop-shadow(0 0 6px #4caf5044);
+    transform: scale(1.04);
+    z-index: 20;
+}
+.card-realistic .card-gloss {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    border-radius: 11px;
+    background: linear-gradient(120deg,rgba(255,255,255,0.18) 18%,transparent 58%);
+    z-index: 2;
+    pointer-events: none;
+}
+.card-realistic .card-inner {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+.card-realistic .card-corner {
+    width: 30px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.card-realistic .card-corner-top {
+    align-items: flex-start;
+    margin-top: 1px;
+    margin-left: 1px;
+}
+.card-realistic .card-corner-bottom {
+    align-items: flex-end;
+    margin-bottom: 1px;
+    margin-right: 2px;
+    transform: rotate(180deg);
+}
+.card-realistic .card-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+    margin-top: 1px;
+    margin-bottom: 1px;
+}
+.card-realistic.hearts, .card-realistic.diamonds {
+    color: #d32f2f;
+}
+.card-realistic.clubs, .card-realistic.spades {
+    color: #263238;
+}
+.card-realistic .card-value {
+    font-size: 15px;
+    font-weight: bold;
+    text-shadow: 0px 1px 0px white, 0px 1px 3px #d1bfa7;
+    margin-bottom: 1px;
+}
+.card-realistic .card-suit-svg svg {
+    display: block;
+}
+.card-realistic.stacked-card {
+    opacity: 0.8;
+    filter: blur(0.3px) brightness(0.96);
+}
+.card-realistic.top-card {
+    box-shadow: 0 7px 18px rgba(0,0,0,0.17), 0 1.5px 6px rgba(0,0,0,0.09);
+    filter: none;
+}
+
+/* Realistic card back for draw pile */
+.card-back-realistic {
+    width: 64px;
+    height: 96px;
+    background: repeating-linear-gradient(135deg, #1b5e20, #1b5e20 13px, #17481d 13px, #17481d 26px);
+    border-radius: 11px;
+    margin: 4px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.22), 0 1.5px 6px rgba(0,0,0,0.10);
+    position: relative;
+    border: 2px solid #265c2c;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+.card-back-realistic .card-back-inner {
+    content: '';
+    display: block;
+    width: 38px;
+    height: 38px;
+    background: url("data:image/svg+xml,%3Csvg width='32' height='32' fill='white' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='24' height='24' rx='5' fill='white' fill-opacity='0.17'/%3E%3C/svg%3E");
+    background-size: contain;
+    background-repeat: no-repeat;
+    opacity: 0.2;
+    margin: auto;
+}
+@media (min-width: 400px) {
+    .card-realistic,
+    .card-back-realistic {
+        width: 72px;
+        height: 110px;
+    }
+}
+@media (max-width: 350px) {
+    .card-realistic,
+    .card-back-realistic {
+        width: 48px;
+        height: 72px;
+    }
+}
+`;
+
+const injectRealism = document.createElement('style');
+injectRealism.textContent = realismCSS;
+document.head.appendChild(injectRealism);
+
+// ...[rest of your code unchanged]
+
+
+
+
+
+
 
 // --- CSS for Dialogs ---
 const style = document.createElement('style');
@@ -362,169 +646,7 @@ async function loadGameData() {
         setTimeout(() => window.location.href = '/', 3000);
     }
 }
-function renderPlayerHand() {
-    if (!playerHandEl) return;
-    
-    playerHandEl.innerHTML = '';
-    const users = JSON.parse(localStorage.getItem('user')) || {};
-    const isMyTurn = gameState.currentPlayer === users.phone;
-    
-    // Add CSS for realistic cards if not already added
-    const cardStyle = document.createElement('style');
-    cardStyle.textContent = `
-        .card {
-            width: 80px;
-            height: 120px;
-            border-radius: 8px;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 10px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            background: white;
-            font-family: 'Arial', sans-serif;
-            font-weight: bold;
-            margin: 0 -15px;
-        }
-        
-        .card.playable {
-            transform: translateY(-20px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
-        }
-        
-        .card.hearts, .card.diamonds {
-            color: #e74c3c;
-        }
-        
-        .card.clubs, .card.spades {
-            color: #2c3e50;
-        }
-        
-        .card-value {
-            font-size: 1.5em;
-            position: absolute;
-        }
-        
-        .card-value.top {
-            top: 5px;
-            left: 10px;
-        }
-        
-        .card-value.bottom {
-            bottom: 5px;
-            right: 10px;
-            transform: rotate(180deg);
-        }
-        
-        .card-suit {
-            font-size: 2.5em;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-        }
-        
-        .card-corner {
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.8em;
-        }
-        
-        .card-corner.top-left {
-            top: 2px;
-            left: 5px;
-        }
-        
-        .card-corner.bottom-right {
-            bottom: 2px;
-            right: 5px;
-            transform: rotate(180deg);
-        }
-        
-        /* Special styling for face cards */
-        .card.J .card-suit,
-        .card.Q .card-suit,
-        .card.K .card-suit {
-            font-size: 3.5em;
-        }
-        
-        /* Add subtle texture to cards */
-        .card::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.8), rgba(255,255,255,0.4));
-            border-radius: 8px;
-            pointer-events: none;
-        }
-    `;
-    
-    // Only add the style once
-    if (!document.querySelector('style[data-card-style]')) {
-        cardStyle.setAttribute('data-card-style', 'true');
-        document.head.appendChild(cardStyle);
-    }
-    
-    gameState.playerHand.forEach((card, index) => {
-        const cardEl = document.createElement('div');
-        cardEl.className = `card ${card.suit} ${isMyTurn && canPlayCard(card) ? 'playable' : ''}`;
-        
-        // Use suit symbols instead of text
-        let suitSymbol;
-        switch(card.suit) {
-            case 'hearts': suitSymbol = '♥'; break;
-            case 'diamonds': suitSymbol = '♦'; break;
-            case 'clubs': suitSymbol = '♣'; break;
-            case 'spades': suitSymbol = '♠'; break;
-            default: suitSymbol = card.suit;
-        }
-        
-        
-        
-        // Add corner indicators for better visibility
-        const cornerTop = document.createElement('div');
-        cornerTop.className = 'card-corner top-left';
-        cornerTop.innerHTML = `${card.value}<br>${suitSymbol}`;
-        cardEl.appendChild(cornerTop);
-        
-        const cornerBottom = document.createElement('div');
-        cornerBottom.className = 'card-corner bottom-right';
-        cornerBottom.innerHTML = `${card.value}<br>${suitSymbol}`;
-        cardEl.appendChild(cornerBottom);
-        
-        if (isMyTurn && canPlayCard(card)) {
-            cardEl.addEventListener('click', () => playCard(index));
-            
-            // Add hover effect only for playable cards
-            cardEl.addEventListener('mouseenter', () => {
-                cardEl.style.transform = 'translateY(-30px) scale(1.05)';
-                cardEl.style.zIndex = '100';
-            });
-            
-            cardEl.addEventListener('mouseleave', () => {
-                cardEl.style.transform = 'translateY(-20px)';
-                cardEl.style.zIndex = '';
-            });
-        }
-        
-        playerHandEl.appendChild(cardEl);
-    });
-    
-    // Adjust card overlap based on hand size
-    const overlap = Math.min(30, Math.max(10, 30 - (gameState.playerHand.length * 0.5)));
-    document.documentElement.style.setProperty('--card-overlap', `${overlap}px`);
-}
+
 
 // --- Game Functions ---
 // ... (all your imports and setup above remain unchanged)
@@ -1218,134 +1340,7 @@ function showGameResult(isWinner, amount) {
     }
 }
 
-function renderDiscardPile() {
-    if (!discardPileEl) return;
 
-    discardPileEl.innerHTML = '';
-
-    const pileContainer = document.createElement('div');
-    pileContainer.className = 'discard-pile-container';
-
-    // Build the array: newest card LAST (top of pile)
-    const allCards = [];
-    if (gameState.discardPile && gameState.discardPile.length > 0) {
-        for (let i = 0; i < gameState.discardPile.length; i++) {
-            allCards.push(gameState.discardPile[i]);
-        }
-    }
-    if (gameState.lastCard) allCards.push(gameState.lastCard);
-
-    const cardsToShow = 7;
-    const startIdx = Math.max(0, allCards.length - cardsToShow);
-    const recentCards = allCards.slice(startIdx);
-
-    // For mobile: touch drag state
-    let touchDrag = {
-        dragging: false,
-        startX: 0,
-        startY: 0,
-        origX: 0,
-        origY: 0,
-        cardEl: null,
-    };
-
-    recentCards.forEach((card, idx) => {
-        const isTop = idx === recentCards.length - 1;
-        const z = 100 + idx;
-
-        // Random scatter for visuals, except top card
-        const rot = isTop ? 0 : (Math.random() * 10 - 5);
-        const xOffset = isTop ? 0 : (Math.random() * 20 - 10);
-        const yOffset = isTop ? 0 : (Math.random() * 10 - 5);
-
-        const cardEl = document.createElement('div');
-        cardEl.className = `card ${card.suit} ${isTop ? 'top-card' : 'stacked-card'}`;
-        cardEl.style.zIndex = z;
-        cardEl.style.position = 'absolute';
-        cardEl.style.left = `calc(50% + ${xOffset}px)`;
-        cardEl.style.top = `calc(50% + ${yOffset}px)`;
-        cardEl.style.transform = `translate(-50%, -50%) rotate(${rot}deg)`;
-        cardEl.innerHTML = `
-            <div class="card-value">${card.value}</div>
-            <div class="card-suit"></div>
-        `;
-
-        // Black shadow for back cards
-        if (!isTop) {
-            cardEl.style.boxShadow = '0 0 16px 4px rgba(0,0,0,0.7)';
-            cardEl.style.filter = 'brightness(0.7)';
-        } else {
-            cardEl.style.boxShadow = '0 2px 16px 4px #2228, 0 0 0 transparent';
-            cardEl.style.filter = 'none';
-        }
-
-        // Desktop drag (optional: only for top card)
-        if (isTop) {
-            cardEl.draggable = true;
-            cardEl.addEventListener('dragstart', (e) => {
-                cardEl.style.opacity = 0.5;
-            });
-            cardEl.addEventListener('dragend', (e) => {
-                cardEl.style.opacity = '';
-            });
-        }
-
-        // --- Mobile touch drag for top card only ---
-        if (isTop) {
-            cardEl.addEventListener('touchstart', function(e) {
-                if (e.touches.length === 1) {
-                    touchDrag.dragging = true;
-                    touchDrag.startX = e.touches[0].clientX;
-                    touchDrag.startY = e.touches[0].clientY;
-                    // Get current transform offset
-                    const rect = cardEl.getBoundingClientRect();
-                    touchDrag.origX = rect.left;
-                    touchDrag.origY = rect.top;
-                    touchDrag.cardEl = cardEl;
-                    cardEl.style.transition = 'none';
-                }
-            }, {passive:false});
-            cardEl.addEventListener('touchmove', function(e) {
-                if (touchDrag.dragging && touchDrag.cardEl === cardEl) {
-                    e.preventDefault();
-                    const dx = e.touches[0].clientX - touchDrag.startX;
-                    const dy = e.touches[0].clientY - touchDrag.startY;
-                    cardEl.style.transform = `translate(-50%, -50%) rotate(0deg) translate(${dx}px, ${dy}px)`;
-                    cardEl.style.opacity = "0.7";
-                }
-            }, {passive:false});
-            cardEl.addEventListener('touchend', function(e) {
-                if (touchDrag.dragging && touchDrag.cardEl === cardEl) {
-                    cardEl.style.transition = '';
-                    cardEl.style.transform = `translate(-50%, -50%) rotate(0deg)`;
-                    cardEl.style.opacity = "";
-                    touchDrag.dragging = false;
-                    touchDrag.cardEl = null;
-                }
-            });
-        }
-
-        pileContainer.appendChild(cardEl);
-    });
-
-    // Show count if there are more cards than we're displaying
-    const totalCards = allCards.length;
-    if (totalCards > cardsToShow) {
-        const remainingCount = totalCards - cardsToShow;
-        const countEl = document.createElement('div');
-        countEl.className = 'discard-pile-count';
-        countEl.textContent = `+${remainingCount} more`;
-        pileContainer.appendChild(countEl);
-    }
-
-    // Ensure pileContainer is absolute/fixed positioned
-    pileContainer.style.position = "relative";
-    pileContainer.style.width = "140px";
-    pileContainer.style.height = "120px";
-    pileContainer.style.margin = "0 auto";
-
-    discardPileEl.appendChild(pileContainer);
-}
 function setupRealtimeUpdates() {
 
     const channel = supabase
