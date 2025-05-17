@@ -681,10 +681,15 @@ async function handleOpponentJoined(gameData) {
     const users = JSON.parse(localStorage.getItem('user')) || {};
     const isCreator = users.phone === gameData.creator_phone;
 
+    // Only proceed if:
+    // 1. We're the creator
+    // 2. Bet hasn't been deducted yet
+    // 3. Opponent has just joined (their phone wasn't set before but is now)
     if (
         isCreator &&
         !gameData.bet_deducted &&
-        gameData.opponent_phone
+        gameData.opponent_phone &&
+        (!gameState.opponent.phone || gameState.opponent.phone !== gameData.opponent_phone)
     ) {
         // Fetch balances for BOTH players
         const { data: creatorData, error: creatorError } = await supabase
@@ -720,7 +725,14 @@ async function handleOpponentJoined(gameData) {
         updates.push(
             supabase.from('card_games').update({ bet_deducted: true }).eq('code', gameData.code)
         );
-        await Promise.all(updates.map(p => p));
+        
+        const results = await Promise.all(updates.map(p => p));
+        
+        // Check for errors in any of the updates
+        const hasError = results.some(result => result.error);
+        if (hasError) {
+            throw new Error('Failed to deduct bets');
+        }
 
         // Record transaction for both players ("bet placed" - negative amount)
         await recordTransaction({
@@ -739,7 +751,6 @@ async function handleOpponentJoined(gameData) {
         });
     }
 }
-
 
 // --- Call this after loading game data in loadGameData ---
 async function loadGameData() {
@@ -796,8 +807,10 @@ async function loadGameData() {
         }
         gameState.lastSuitChangeMethod = gameData.last_suit_change_method;
 
-        // ---- ADD THIS: Handle bet deduction if opponent joined ----
-        await handleOpponentJoined(gameData);
+        // Only handle bet deduction if opponent just joined
+        if (gameData.opponent_phone && (!gameState.opponent.phone || gameState.opponent.phone !== gameData.opponent_phone)) {
+            await handleOpponentJoined(gameData);
+        }
 
         updateGameUI();
 
@@ -807,7 +820,6 @@ async function loadGameData() {
         setTimeout(() => window.location.href = '/', 3000);
     }
 }
-
 // --- Also, in setupRealtimeUpdates, listen for opponent joining and re-run handleOpponentJoined() ---
 function setupRealtimeUpdates() {
     const channel = supabase
