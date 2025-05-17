@@ -824,72 +824,7 @@ function setupRealtimeUpdates() {
     return channel;
 }
 
-// --- Call this after loading game data in loadGameData ---
-async function loadGameData() {
-    try {
-        const { data: gameData, error } = await supabase
-            .from('card_games')
-            .select('*')
-            .eq('code', gameState.gameCode)
-            .single();
 
-        if (error) throw error;
-        if (!gameData) throw new Error('Game not found');
-
-        const users = JSON.parse(localStorage.getItem('user')) || {};
-        gameState.playerRole = gameData.creator_phone === users.phone ? 'creator' : 'opponent';
-
-        // Update game state
-        gameState.status = gameData.status;
-        gameState.currentPlayer = gameData.current_player;
-        gameState.currentSuit = gameData.current_suit;
-        gameState.lastCard = gameData.last_card ? safeParseJSON(gameData.last_card) : null;
-        gameState.betAmount = gameData.bet;
-        gameState.mustPlaySuit = gameData.must_play_suit || false;
-        gameState.currentSuitToMatch = gameData.current_suit_to_match || '';
-        gameState.hasDrawnThisTurn = gameData.has_drawn_this_turn || false;
-        gameState.discardPile = gameData.discard_pile ? safeParseJSON(gameData.discard_pile) : [];
-
-        // Set player hands
-        if (gameState.playerRole === 'creator') {
-            gameState.playerHand = safeParseJSON(gameData.creator_hand) || [];
-            gameState.opponentHandCount = safeParseJSON(gameData.opponent_hand)?.length || 0;
-        } else {
-            gameState.playerHand = safeParseJSON(gameData.opponent_hand) || [];
-            gameState.opponentHandCount = safeParseJSON(gameData.creator_hand)?.length || 0;
-        }
-
-        // Set player info
-        gameState.creator = {
-            username: gameData.creator_username,
-            phone: gameData.creator_phone
-        };
-
-        if (gameData.opponent_phone) {
-            gameState.opponent = {
-                username: gameData.opponent_username,
-                phone: gameData.opponent_phone
-            };
-        }
-
-        // Check for pending actions
-        if (gameData.pending_action) {
-            gameState.pendingAction = gameData.pending_action;
-            gameState.pendingActionData = gameData.pending_action_data;
-        }
-        gameState.lastSuitChangeMethod = gameData.last_suit_change_method;
-
-        // ---- ADD THIS: Handle bet deduction if opponent joined ----
-        await handleOpponentJoined(gameData);
-
-        updateGameUI();
-
-    } catch (error) {
-        console.error('Error loading game:', error);
-        if (gameStatusEl) gameStatusEl.textContent = 'Error loading game';
-        setTimeout(() => window.location.href = '/', 3000);
-    }
-}
 
 // --- Also, in setupRealtimeUpdates, listen for opponent joining and re-run handleOpponentJoined() ---
 function setupRealtimeUpdates() {
