@@ -31,7 +31,27 @@ const SPECIAL_CARDS = {
     '2': 'draw_two',
     'A': 'spade_ace_only'
 };
+// Add these helper functions at the top of your code, before they're used:
 
+function safeParseJSON(json) {
+    try {
+        return typeof json === 'string' ? JSON.parse(json) : json;
+    } catch (e) {
+        console.error('Error parsing JSON:', e);
+        return null;
+    }
+}
+
+function setupEventListeners() {
+    if (drawCardBtn) drawCardBtn.addEventListener('click', drawCard);
+    if (passTurnBtn) passTurnBtn.addEventListener('click', passTurn);
+    
+    // Add any other event listeners your game needs
+    // For example:
+    // backBtn.addEventListener('click', () => window.location.href = 'home.html');
+}
+
+// The rest of your existing code can stay the same...
 // --- CSS for Dialogs ---
 const style = document.createElement('style');
 style.textContent = `
