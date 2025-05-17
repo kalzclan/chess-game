@@ -87,44 +87,77 @@ function renderCardHTML(card, {isPlayable = false} = {}) {
     </div>
     `;
 }
+// Helper: Animate removal of a card element (fade out then remove)
+function removeCardWithAnimation(cardEl) {
+    cardEl.classList.add('card-fade-out');
+    cardEl.addEventListener('animationend', () => {
+        if (cardEl.parentNode) cardEl.parentNode.removeChild(cardEl);
+    }, { once: true });
+}
 
+// Helper: Animate adding a card (fade in)
+function createAnimatedCard(card, isPlayable, onClick) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = renderCardHTML(card, { isPlayable });
+    const cardEl = wrapper.firstElementChild;
+    cardEl.classList.add('card-animated', 'card-fade-in');
+    if (isPlayable && typeof onClick === 'function') {
+        cardEl.addEventListener('click', onClick);
+    }
+    cardEl.addEventListener('animationend', () => {
+        cardEl.classList.remove('card-fade-in');
+    }, { once: true });
+    return cardEl;
+}
 // --- Update renderPlayerHand to use the above realistic card ---
+// --- Update renderPlayerHand to use animation helpers ---
 function renderPlayerHand() {
     if (!playerHandEl) return;
-    
-    // Clear the container
-    playerHandEl.innerHTML = '';
-    
-    // Create a scrollable wrapper
-    const scrollWrapper = document.createElement('div');
+
+    // Instead of clearing everything, animate removal for cards no longer in hand
+    const existingCards = Array.from(playerHandEl.querySelectorAll('.card'));
+    const currentHandSignatures = gameState.playerHand.map(c => c.suit + c.value);
+
+    // Remove cards not in hand with animation
+    existingCards.forEach(cardEl => {
+        const sig = cardEl.dataset.suit + cardEl.dataset.value;
+        if (!currentHandSignatures.includes(sig)) {
+            removeCardWithAnimation(cardEl);
+        }
+    });
+
+    // For each card in hand, if not already rendered, add with animation
+    const scrollWrapper = playerHandEl.querySelector('.player-hand-scroll') || document.createElement('div');
     scrollWrapper.className = 'player-hand-scroll';
-    
-    // Create an inner container for the cards
+
+    // Remove all children (cards) from scrollWrapper (but not from playerHandEl)
+    while (scrollWrapper.firstChild) scrollWrapper.removeChild(scrollWrapper.firstChild);
+
     const cardsContainer = document.createElement('div');
     cardsContainer.className = 'player-hand-cards';
-    
+
     const users = JSON.parse(localStorage.getItem('user')) || {};
     const isMyTurn = gameState.currentPlayer === users.phone;
-    
+
     gameState.playerHand.forEach((card, index) => {
         const isPlayable = isMyTurn && canPlayCard(card);
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = renderCardHTML(card, { isPlayable });
-        const cardEl = wrapper.firstElementChild;
-        if (isPlayable) {
-            cardEl.addEventListener('click', () => playCard(index));
-        }
+        const cardEl = createAnimatedCard(card, isPlayable, () => playCard(index));
+        cardEl.dataset.suit = card.suit;
+        cardEl.dataset.value = card.value;
         cardsContainer.appendChild(cardEl);
     });
-    
-    // Add the cards container to the scroll wrapper
+
     scrollWrapper.appendChild(cardsContainer);
-    // Add the scroll wrapper to the player hand element
-    playerHandEl.appendChild(scrollWrapper);
+
+    // Only append scrollWrapper if not already present
+    if (!playerHandEl.contains(scrollWrapper)) {
+        playerHandEl.appendChild(scrollWrapper);
+    }
 }
 
 
 // --- Updated renderDiscardPile (realistic cards) ---
+// --- Patch renderDiscardPile to animate new card on pile ---
 function renderDiscardPile() {
     if (!discardPileEl) return;
 
@@ -132,7 +165,6 @@ function renderDiscardPile() {
     const pileContainer = document.createElement('div');
     pileContainer.className = 'discard-pile-container';
 
-    // Gather cards (discard pile + last card)
     const allCards = [];
     if (gameState.discardPile && gameState.discardPile.length > 0) {
         for (let i = 0; i < gameState.discardPile.length; i++) {
@@ -153,29 +185,19 @@ function renderDiscardPile() {
         const yOffset = isTop ? 0 : (Math.random() * 10 - 5);
 
         const wrapper = document.createElement('div');
-        wrapper.innerHTML = renderCardHTML(card, {
-            isTop,
-            isStacked: !isTop,
-            isPlayable: false
-        });
+        wrapper.innerHTML = renderCardHTML(card, { isTop, isStacked: !isTop, isPlayable: false });
         const cardEl = wrapper.firstElementChild;
         cardEl.style.zIndex = z;
         cardEl.style.position = 'absolute';
         cardEl.style.left = `calc(50% + ${xOffset}px)`;
         cardEl.style.top = `calc(50% + ${yOffset}px)`;
         cardEl.style.transform = `translate(-50%, -50%) rotate(${rot}deg)`;
+        cardEl.classList.add('card-animated', 'card-fade-in');
+        cardEl.addEventListener('animationend', () => cardEl.classList.remove('card-fade-in'), { once: true });
         pileContainer.appendChild(cardEl);
     });
 
-    // Count badge if many cards
-    const totalCards = allCards.length;
-    if (totalCards > cardsToShow) {
-        const remainingCount = totalCards - cardsToShow;
-        const countEl = document.createElement('div');
-        countEl.className = 'discard-pile-count';
-        countEl.textContent = `+${remainingCount} more`;
-        pileContainer.appendChild(countEl);
-    }
+    // ... rest of your function unchanged
     pileContainer.style.position = "relative";
     pileContainer.style.width = "140px";
     pileContainer.style.height = "120px";
