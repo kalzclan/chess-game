@@ -91,10 +91,21 @@ function renderCardHTML(card, {isPlayable = false} = {}) {
 // --- Update renderPlayerHand to use the above realistic card ---
 function renderPlayerHand() {
     if (!playerHandEl) return;
+    
+    // Clear the container
     playerHandEl.innerHTML = '';
+    
+    // Create a scrollable wrapper
+    const scrollWrapper = document.createElement('div');
+    scrollWrapper.className = 'player-hand-scroll';
+    
+    // Create an inner container for the cards
+    const cardsContainer = document.createElement('div');
+    cardsContainer.className = 'player-hand-cards';
+    
     const users = JSON.parse(localStorage.getItem('user')) || {};
     const isMyTurn = gameState.currentPlayer === users.phone;
-
+    
     gameState.playerHand.forEach((card, index) => {
         const isPlayable = isMyTurn && canPlayCard(card);
         const wrapper = document.createElement('div');
@@ -103,8 +114,13 @@ function renderPlayerHand() {
         if (isPlayable) {
             cardEl.addEventListener('click', () => playCard(index));
         }
-        playerHandEl.appendChild(cardEl);
+        cardsContainer.appendChild(cardEl);
     });
+    
+    // Add the cards container to the scroll wrapper
+    scrollWrapper.appendChild(cardsContainer);
+    // Add the scroll wrapper to the player hand element
+    playerHandEl.appendChild(scrollWrapper);
 }
 
 
