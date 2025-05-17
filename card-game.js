@@ -1468,7 +1468,9 @@ function setupRealtimeUpdates() {
                     }
 
                     // --- Bet deduction logic: only deduct when both players joined and not deducted yet ---
+                    // Only allow the CREATOR to perform the deduction!
                     if (
+                        isCreator &&
                         payload.new.creator_phone &&
                         payload.new.opponent_phone &&
                         !payload.new.bet_deducted
@@ -1535,7 +1537,6 @@ function setupRealtimeUpdates() {
 
     return channel;
 }
-
 function safeParseJSON(json) {
     try {
         return typeof json === 'string' ? JSON.parse(json) : json;
