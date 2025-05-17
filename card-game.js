@@ -31,8 +31,9 @@ const SPECIAL_CARDS = {
     '2': 'draw_two',
     'A': 'spade_ace_only'
 };
-// Add these helper functions at the top of your code, before they're used:
+// Add these utility functions before they are used in your code:
 
+// Helper function to safely parse JSON
 function safeParseJSON(json) {
     try {
         return typeof json === 'string' ? JSON.parse(json) : json;
@@ -42,15 +43,183 @@ function safeParseJSON(json) {
     }
 }
 
+// Generate avatar color based on username
+function generateAvatarColor(username) {
+    if (!username) return '#6c757d';
+    const colors = ['#ff6b6b', '#51cf66', '#fcc419', '#228be6', '#be4bdb'];
+    const hash = username.split('').reduce((acc, char) => char.charCodeAt(0) + acc, 0);
+    return colors[hash % colors.length];
+}
+
+// Draw card function
+async function drawCard() {
+    try {
+        const users = JSON.parse(localStorage.getItem('user')) || {};
+        if (!users.phone) throw new Error('User not logged in');
+        
+        if (gameState.currentPlayer !== users.phone) {
+            displayMessage(gameStatusEl, "It's not your turn!", 'error');
+            return;
+        }
+
+        // Determine how many cards to draw
+        let drawCount = 1;
+        if (gameState.pendingAction === 'draw_two') {
+            drawCount = gameState.pendingActionData || 2;
+            gameState.pendingAction = null;
+            gameState.pendingActionData = null;
+        }
+
+        const isCreator = gameState.playerRole === 'creator';
+        
+        // Get current game state
+        const { data: gameData, error: fetchError } = await supabase
+            .from('card_games')
+            .select('deck, discard_pile, last_card')
+            .eq('code', gameState.gameCode)
+            .single();
+            
+        if (fetchError) throw fetchError;
+        
+        let deck = safeParseJSON(gameData.deck) || [];
+        const cardsToAdd = [];
+        
+        // Draw the required number of cards
+        for (let i = 0; i < drawCount; i++) {
+            if (deck.length === 0) {
+                let discardPile = safeParseJSON(gameData.discard_pile) || [];
+                const lastCard = safeParseJSON(gameData.last_card);
+                
+                if (lastCard) {
+                    discardPile = discardPile.filter(card => 
+                        !(card.suit === lastCard.suit && card.value === lastCard.value));
+                }
+                
+                deck = shuffleArray(discardPile);
+                gameState.discardPile = lastCard ? [lastCard] : [];
+                
+                const { error: updateDeckError } = await supabase
+                    .from('card_games')
+                    .update({
+                        deck: JSON.stringify(deck),
+                        discard_pile: JSON.stringify(gameState.discardPile),
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('code', gameState.gameCode);
+                    
+                if (updateDeckError) throw updateDeckError;
+            }
+            
+            if (deck.length > 0) {
+                cardsToAdd.push(deck.pop());
+            }
+        }
+        
+        // Add drawn cards to hand
+        gameState.playerHand = [...gameState.playerHand, ...cardsToAdd];
+        
+        // Update database
+        const updateData = {
+            deck: JSON.stringify(deck),
+            updated_at: new Date().toISOString(),
+            has_drawn_this_turn: true,
+            pending_action: null,
+            pending_action_data: null
+        };
+        
+        if (isCreator) {
+            updateData.creator_hand = JSON.stringify(gameState.playerHand);
+        } else {
+            updateData.opponent_hand = JSON.stringify(gameState.playerHand);
+        }
+        
+        const { error } = await supabase
+            .from('card_games')
+            .update(updateData)
+            .eq('code', gameState.gameCode);
+            
+        if (error) throw error;
+        
+        gameState.hasDrawnThisTurn = true;
+        updateGameUI();
+        
+    } catch (error) {
+        console.error('Error drawing card:', error);
+        if (gameStatusEl) gameStatusEl.textContent = 'Error drawing card';
+    }
+}
+
+// Shuffle array function
+function shuffleArray(array) {
+    const newArray = [...array];
+    for (let i = newArray.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+    }
+    return newArray;
+}
+
+// Display message function
+function displayMessage(element, message, type = 'info') {
+    if (!element) return;
+    
+    element.textContent = message;
+    element.className = `status-message ${type}`;
+    
+    if (type === 'success') {
+        setTimeout(() => {
+            element.textContent = '';
+            element.className = 'status-message';
+        }, 3000);
+    }
+}
+
+// Setup event listeners
 function setupEventListeners() {
     if (drawCardBtn) drawCardBtn.addEventListener('click', drawCard);
     if (passTurnBtn) passTurnBtn.addEventListener('click', passTurn);
-    
-    // Add any other event listeners your game needs
-    // For example:
-    // backBtn.addEventListener('click', () => window.location.href = 'home.html');
+    if (backBtn) backBtn.addEventListener('click', () => window.location.href = 'home.html');
 }
 
+// Pass turn function
+async function passTurn() {
+    try {
+        const users = JSON.parse(localStorage.getItem('user')) || {};
+        if (!users.phone) throw new Error('User not logged in');
+        
+        if (gameState.currentPlayer !== users.phone) {
+            displayMessage(gameStatusEl, "It's not your turn!", 'error');
+            return;
+        }
+
+        const isCreator = gameState.playerRole === 'creator';
+        const opponentPhone = isCreator ? gameState.opponent.phone : gameState.creator.phone;
+        
+        const updateData = {
+            current_player: opponentPhone,
+            updated_at: new Date().toISOString(),
+            must_play_suit: false,
+            current_suit_to_match: '',
+            has_drawn_this_turn: false
+        };
+        
+        const { error } = await supabase
+            .from('card_games')
+            .update(updateData)
+            .eq('code', gameState.gameCode);
+            
+        if (error) throw error;
+        
+        gameState.mustPlaySuit = false;
+        gameState.currentSuitToMatch = '';
+        gameState.hasDrawnThisTurn = false;
+        updateGameUI();
+        
+    } catch (error) {
+        console.error('Error passing turn:', error);
+        if (gameStatusEl) gameStatusEl.textContent = 'Error passing turn';
+    }
+}
 // The rest of your existing code can stay the same...
 // --- CSS for Dialogs ---
 const style = document.createElement('style');
