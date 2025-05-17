@@ -605,6 +605,69 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // --- Game Functions ---
+// --- Add this code to handle bet deduction for creator when opponent joins ---
+
+// 1. Deduct the creator's bet ONLY when opponent joins the game (not at room creation).
+// 2. Prevent multiple deductions by marking "bet_deducted" in the DB.
+
+// First, update your Supabase game table to have a boolean column `bet_deducted` (default: false).
+// Assume this field exists. If not, you should add it in your Supabase dashboard.
+
+async function handleOpponentJoined(gameData) {
+    // Only the creator should run the deduction logic
+    const users = JSON.parse(localStorage.getItem('user')) || {};
+    const isCreator = users.phone === gameData.creator_phone;
+
+    // If opponent just joined AND bet not yet deducted
+    if (
+        isCreator &&
+        !gameData.bet_deducted && // Only if not already paid
+        gameData.opponent_phone // Opponent has joined
+    ) {
+        // Deduct bet from creator's balance
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('balance')
+            .eq('phone', users.phone)
+            .single();
+
+        if (userError || !userData) {
+            console.error('Failed to fetch user balance:', userError);
+            return;
+        }
+
+        if (userData.balance < gameData.bet) {
+            alert('Insufficient balance to pay the bet.');
+            // Optionally, forfeit the game here
+            return;
+        }
+
+        // Deduct the bet
+        const newBalance = userData.balance - gameData.bet;
+        const { error: updateError } = await supabase
+            .from('users')
+            .update({ balance: newBalance })
+            .eq('phone', users.phone);
+
+        if (updateError) {
+            console.error('Failed to deduct bet:', updateError);
+            return;
+        }
+
+        // Mark bet as paid in game table
+        const { error: markPaidError } = await supabase
+            .from('card_games')
+            .update({ bet_deducted: true })
+            .eq('code', gameData.code);
+
+        if (markPaidError) {
+            console.error('Failed to mark bet as paid:', markPaidError);
+            // Optionally, refund here if needed
+        }
+    }
+}
+
+// --- Call this after loading game data in loadGameData ---
 async function loadGameData() {
     try {
         const { data: gameData, error } = await supabase
@@ -612,13 +675,13 @@ async function loadGameData() {
             .select('*')
             .eq('code', gameState.gameCode)
             .single();
-            
+
         if (error) throw error;
         if (!gameData) throw new Error('Game not found');
-        
+
         const users = JSON.parse(localStorage.getItem('user')) || {};
         gameState.playerRole = gameData.creator_phone === users.phone ? 'creator' : 'opponent';
-        
+
         // Update game state
         gameState.status = gameData.status;
         gameState.currentPlayer = gameData.current_player;
@@ -629,7 +692,7 @@ async function loadGameData() {
         gameState.currentSuitToMatch = gameData.current_suit_to_match || '';
         gameState.hasDrawnThisTurn = gameData.has_drawn_this_turn || false;
         gameState.discardPile = gameData.discard_pile ? safeParseJSON(gameData.discard_pile) : [];
-        
+
         // Set player hands
         if (gameState.playerRole === 'creator') {
             gameState.playerHand = safeParseJSON(gameData.creator_hand) || [];
@@ -638,34 +701,118 @@ async function loadGameData() {
             gameState.playerHand = safeParseJSON(gameData.opponent_hand) || [];
             gameState.opponentHandCount = safeParseJSON(gameData.creator_hand)?.length || 0;
         }
-        
+
         // Set player info
         gameState.creator = {
             username: gameData.creator_username,
             phone: gameData.creator_phone
         };
-        
+
         if (gameData.opponent_phone) {
             gameState.opponent = {
                 username: gameData.opponent_username,
                 phone: gameData.opponent_phone
             };
         }
-        
+
         // Check for pending actions
         if (gameData.pending_action) {
             gameState.pendingAction = gameData.pending_action;
             gameState.pendingActionData = gameData.pending_action_data;
         }
-            gameState.lastSuitChangeMethod = gameData.last_suit_change_method;
+        gameState.lastSuitChangeMethod = gameData.last_suit_change_method;
+
+        // ---- ADD THIS: Handle bet deduction if opponent joined ----
+        await handleOpponentJoined(gameData);
 
         updateGameUI();
-        
+
     } catch (error) {
         console.error('Error loading game:', error);
         if (gameStatusEl) gameStatusEl.textContent = 'Error loading game';
         setTimeout(() => window.location.href = '/', 3000);
     }
+}
+
+// --- Also, in setupRealtimeUpdates, listen for opponent joining and re-run handleOpponentJoined() ---
+function setupRealtimeUpdates() {
+    const channel = supabase
+        .channel(`card_game_${gameState.gameCode}`)
+        .on(
+            'postgres_changes',
+            {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'card_games',
+                filter: `code=eq.${gameState.gameCode}`
+            },
+            async (payload) => {
+                try {
+                    gameState.status = payload.new.status;
+                    gameState.currentPlayer = payload.new.current_player;
+                    gameState.currentSuit = payload.new.current_suit;
+                    gameState.hasDrawnThisTurn = payload.new.has_drawn_this_turn || false;
+                    gameState.lastSuitChangeMethod = payload.new.last_suit_change_method;
+
+                    if (payload.new.last_card) {
+                        try {
+                            gameState.lastCard = typeof payload.new.last_card === 'string' ?
+                                JSON.parse(payload.new.last_card) :
+                                payload.new.last_card;
+                        } catch (e) {
+                            console.error('Error parsing last_card:', e);
+                            gameState.lastCard = null;
+                        }
+                    } else {
+                        gameState.lastCard = null;
+                    }
+
+                    gameState.pendingAction = payload.new.pending_action;
+                    gameState.pendingActionData = payload.new.pending_action_data;
+                    gameState.mustPlaySuit = payload.new.must_play_suit || false;
+                    gameState.currentSuitToMatch = payload.new.current_suit_to_match || '';
+                    gameState.discardPile = payload.new.discard_pile ? safeParseJSON(payload.new.discard_pile) : [];
+
+                    const users = JSON.parse(localStorage.getItem('user')) || {};
+                    const isCreator = gameState.playerRole === 'creator';
+
+                    if (isCreator) {
+                        gameState.playerHand = safeParseJSON(payload.new.creator_hand) || [];
+                        gameState.opponentHandCount = safeParseJSON(payload.new.opponent_hand)?.length || 0;
+                    } else {
+                        gameState.playerHand = safeParseJSON(payload.new.opponent_hand) || [];
+                        gameState.opponentHandCount = safeParseJSON(payload.new.creator_hand)?.length || 0;
+                    }
+
+                    if (payload.new.opponent_phone && !gameState.opponent.phone) {
+                        gameState.opponent = {
+                            username: payload.new.opponent_username,
+                            phone: payload.new.opponent_phone
+                        };
+
+                        if (gameState.status === 'waiting') {
+                            gameState.status = 'ongoing';
+                        }
+                    }
+
+                    if (payload.new.status === 'finished') {
+                        const isWinner = payload.new.winner === users.phone;
+                        const amount = Math.floor(gameState.betAmount * 1.8);
+                        showGameResult(isWinner, amount);
+                    }
+
+                    // ---- ADD THIS: Check if opponent just joined and handle bet deduction ----
+                    await handleOpponentJoined(payload.new);
+
+                    updateGameUI();
+                } catch (error) {
+                    console.error('Error processing realtime update:', error);
+                }
+            }
+        )
+        .subscribe();
+
+    return channel;
 }
 
 
@@ -1204,7 +1351,7 @@ function updateGameUI() {
         renderPlayerHand();
         renderDiscardPile();
     } else {
-       if (playerHandEl) playerHandEl.innerHTML = '<div class="waiting-message">Waiting for opponent...</div>';
+       if (playerHandEl) playerHandEl.innerHTML = '<div class="waiting-message"></div>';
         if (discardPileEl) discardPileEl.innerHTML = '';
     }
     
@@ -1370,83 +1517,7 @@ function showGameResult(isWinner, amount) {
 }
 
 
-function setupRealtimeUpdates() {
 
-    const channel = supabase
-        .channel(`card_game_${gameState.gameCode}`)
-        .on(
-            'postgres_changes',
-            {
-                event: 'UPDATE',
-                schema: 'public',
-                table: 'card_games',
-                filter: `code=eq.${gameState.gameCode}`
-            },
-            (payload) => {
-                try {
-                    gameState.status = payload.new.status;
-                    gameState.currentPlayer = payload.new.current_player;
-                    gameState.currentSuit = payload.new.current_suit;
-                    gameState.hasDrawnThisTurn = payload.new.has_drawn_this_turn || false;
-                       gameState.lastSuitChangeMethod = payload.new.last_suit_change_method;
-
-                    if (payload.new.last_card) {
-                        try {
-                            gameState.lastCard = typeof payload.new.last_card === 'string' ? 
-                                JSON.parse(payload.new.last_card) : 
-                                payload.new.last_card;
-                        } catch (e) {
-                            console.error('Error parsing last_card:', e);
-                            gameState.lastCard = null;
-                        }
-                    } else {
-                        gameState.lastCard = null;
-                    }
-                    
-                    gameState.pendingAction = payload.new.pending_action;
-                    gameState.pendingActionData = payload.new.pending_action_data;
-                    gameState.mustPlaySuit = payload.new.must_play_suit || false;
-                    gameState.currentSuitToMatch = payload.new.current_suit_to_match || '';
-                    gameState.discardPile = payload.new.discard_pile ? safeParseJSON(payload.new.discard_pile) : [];
-                    
-                    const users = JSON.parse(localStorage.getItem('user')) || {};
-                    const isCreator = gameState.playerRole === 'creator';
-                    
-                    if (isCreator) {
-                        gameState.playerHand = safeParseJSON(payload.new.creator_hand) || [];
-                        gameState.opponentHandCount = safeParseJSON(payload.new.opponent_hand)?.length || 0;
-                    } else {
-                        gameState.playerHand = safeParseJSON(payload.new.opponent_hand) || [];
-                        gameState.opponentHandCount = safeParseJSON(payload.new.creator_hand)?.length || 0;
-                    }
-                    
-                    if (payload.new.opponent_phone && !gameState.opponent.phone) {
-                        gameState.opponent = {
-                            username: payload.new.opponent_username,
-                            phone: payload.new.opponent_phone
-                        };
-                        
-                        if (gameState.status === 'waiting') {
-                            gameState.status = 'ongoing';
-                        }
-                    }
-                    
-                    if (payload.new.status === 'finished') {
-                        const isWinner = payload.new.winner === users.phone;
-                        const amount = Math.floor(gameState.betAmount * 1.8);
-                        showGameResult(isWinner, amount);
-                    }
-                    
-                    updateGameUI();
-                } catch (error) {
-                    console.error('Error processing realtime update:', error);
-                }
-            }
-        )
-        .subscribe();
-        
-    return channel;
-}
 
 function safeParseJSON(json) {
     try {
