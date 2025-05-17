@@ -1342,91 +1342,191 @@ async function drawCard() {
 
 
 
-// Update the showSevenCardDialog function to handle the new 7 card behavior
+// Helper: Modern card chip for dialog
+function modernCardChip(card) {
+    return `
+      <div class="modern-card-chip ${card.suit}" 
+        style="border-radius:9px;padding:8px 10px;background:#fff;box-shadow:0 2px 8px #0001;display:flex;align-items:center;gap:6px;min-width:54px;justify-content:center;">
+        <span style="font-weight:700;font-size:1.1em;">${card.value}</span>
+        ${getSuitSVG(card.suit)}
+      </div>
+    `;
+}
+
+// --- Modern 7 Card Dialog ---
 async function showSevenCardDialog(initialCardIndex) {
     const initialCard = gameState.playerHand[initialCardIndex];
-    // Find all 8s and Js in hand (can be played with this 7, but not the same suit)
-    const specialCards = gameState.playerHand.filter(
-        (card, index) =>
-            (card.value === '8' || card.value === 'J') &&
-            index !== initialCardIndex &&
-            card.suit !== initialCard.suit
-    );
-    // Also allow playing more 7s of any suit (except this one, already selected)
-    const otherSevens = gameState.playerHand.filter(
-        (card, index) => card.value === '7' && index !== initialCardIndex
-    );
-    // Also allow playing other cards of the SAME SUIT as the 7 (except itself, and not 8/J again for clarity)
-    const sameSuitNon7 = gameState.playerHand.filter(
-        (card, index) =>
-            card.suit === initialCard.suit &&
-            card.value !== '7' &&
-            index !== initialCardIndex &&
-            card.value !== '8' &&
-            card.value !== 'J'
-    );
+    // Find all combinable cards (8/J different suit, 7s, same suit non-7/8/J)
+    const combinable = gameState.playerHand
+      .map((c, i) => ({ ...c, idx: i }))
+      .filter(card =>
+        (card.idx !== initialCardIndex) &&
+        (
+          card.value === '7' ||
+          ((card.value === '8' || card.value === 'J') && card.suit !== initialCard.suit) ||
+          (card.suit === initialCard.suit && card.value !== '7' && card.value !== '8' && card.value !== 'J')
+        )
+      );
 
-    // If no combinable cards, just play the 7
-    if (specialCards.length === 0 && otherSevens.length === 0 && sameSuitNon7.length === 0) {
+    if (combinable.length === 0) {
         await processCardPlay([initialCard]);
         return;
     }
 
-    // Create selection modal
+    // Modal container
     const modal = document.createElement('div');
-    modal.className = 'card-selection-modal';
+    modal.className = 'modern-modal-overlay';
     modal.innerHTML = `
-        <div class="selection-content" style="background: #155724; border-radius:16px; box-shadow:0 6px 24px #15572455;">
-            <h3 style="color: #fff;">Play ${initialCard.value} of ${initialCard.suit.toUpperCase()}<br><span style="font-size: 0.9em; color: #b2dfdb;">(Add more cards to combo)</span></h3>
-            <div class="card-selection-options" style="margin: 18px 0 10px;">
-                ${[...specialCards, ...otherSevens, ...sameSuitNon7].map((card, i) => `
-                    <div class="card-option ${card.suit}" 
-                        style="border:2px solid #35b86b;background:#e8f5e9;"
-                        data-index="${gameState.playerHand.findIndex(c =>
-                            c.suit === card.suit && c.value === card.value
-                        )}">
-                        <div class="card-value" style="font-size:1.2em; color:${card.value === '8' ? '#e65100' : card.value === 'J' ? '#1565c0' : '#00695c'};">${card.value}</div>
-                        <div class="card-suit" style="margin:0 auto;">${getSuitSVG(card.suit)}</div>
-                    </div>
-                `).join('')}
-            </div>
-            <div class="selection-actions" style="margin-top:8px;">
-                <button id="play-selected-cards" style="background:#43a047;color:#fff;">Play Selected</button>
-                <button id="play-single-seven" style="background:#fff;color:#388e3c;border:1.5px solid #388e3c;">Only Play 7</button>
-            </div>
+      <div class="modern-modal">
+        <h2 class="modal-title">Play <span class="modern-card-chip-title">${modernCardChip(initialCard)}</span></h2>
+        <p class="modal-sub">Select any cards to play together:</p>
+        <div class="modern-card-chip-list">
+          ${combinable.map(card => `
+            <div class="modern-card-chip-option" data-index="${card.idx}">${modernCardChip(card)}</div>
+          `).join('')}
         </div>
+        <div class="modern-dialog-actions">
+          <button class="modern-btn primary" id="play-selected-cards">Play Selected</button>
+          <button class="modern-btn" id="play-single-seven">Only Play 7</button>
+        </div>
+      </div>
     `;
     document.body.appendChild(modal);
 
-    // Track selected cards
+    // Style: modern UI
+    injectModernDialogCSS();
+
+    // Selection
     const selectedIndices = new Set([initialCardIndex]);
-    modal.querySelectorAll('.card-option').forEach(option => {
+    modal.querySelectorAll('.modern-card-chip-option').forEach(option => {
         option.addEventListener('click', () => {
-            const index = parseInt(option.dataset.index);
-            if (selectedIndices.has(index)) {
-                option.classList.remove('selected');
-                selectedIndices.delete(index);
-            } else {
-                option.classList.add('selected');
-                selectedIndices.add(index);
-            }
+            const idx = parseInt(option.dataset.index);
+            option.classList.toggle('selected');
+            if (selectedIndices.has(idx)) selectedIndices.delete(idx);
+            else selectedIndices.add(idx);
         });
     });
 
-    // Add action handlers
+    // Actions
     return new Promise((resolve) => {
-        modal.querySelector('#play-selected-cards').addEventListener('click', async () => {
+        modal.querySelector('#play-selected-cards').onclick = async () => {
             const cardsToPlay = Array.from(selectedIndices).map(i => gameState.playerHand[i]);
             modal.remove();
             await processCardPlay(cardsToPlay);
             resolve();
-        });
-        modal.querySelector('#play-single-seven').addEventListener('click', async () => {
+        };
+        modal.querySelector('#play-single-seven').onclick = async () => {
             modal.remove();
             await processCardPlay([initialCard]);
             resolve();
-        });
+        };
     });
+}
+
+// --- Modern Suit Selector Dialog ---
+function showSuitSelector() {
+    const modal = document.createElement('div');
+    modal.className = 'modern-modal-overlay';
+    modal.innerHTML = `
+      <div class="modern-modal">
+        <h2 class="modal-title">Pick a Suit</h2>
+        <div class="modern-suit-options">
+          ${SUITS.map(suit => `
+            <button class="modern-suit-btn ${suit}" data-suit="${suit}" style="display:flex;align-items:center;gap:9px;">
+              ${getSuitSVG(suit)}
+              <span style="font-weight:600;">${suit[0].toUpperCase()+suit.slice(1)}</span>
+            </button>
+          `).join('')}
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    // Style: modern UI
+    injectModernDialogCSS();
+
+    modal.querySelectorAll('.modern-suit-btn').forEach(btn => {
+        btn.onclick = async () => {
+            const selectedSuit = btn.dataset.suit;
+            try {
+                const users = JSON.parse(localStorage.getItem('user')) || {};
+                if (!users.phone) throw new Error('User not logged in');
+                const isCreator = gameState.playerRole === 'creator';
+                const opponentPhone = isCreator ? gameState.opponent.phone : gameState.creator.phone;
+                const { error } = await supabase
+                    .from('card_games')
+                    .update({
+                        current_suit: selectedSuit,
+                        current_player: opponentPhone,
+                        pending_action: null,
+                        pending_action_data: null,
+                        updated_at: new Date().toISOString(),
+                        must_play_suit: true,
+                        current_suit_to_match: selectedSuit,
+                        has_drawn_this_turn: false
+                    })
+                    .eq('code', gameState.gameCode);
+                if (error) throw error;
+            } catch (error) {
+                console.error('Error selecting suit:', error);
+            }
+            modal.remove();
+        };
+    });
+}
+
+// --- Inject Modern Dialog CSS if not already present ---
+function injectModernDialogCSS() {
+  if (document.getElementById('modern-dialog-css')) return;
+  const style = document.createElement('style');
+  style.id = 'modern-dialog-css';
+  style.textContent = `
+  .modern-modal-overlay {
+    background: rgba(34, 36, 38, 0.46);
+    position: fixed; z-index: 1999; left: 0; top: 0; width: 100vw; height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    animation: fadein 0.12s;
+  }
+  .modern-modal {
+    background: #fff; border-radius: 18px; min-width: 290px; max-width: 94vw;
+    box-shadow: 0 10px 38px #0b2b1f0f, 0 4px 18px #0b2b1f28;
+    padding: 32px 24px 18px 24px; position: relative; font-family: "Inter",sans-serif;
+    text-align: center; animation: popup-in 0.17s;
+  }
+  .modal-title { font-size: 1.4em; color: #173e25; font-weight: 700; margin-bottom: 11px; }
+  .modal-sub { color: #4e5b5c; font-size: 1em; margin-bottom: 10px; }
+  .modern-card-chip-list { display: flex; flex-wrap: wrap; gap: 13px; justify-content: center; margin: 13px 0 15px; }
+  .modern-card-chip-option { cursor: pointer; transition: transform .13s, box-shadow .13s; }
+  .modern-card-chip-option.selected, .modern-card-chip-option:hover { box-shadow: 0 2px 13px #43a04733; transform: scale(1.07); }
+  .modern-card-chip.hearts { border:1.5px solid #d32f2f; }
+  .modern-card-chip.diamonds { border:1.5px solid #e57373; }
+  .modern-card-chip.clubs { border:1.5px solid #388e3c; }
+  .modern-card-chip.spades { border:1.5px solid #263238; }
+  .modern-card-chip-title { vertical-align:middle; display:inline-block; }
+  .modern-dialog-actions { display: flex; gap: 10px; margin-top: 13px; justify-content: center; }
+  .modern-btn {
+    border: none; outline: none; border-radius: 9px;
+    padding: 9px 18px; font-size: 1em; font-weight: 600; background: #e0e0e0; color: #173e25;
+    cursor: pointer; transition: background 0.13s, color 0.13s;
+  }
+  .modern-btn.primary { background: #43a047; color: #fff; }
+  .modern-btn.primary:hover { background: #388e3c; }
+  .modern-btn:hover { background: #c8c8c8; }
+  .modern-suit-options { display:flex; flex-wrap:wrap; gap:14px; margin:18px 0 0 0; justify-content:center; }
+  .modern-suit-btn {
+    border-radius:10px; border:none; background:#e8f5e9; padding:13px 19px 13px 15px; font-size:1.15em;
+    box-shadow:0 2px 6px #43a04722; cursor:pointer; transition:box-shadow .13s,background .13s;
+    color:#173e25; outline: none; min-width: 96px; min-height: 51px; justify-content:center;
+  }
+  .modern-suit-btn.hearts { background:#ffeaea; color:#d32f2f; }
+  .modern-suit-btn.diamonds { background:#e8f0fe; color:#1565c0; }
+  .modern-suit-btn.clubs { background:#e8f5e9; color:#388e3c; }
+  .modern-suit-btn.spades { background:#ececec; color:#263238; }
+  .modern-suit-btn:hover { box-shadow:0 3px 18px #43a04722; background:#d0f5e6; }
+  @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes popup-in { from { transform: scale(0.93); opacity: 0.7; } to { transform: scale(1); opacity:1; } }
+  `;
+  document.head.appendChild(style);
 }
 
 function updateGameUI() {
@@ -1553,57 +1653,6 @@ async function passTurn() {
     }
 }
 
-
-// --- Improved suit selection dialog for 8/J suit change ---
-function showSuitSelector() {
-    const modal = document.createElement('div');
-    modal.className = 'suit-selector-modal';
-    modal.innerHTML = `
-        <div class="suit-selector" style="background: #155724; border-radius:14px; box-shadow:0 6px 24px #15572455;">
-            <h3 style="color:#fff;">Choose a suit for your 8 or J!</h3>
-            <div class="suit-options" style="margin-top: 18px;">
-                ${SUITS.map(suit => `
-                    <button class="suit-option ${suit}" data-suit="${suit}" 
-                        style="font-size:1.2em; font-weight:600; border:2px solid #fff; box-shadow:0 1.5px 7px #388e3c33;">
-                        ${getSuitSVG(suit)}
-                        <span style="margin-left:6px;">${suit[0].toUpperCase() + suit.slice(1)}</span>
-                    </button>
-                `).join('')}
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-
-    modal.querySelectorAll('.suit-option').forEach(button => {
-        button.addEventListener('click', async () => {
-            const selectedSuit = button.dataset.suit;
-            try {
-                const users = JSON.parse(localStorage.getItem('user')) || {};
-                if (!users.phone) throw new Error('User not logged in');
-                const isCreator = gameState.playerRole === 'creator';
-                const opponentPhone = isCreator ? gameState.opponent.phone : gameState.creator.phone;
-                const { error } = await supabase
-                    .from('card_games')
-                    .update({
-                        current_suit: selectedSuit,
-                        current_player: opponentPhone,
-                        pending_action: null,
-                        pending_action_data: null,
-                        updated_at: new Date().toISOString(),
-                        must_play_suit: true,
-                        current_suit_to_match: selectedSuit,
-                        has_drawn_this_turn: false
-                    })
-                    .eq('code', gameState.gameCode);
-                if (error) throw error;
-                modal.remove();
-            } catch (error) {
-                console.error('Error selecting suit:', error);
-                modal.remove();
-            }
-        });
-    });
-}
 
 // ...[rest of your code unchanged]...
 
