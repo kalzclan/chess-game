@@ -1404,7 +1404,6 @@ function showGameResult(isWinner, amount) {
     }
 }
 
-
 function setupRealtimeUpdates() {
     const channel = supabase
         .channel(`card_game_${gameState.gameCode}`)
@@ -1476,6 +1475,23 @@ function setupRealtimeUpdates() {
                         !payload.new.bet_deducted
                     ) {
                         try {
+                            // Always RE-CHECK latest value before acting (prevents double deduction on refresh/race)
+                            const { data: freshGame, error: fetchError } = await supabase
+                                .from('card_games')
+                                .select('bet_deducted, bet, creator_phone, opponent_phone')
+                                .eq('code', payload.new.code)
+                                .single();
+
+                            if (fetchError) {
+                                console.error("Error fetching fresh game state:", fetchError);
+                                return;
+                            }
+
+                            if (!freshGame || freshGame.bet_deducted) {
+                                // Already deducted, do nothing
+                                return;
+                            }
+
                             // Fetch creator and opponent balances
                             const [creatorRes, opponentRes] = await Promise.all([
                                 supabase
