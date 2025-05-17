@@ -1201,8 +1201,7 @@ function updateGameUI() {
     
     // Render game elements
     if (gameState.status !== 'waiting') {
-        renderPlayerHand();
-        renderDiscardPile();
+       
     } else {
        // if (playerHandEl) playerHandEl.innerHTML = '<div class="waiting-message">Waiting for opponent...</div>';
         if (discardPileEl) discardPileEl.innerHTML = '';
@@ -1213,6 +1212,10 @@ function updateGameUI() {
         if (gameState.status === 'waiting') {
             gameStatusEl.textContent = 'Waiting for opponent...';
         } else {
+
+ renderPlayerHand();
+        renderDiscardPile();
+
             let statusText = isMyTurn ? 'Your turn!' : 'Opponent\'s turn';
             
             if (isMyTurn && gameState.pendingAction === 'draw_two') {
