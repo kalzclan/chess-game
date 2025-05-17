@@ -1356,73 +1356,84 @@ function modernCardChip(card) {
 // --- Modern 7 Card Dialog ---
 async function showSevenCardDialog(initialCardIndex) {
     const initialCard = gameState.playerHand[initialCardIndex];
-    // Find all combinable cards (8/J different suit, 7s, same suit non-7/8/J)
-    const combinable = gameState.playerHand
-      .map((c, i) => ({ ...c, idx: i }))
-      .filter(card =>
-        (card.idx !== initialCardIndex) &&
-        (
-          card.value === '7' ||
-          ((card.value === '8' || card.value === 'J') && card.suit !== initialCard.suit) ||
-          (card.suit === initialCard.suit && card.value !== '7' && card.value !== '8' && card.value !== 'J')
-        )
-      );
-
-    if (combinable.length === 0) {
+    
+    // Find all 8s and Js in hand (regardless of suit) that can be played with this 7
+    const specialCards = gameState.playerHand.filter(
+        (card, index) => (card.value === '8' || card.value === 'J') && index !== initialCardIndex&&card.suit !== initialCard.suit
+    );
+    const sameSuitCards = gameState.playerHand.filter(
+        (card, index) => card.suit === initialCard.suit && index !== initialCardIndex
+    );
+    // If no special cards to play with, treat as normal card
+    if (specialCards.length === 0&&sameSuitCards.length === 0) {
         await processCardPlay([initialCard]);
         return;
     }
-
-    // Modal container
+    
+    // Create selection modal
     const modal = document.createElement('div');
-    modal.className = 'modern-modal-overlay';
+    modal.className = 'card-selection-modal';
     modal.innerHTML = `
-      <div class="modern-modal">
-        <h2 class="modal-title">Play <span class="modern-card-chip-title">${modernCardChip(initialCard)}</span></h2>
-        <p class="modal-sub">Select any cards to play together:</p>
-        <div class="modern-card-chip-list">
-          ${combinable.map(card => `
-            <div class="modern-card-chip-option" data-index="${card.idx}">${modernCardChip(card)}</div>
-          `).join('')}
+        <div class="selection-content">
+            <h3>Select cards to play with ${initialCard.value} of ${initialCard.suit}</h3>
+            <div class="card-selection-options">
+                ${specialCards.map((card, i) => `
+                    <div class="card-option ${card.suit}" data-index="${gameState.playerHand.findIndex(c => 
+                        c.suit === card.suit && c.value === card.value)}">
+                        <div class="card-value">${card.value}</div>
+                        <div class="card-suit"></div>
+                    </div>
+                `).join('')}
+                                ${sameSuitCards.map((card, i) => `
+                    <div class="card-option ${card.suit}" data-index="${gameState.playerHand.findIndex(c => 
+                        c.suit === card.suit && c.value === card.value)}">
+                        <div class="card-value">${card.value}</div>
+                        <div class="card-suit"></div>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="selection-actions">
+                <button id="play-selected-cards">Play Selected</button>
+                <button id="play-single-seven">Play Just This 7</button>
+            </div>
         </div>
-        <div class="modern-dialog-actions">
-          <button class="modern-btn primary" id="play-selected-cards">Play Selected</button>
-          <button class="modern-btn" id="play-single-seven">Only Play 7</button>
-        </div>
-      </div>
     `;
+    
     document.body.appendChild(modal);
-
-    // Style: modern UI
-    injectModernDialogCSS();
-
-    // Selection
+    
+    // Track selected cards
     const selectedIndices = new Set([initialCardIndex]);
-    modal.querySelectorAll('.modern-card-chip-option').forEach(option => {
+    
+    // Add selection handlers
+    modal.querySelectorAll('.card-option').forEach(option => {
         option.addEventListener('click', () => {
-            const idx = parseInt(option.dataset.index);
-            option.classList.toggle('selected');
-            if (selectedIndices.has(idx)) selectedIndices.delete(idx);
-            else selectedIndices.add(idx);
+            const index = parseInt(option.dataset.index);
+            if (selectedIndices.has(index)) {
+                option.classList.remove('selected');
+                selectedIndices.delete(index);
+            } else {
+                option.classList.add('selected');
+                selectedIndices.add(index);
+            }
         });
     });
-
-    // Actions
+    
+    // Add action handlers
     return new Promise((resolve) => {
-        modal.querySelector('#play-selected-cards').onclick = async () => {
+        modal.querySelector('#play-selected-cards').addEventListener('click', async () => {
             const cardsToPlay = Array.from(selectedIndices).map(i => gameState.playerHand[i]);
             modal.remove();
             await processCardPlay(cardsToPlay);
             resolve();
-        };
-        modal.querySelector('#play-single-seven').onclick = async () => {
+        });
+        
+        modal.querySelector('#play-single-seven').addEventListener('click', async () => {
             modal.remove();
             await processCardPlay([initialCard]);
             resolve();
-        };
+        });
     });
 }
-
 // --- Modern Suit Selector Dialog ---
 function showSuitSelector() {
     const modal = document.createElement('div');
