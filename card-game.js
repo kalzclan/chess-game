@@ -1437,18 +1437,25 @@ async function showSevenCardDialog(initialCardIndex) {
     });
 }
 function updateGameUI() {
+            const isMyTurn = users.phone === gameState.currentPlayer;
     const users = JSON.parse(localStorage.getItem('user')) || {};
-        const isMyTurn = users.phone === gameState.currentPlayer;
+    const isCreator = gameState.playerRole === 'creator';
 
-    // Always show creator at the top
-    if (opponentNameEl) opponentNameEl.textContent = gameState.creator.username || 'Waiting...';
+    // Top section: Always show the other player (opponent for creator, creator for opponent)
+    if (opponentNameEl) {
+        if (isCreator) {
+            opponentNameEl.textContent = gameState.opponent.username || 'Waiting...';
+        } else {
+            opponentNameEl.textContent = gameState.creator.username || 'Waiting...';
+        }
+    }
     if (opponentAvatarEl) {
-        opponentAvatarEl.style.backgroundColor = generateAvatarColor(gameState.creator.username);
-        opponentAvatarEl.textContent = gameState.creator.username ? 
-            gameState.creator.username.charAt(0).toUpperCase() : 'C';
+        const name = isCreator ? gameState.opponent.username : gameState.creator.username;
+        opponentAvatarEl.style.backgroundColor = generateAvatarColor(name);
+        opponentAvatarEl.textContent = name ? name.charAt(0).toUpperCase() : 'O';
     }
 
-    // Always show current user ("me") at the bottom
+    // Bottom section: Always show myself
     if (playerNameEl) playerNameEl.textContent = users.username || 'You';
     if (playerAvatarEl) {
         playerAvatarEl.style.backgroundColor = generateAvatarColor(users.username);
