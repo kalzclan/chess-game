@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 // --- Supabase Setup ---
@@ -87,77 +86,44 @@ function renderCardHTML(card, {isPlayable = false} = {}) {
     </div>
     `;
 }
-// Helper: Animate removal of a card element (fade out then remove)
-function removeCardWithAnimation(cardEl) {
-    cardEl.classList.add('card-fade-out');
-    cardEl.addEventListener('animationend', () => {
-        if (cardEl.parentNode) cardEl.parentNode.removeChild(cardEl);
-    }, { once: true });
-}
 
-// Helper: Animate adding a card (fade in)
-function createAnimatedCard(card, isPlayable, onClick) {
-    const wrapper = document.createElement('div');
-    wrapper.innerHTML = renderCardHTML(card, { isPlayable });
-    const cardEl = wrapper.firstElementChild;
-    cardEl.classList.add('card-animated', 'card-fade-in');
-    if (isPlayable && typeof onClick === 'function') {
-        cardEl.addEventListener('click', onClick);
-    }
-    cardEl.addEventListener('animationend', () => {
-        cardEl.classList.remove('card-fade-in');
-    }, { once: true });
-    return cardEl;
-}
 // --- Update renderPlayerHand to use the above realistic card ---
-// --- Update renderPlayerHand to use animation helpers ---
 function renderPlayerHand() {
     if (!playerHandEl) return;
-
-    // Instead of clearing everything, animate removal for cards no longer in hand
-    const existingCards = Array.from(playerHandEl.querySelectorAll('.card'));
-    const currentHandSignatures = gameState.playerHand.map(c => c.suit + c.value);
-
-    // Remove cards not in hand with animation
-    existingCards.forEach(cardEl => {
-        const sig = cardEl.dataset.suit + cardEl.dataset.value;
-        if (!currentHandSignatures.includes(sig)) {
-            removeCardWithAnimation(cardEl);
-        }
-    });
-
-    // For each card in hand, if not already rendered, add with animation
-    const scrollWrapper = playerHandEl.querySelector('.player-hand-scroll') || document.createElement('div');
+    
+    // Clear the container
+    playerHandEl.innerHTML = '';
+    
+    // Create a scrollable wrapper
+    const scrollWrapper = document.createElement('div');
     scrollWrapper.className = 'player-hand-scroll';
-
-    // Remove all children (cards) from scrollWrapper (but not from playerHandEl)
-    while (scrollWrapper.firstChild) scrollWrapper.removeChild(scrollWrapper.firstChild);
-
+    
+    // Create an inner container for the cards
     const cardsContainer = document.createElement('div');
     cardsContainer.className = 'player-hand-cards';
-
+    
     const users = JSON.parse(localStorage.getItem('user')) || {};
     const isMyTurn = gameState.currentPlayer === users.phone;
-
+    
     gameState.playerHand.forEach((card, index) => {
         const isPlayable = isMyTurn && canPlayCard(card);
-        const cardEl = createAnimatedCard(card, isPlayable, () => playCard(index));
-        cardEl.dataset.suit = card.suit;
-        cardEl.dataset.value = card.value;
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = renderCardHTML(card, { isPlayable });
+        const cardEl = wrapper.firstElementChild;
+        if (isPlayable) {
+            cardEl.addEventListener('click', () => playCard(index));
+        }
         cardsContainer.appendChild(cardEl);
     });
-
+    
+    // Add the cards container to the scroll wrapper
     scrollWrapper.appendChild(cardsContainer);
-
-    // Only append scrollWrapper if not already present
-    if (!playerHandEl.contains(scrollWrapper)) {
-        playerHandEl.appendChild(scrollWrapper);
-    }
+    // Add the scroll wrapper to the player hand element
+    playerHandEl.appendChild(scrollWrapper);
 }
 
 
 // --- Updated renderDiscardPile (realistic cards) ---
-// --- Patch renderDiscardPile to animate new card on pile ---
 function renderDiscardPile() {
     if (!discardPileEl) return;
 
@@ -165,6 +131,7 @@ function renderDiscardPile() {
     const pileContainer = document.createElement('div');
     pileContainer.className = 'discard-pile-container';
 
+    // Gather cards (discard pile + last card)
     const allCards = [];
     if (gameState.discardPile && gameState.discardPile.length > 0) {
         for (let i = 0; i < gameState.discardPile.length; i++) {
@@ -185,19 +152,29 @@ function renderDiscardPile() {
         const yOffset = isTop ? 0 : (Math.random() * 10 - 5);
 
         const wrapper = document.createElement('div');
-        wrapper.innerHTML = renderCardHTML(card, { isTop, isStacked: !isTop, isPlayable: false });
+        wrapper.innerHTML = renderCardHTML(card, {
+            isTop,
+            isStacked: !isTop,
+            isPlayable: false
+        });
         const cardEl = wrapper.firstElementChild;
         cardEl.style.zIndex = z;
         cardEl.style.position = 'absolute';
         cardEl.style.left = `calc(50% + ${xOffset}px)`;
         cardEl.style.top = `calc(50% + ${yOffset}px)`;
         cardEl.style.transform = `translate(-50%, -50%) rotate(${rot}deg)`;
-        cardEl.classList.add('card-animated', 'card-fade-in');
-        cardEl.addEventListener('animationend', () => cardEl.classList.remove('card-fade-in'), { once: true });
         pileContainer.appendChild(cardEl);
     });
 
-    // ... rest of your function unchanged
+    // Count badge if many cards
+    const totalCards = allCards.length;
+    if (totalCards > cardsToShow) {
+        const remainingCount = totalCards - cardsToShow;
+        const countEl = document.createElement('div');
+        countEl.className = 'discard-pile-count';
+        countEl.textContent = `+${remainingCount} more`;
+        pileContainer.appendChild(countEl);
+    }
     pileContainer.style.position = "relative";
     pileContainer.style.width = "140px";
     pileContainer.style.height = "120px";
@@ -1178,88 +1155,73 @@ async function showSevenCardDialog(initialCardIndex) {
 function updateGameUI() {
     const users = JSON.parse(localStorage.getItem('user')) || {};
     const isMyTurn = users.phone === gameState.currentPlayer;
-
+    
     // Update player info
     if (playerNameEl) playerNameEl.textContent = users.username || 'You';
     if (opponentNameEl) opponentNameEl.textContent = gameState.opponent.username || 'Waiting...';
-
+    
     if (playerAvatarEl) {
         playerAvatarEl.style.backgroundColor = generateAvatarColor(users.username);
         playerAvatarEl.textContent = users.username ? users.username.charAt(0).toUpperCase() : 'Y';
     }
-
+    
     if (opponentAvatarEl) {
         opponentAvatarEl.style.backgroundColor = generateAvatarColor(gameState.opponent.username);
-        opponentAvatarEl.textContent = gameState.opponent.username ?
+        opponentAvatarEl.textContent = gameState.opponent.username ? 
             gameState.opponent.username.charAt(0).toUpperCase() : 'O';
     }
+    
+    // Update game state display
+    if (currentSuitDisplay) {
+        currentSuitDisplay.textContent = gameState.currentSuit 
+            ? `${gameState.currentSuit.toUpperCase()}` 
+            : 'Not set';
+        currentSuitDisplay.className = `suit-${gameState.currentSuit}`;
+    }
+    
+    if (opponentHandCountEl) {
+        opponentHandCountEl.textContent = `${gameState.opponentHandCount} cards`;
+    }
+    
+    // Show/hide action buttons based on game state
+    if (drawCardBtn) {
+        drawCardBtn.style.display = isMyTurn && !gameState.hasDrawnThisTurn ? 'block' : 'none';
+    }
+    
+    if (passTurnBtn) {
+        // Only show pass button if player has drawn this turn
+        passTurnBtn.style.display = isMyTurn && gameState.hasDrawnThisTurn ? 'block' : 'none';
+        
+        // Exception: Also show if forced to pass due to suit mismatch
 
-    // Only show cards and game state when both players have joined AND bet is deducted
-    const bothJoined = gameState.creator.phone && gameState.opponent.phone;
-    const betDeducted = gameState.betDeducted || gameState.bet_deducted; // support both camelCase and snake_case
-
-    if (bothJoined && betDeducted) {
-        if (currentSuitDisplay) {
-            currentSuitDisplay.textContent = gameState.currentSuit
-                ? `${gameState.currentSuit.toUpperCase()}`
-                : 'Not set';
-            currentSuitDisplay.className = `suit-${gameState.currentSuit}`;
+        if (isMyTurn && gameState.mustPlaySuit && !hasCardsOfSuit(gameState.currentSuitToMatch)) {
+           // passTurnBtn.style.display = 'block';
         }
-
-        if (opponentHandCountEl) {
-            opponentHandCountEl.textContent = `${gameState.opponentHandCount} cards`;
-        }
-
-        // Show/hide action buttons based on game state
-        if (drawCardBtn) {
-            drawCardBtn.style.display = isMyTurn && !gameState.hasDrawnThisTurn ? 'block' : 'none';
-        }
-
-        if (passTurnBtn) {
-            // Only show pass button if player has drawn this turn
-            passTurnBtn.style.display = isMyTurn && gameState.hasDrawnThisTurn ? 'block' : 'none';
-
-            // Exception: Also show if forced to pass due to suit mismatch
-            if (isMyTurn && gameState.mustPlaySuit && !hasCardsOfSuit(gameState.currentSuitToMatch)) {
-                // passTurnBtn.style.display = 'block';
-            }
-        }
-
-        // Render game elements
-        renderDiscardPile();
+    }
+    
+    // Render game elements
+    if (gameState.status !== 'waiting') {
         renderPlayerHand();
-
-        // Update game status
-        if (gameStatusEl) {
-            if (gameState.status === 'waiting') {
-                gameStatusEl.textContent = 'Waiting for opponent...';
-            } else {
-                let statusText = isMyTurn ? 'Your turn!' : 'Opponent\'s turn';
-
-                if (isMyTurn && gameState.pendingAction === 'draw_two') {
-                    const drawCount = gameState.pendingActionData || 2;
-                    statusText = `You must draw ${drawCount} cards or play a 2`;
-                }
-
-                gameStatusEl.textContent = statusText;
-                gameStatusEl.className = isMyTurn ? 'status-your-turn' : 'status-opponent-turn';
-            }
-        }
+        renderDiscardPile();
     } else {
-        // Show waiting message instead of hands/pile
-        if (playerHandEl) playerHandEl.innerHTML = '<div class="waiting-msg">Waiting for both players…</div>';
+       // if (playerHandEl) playerHandEl.innerHTML = '<div class="waiting-message">Waiting for opponent...</div>';
         if (discardPileEl) discardPileEl.innerHTML = '';
-        if (opponentHandCountEl) opponentHandCountEl.textContent = '';
-        if (drawCardBtn) drawCardBtn.style.display = 'none';
-        if (passTurnBtn) passTurnBtn.style.display = 'none';
-        if (currentSuitDisplay) currentSuitDisplay.textContent = '';
-        if (gameStatusEl) {
-            if (!bothJoined) {
-                gameStatusEl.textContent = 'Waiting for both players to join...';
-            } else if (!betDeducted) {
-                gameStatusEl.textContent = 'Waiting for bet to be deducted...';
+    }
+    
+    // Update game status
+    if (gameStatusEl) {
+        if (gameState.status === 'waiting') {
+            gameStatusEl.textContent = 'Waiting for opponent...';
+        } else {
+            let statusText = isMyTurn ? 'Your turn!' : 'Opponent\'s turn';
+            
+            if (isMyTurn && gameState.pendingAction === 'draw_two') {
+                const drawCount = gameState.pendingActionData || 2;
+                statusText = `You must draw ${drawCount} cards or play a 2`;
             }
-            gameStatusEl.className = 'status-message info';
+            
+            gameStatusEl.textContent = statusText;
+            gameStatusEl.className = isMyTurn ? 'status-your-turn' : 'status-opponent-turn';
         }
     }
 }
@@ -1404,55 +1366,9 @@ function showGameResult(isWinner, amount) {
     }
 }
 
-// Defensive helper: Deduct bet only ONCE, even if called multiple times (reload/race-safe)
-async function deductBetIfNeeded(gameCode) {
-    // Fetch fresh game state
-    const { data: freshGame, error } = await supabase
-        .from('card_games')
-        .select('bet_deducted, bet, creator_phone, opponent_phone')
-        .eq('code', gameCode)
-        .single();
-
-    if (error || !freshGame || freshGame.bet_deducted) return false;
-
-    // Fetch balances
-    const [creatorRes, opponentRes] = await Promise.all([
-        supabase
-            .from('users')
-            .select('balance')
-            .eq('phone', freshGame.creator_phone)
-            .single(),
-        supabase
-            .from('users')
-            .select('balance')
-            .eq('phone', freshGame.opponent_phone)
-            .single()
-    ]);
-    const creatorBalance = creatorRes.data?.balance ?? 0;
-    const opponentBalance = opponentRes.data?.balance ?? 0;
-    const bet = freshGame.bet || 0;
-
-    if (creatorBalance >= bet && opponentBalance >= bet) {
-        await Promise.all([
-            supabase
-                .from('users')
-                .update({ balance: creatorBalance - bet })
-                .eq('phone', freshGame.creator_phone),
-            supabase
-                .from('users')
-                .update({ balance: opponentBalance - bet })
-                .eq('phone', freshGame.opponent_phone),
-            supabase
-                .from('card_games')
-                .update({ bet_deducted: true })
-                .eq('code', gameCode)
-        ]);
-        return true;
-    }
-    return false;
-}
 
 function setupRealtimeUpdates() {
+
     const channel = supabase
         .channel(`card_game_${gameState.gameCode}`)
         .on(
@@ -1463,21 +1379,19 @@ function setupRealtimeUpdates() {
                 table: 'card_games',
                 filter: `code=eq.${gameState.gameCode}`
             },
-            async (payload) => {
+            (payload) => {
                 try {
-                    // Update gameState from payload
                     gameState.status = payload.new.status;
                     gameState.currentPlayer = payload.new.current_player;
                     gameState.currentSuit = payload.new.current_suit;
                     gameState.hasDrawnThisTurn = payload.new.has_drawn_this_turn || false;
-                    gameState.lastSuitChangeMethod = payload.new.last_suit_change_method;
-                    gameState.betDeducted = payload.new.bet_deducted;
+                       gameState.lastSuitChangeMethod = payload.new.last_suit_change_method;
 
                     if (payload.new.last_card) {
                         try {
-                            gameState.lastCard = typeof payload.new.last_card === 'string'
-                                ? JSON.parse(payload.new.last_card)
-                                : payload.new.last_card;
+                            gameState.lastCard = typeof payload.new.last_card === 'string' ? 
+                                JSON.parse(payload.new.last_card) : 
+                                payload.new.last_card;
                         } catch (e) {
                             console.error('Error parsing last_card:', e);
                             gameState.lastCard = null;
@@ -1485,16 +1399,16 @@ function setupRealtimeUpdates() {
                     } else {
                         gameState.lastCard = null;
                     }
-
+                    
                     gameState.pendingAction = payload.new.pending_action;
                     gameState.pendingActionData = payload.new.pending_action_data;
                     gameState.mustPlaySuit = payload.new.must_play_suit || false;
                     gameState.currentSuitToMatch = payload.new.current_suit_to_match || '';
                     gameState.discardPile = payload.new.discard_pile ? safeParseJSON(payload.new.discard_pile) : [];
-
+                    
                     const users = JSON.parse(localStorage.getItem('user')) || {};
                     const isCreator = gameState.playerRole === 'creator';
-
+                    
                     if (isCreator) {
                         gameState.playerHand = safeParseJSON(payload.new.creator_hand) || [];
                         gameState.opponentHandCount = safeParseJSON(payload.new.opponent_hand)?.length || 0;
@@ -1502,41 +1416,24 @@ function setupRealtimeUpdates() {
                         gameState.playerHand = safeParseJSON(payload.new.opponent_hand) || [];
                         gameState.opponentHandCount = safeParseJSON(payload.new.creator_hand)?.length || 0;
                     }
-
-                    // Set player info if opponent just joined
+                    
                     if (payload.new.opponent_phone && !gameState.opponent.phone) {
                         gameState.opponent = {
                             username: payload.new.opponent_username,
                             phone: payload.new.opponent_phone
                         };
+                        
                         if (gameState.status === 'waiting') {
                             gameState.status = 'ongoing';
                         }
                     }
-
-                    // --- Bet deduction logic: only deduct when both players joined and not deducted yet ---
-                    // Only allow the CREATOR to perform the deduction!
-                    if (
-                        isCreator &&
-                        payload.new.creator_phone &&
-                        payload.new.opponent_phone &&
-                        !payload.new.bet_deducted
-                    ) {
-                        try {
-                            await deductBetIfNeeded(payload.new.code);
-                            gameState.betDeducted = true;
-                        } catch (err) {
-                            console.error("Error deducting bet:", err);
-                        }
-                    }
-
-                    // Show game result if finished
+                    
                     if (payload.new.status === 'finished') {
                         const isWinner = payload.new.winner === users.phone;
                         const amount = Math.floor(gameState.betAmount * 1.8);
                         showGameResult(isWinner, amount);
                     }
-
+                    
                     updateGameUI();
                 } catch (error) {
                     console.error('Error processing realtime update:', error);
@@ -1544,9 +1441,10 @@ function setupRealtimeUpdates() {
             }
         )
         .subscribe();
-
+        
     return channel;
 }
+
 function safeParseJSON(json) {
     try {
         return typeof json === 'string' ? JSON.parse(json) : json;
