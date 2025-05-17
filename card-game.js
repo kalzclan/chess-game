@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 // --- Supabase Setup ---
@@ -370,20 +369,165 @@ function renderPlayerHand() {
     const users = JSON.parse(localStorage.getItem('user')) || {};
     const isMyTurn = gameState.currentPlayer === users.phone;
     
+    // Add CSS for realistic cards if not already added
+    const cardStyle = document.createElement('style');
+    cardStyle.textContent = `
+        .card {
+            width: 80px;
+            height: 120px;
+            border-radius: 8px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            background: white;
+            font-family: 'Arial', sans-serif;
+            font-weight: bold;
+            margin: 0 -15px;
+        }
+        
+        .card.playable {
+            transform: translateY(-20px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .card.hearts, .card.diamonds {
+            color: #e74c3c;
+        }
+        
+        .card.clubs, .card.spades {
+            color: #2c3e50;
+        }
+        
+        .card-value {
+            font-size: 1.5em;
+            position: absolute;
+        }
+        
+        .card-value.top {
+            top: 5px;
+            left: 10px;
+        }
+        
+        .card-value.bottom {
+            bottom: 5px;
+            right: 10px;
+            transform: rotate(180deg);
+        }
+        
+        .card-suit {
+            font-size: 2.5em;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        
+        .card-corner {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+        }
+        
+        .card-corner.top-left {
+            top: 2px;
+            left: 5px;
+        }
+        
+        .card-corner.bottom-right {
+            bottom: 2px;
+            right: 5px;
+            transform: rotate(180deg);
+        }
+        
+        /* Special styling for face cards */
+        .card.J .card-suit,
+        .card.Q .card-suit,
+        .card.K .card-suit {
+            font-size: 3.5em;
+        }
+        
+        /* Add subtle texture to cards */
+        .card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.8), rgba(255,255,255,0.4));
+            border-radius: 8px;
+            pointer-events: none;
+        }
+    `;
+    
+    // Only add the style once
+    if (!document.querySelector('style[data-card-style]')) {
+        cardStyle.setAttribute('data-card-style', 'true');
+        document.head.appendChild(cardStyle);
+    }
+    
     gameState.playerHand.forEach((card, index) => {
         const cardEl = document.createElement('div');
         cardEl.className = `card ${card.suit} ${isMyTurn && canPlayCard(card) ? 'playable' : ''}`;
+        
+        // Use suit symbols instead of text
+        let suitSymbol;
+        switch(card.suit) {
+            case 'hearts': suitSymbol = '♥'; break;
+            case 'diamonds': suitSymbol = '♦'; break;
+            case 'clubs': suitSymbol = '♣'; break;
+            case 'spades': suitSymbol = '♠'; break;
+            default: suitSymbol = card.suit;
+        }
+        
         cardEl.innerHTML = `
-            <div class="card-value">${card.value}</div>
-            <div class="card-suit"></div>
+            <div class="card-value top">${card.value}</div>
+            <div class="card-value bottom">${card.value}</div>
+            <div class="card-suit">${suitSymbol}</div>
         `;
+        
+        // Add corner indicators for better visibility
+        const cornerTop = document.createElement('div');
+        cornerTop.className = 'card-corner top-left';
+        cornerTop.innerHTML = `${card.value}<br>${suitSymbol}`;
+        cardEl.appendChild(cornerTop);
+        
+        const cornerBottom = document.createElement('div');
+        cornerBottom.className = 'card-corner bottom-right';
+        cornerBottom.innerHTML = `${card.value}<br>${suitSymbol}`;
+        cardEl.appendChild(cornerBottom);
         
         if (isMyTurn && canPlayCard(card)) {
             cardEl.addEventListener('click', () => playCard(index));
+            
+            // Add hover effect only for playable cards
+            cardEl.addEventListener('mouseenter', () => {
+                cardEl.style.transform = 'translateY(-30px) scale(1.05)';
+                cardEl.style.zIndex = '100';
+            });
+            
+            cardEl.addEventListener('mouseleave', () => {
+                cardEl.style.transform = 'translateY(-20px)';
+                cardEl.style.zIndex = '';
+            });
         }
         
         playerHandEl.appendChild(cardEl);
     });
+    
+    // Adjust card overlap based on hand size
+    const overlap = Math.min(30, Math.max(10, 30 - (gameState.playerHand.length * 0.5)));
+    document.documentElement.style.setProperty('--card-overlap', `${overlap}px`);
 }
 
 // --- Game Functions ---
