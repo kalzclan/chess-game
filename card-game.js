@@ -630,7 +630,6 @@ async function recordTransaction(transactionData) {
 
         const balance_before = userData?.balance || 0;
         const balance_after = balance_before + transactionData.amount;
-            supabase.from('users').update({ balance: creatorData.balance -( gameData.bet/1) }).eq('phone', gameData.creator_phone);
 
         // 2. Attempt to create transaction record
         const { error } = await supabase
@@ -647,7 +646,6 @@ async function recordTransaction(transactionData) {
             });
 
         if (error) throw error;
-            supabase.from('users').update({ balance: opponentData.balance - ( gameData.bet/1) }).eq('phone', gameData.opponent_phone);
 
         // 3. Update user balance
         const { error: updateError } = await supabase
@@ -732,6 +730,8 @@ async function handleOpponentJoined(gameData) {
 
         // Deduct for both
         
+            supabase.from('users').update({ balance: creatorData.balance -( gameData.bet/2) }).eq('phone', gameData.creator_phone);
+            supabase.from('users').update({ balance: opponentData.balance - ( gameData.bet/2) }).eq('phone', gameData.opponent_phone);
         
 
         // Record transactions for both
