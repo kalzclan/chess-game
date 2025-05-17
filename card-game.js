@@ -1404,6 +1404,54 @@ function showGameResult(isWinner, amount) {
     }
 }
 
+// Defensive helper: Deduct bet only ONCE, even if called multiple times (reload/race-safe)
+async function deductBetIfNeeded(gameCode) {
+    // Fetch fresh game state
+    const { data: freshGame, error } = await supabase
+        .from('card_games')
+        .select('bet_deducted, bet, creator_phone, opponent_phone')
+        .eq('code', gameCode)
+        .single();
+
+    if (error || !freshGame || freshGame.bet_deducted) return false;
+
+    // Fetch balances
+    const [creatorRes, opponentRes] = await Promise.all([
+        supabase
+            .from('users')
+            .select('balance')
+            .eq('phone', freshGame.creator_phone)
+            .single(),
+        supabase
+            .from('users')
+            .select('balance')
+            .eq('phone', freshGame.opponent_phone)
+            .single()
+    ]);
+    const creatorBalance = creatorRes.data?.balance ?? 0;
+    const opponentBalance = opponentRes.data?.balance ?? 0;
+    const bet = freshGame.bet || 0;
+
+    if (creatorBalance >= bet && opponentBalance >= bet) {
+        await Promise.all([
+            supabase
+                .from('users')
+                .update({ balance: creatorBalance - bet })
+                .eq('phone', freshGame.creator_phone),
+            supabase
+                .from('users')
+                .update({ balance: opponentBalance - bet })
+                .eq('phone', freshGame.opponent_phone),
+            supabase
+                .from('card_games')
+                .update({ bet_deducted: true })
+                .eq('code', gameCode)
+        ]);
+        return true;
+    }
+    return false;
+}
+
 function setupRealtimeUpdates() {
     const channel = supabase
         .channel(`card_game_${gameState.gameCode}`)
@@ -1475,62 +1523,8 @@ function setupRealtimeUpdates() {
                         !payload.new.bet_deducted
                     ) {
                         try {
-                            // Always RE-CHECK latest value before acting (prevents double deduction on refresh/race)
-                            const { data: freshGame, error: fetchError } = await supabase
-                                .from('card_games')
-                                .select('bet_deducted, bet, creator_phone, opponent_phone')
-                                .eq('code', payload.new.code)
-                                .single();
-
-                            if (fetchError) {
-                                console.error("Error fetching fresh game state:", fetchError);
-                                return;
-                            }
-
-                            if (!freshGame || freshGame.bet_deducted) {
-                                // Already deducted, do nothing
-                                return;
-                            }
-
-                            // Fetch creator and opponent balances
-                            const [creatorRes, opponentRes] = await Promise.all([
-                                supabase
-                                    .from('users')
-                                    .select('balance')
-                                    .eq('phone', payload.new.creator_phone)
-                                    .single(),
-                                supabase
-                                    .from('users')
-                                    .select('balance')
-                                    .eq('phone', payload.new.opponent_phone)
-                                    .single()
-                            ]);
-                            const creatorBalance = creatorRes.data?.balance ?? 0;
-                            const opponentBalance = opponentRes.data?.balance ?? 0;
-                            const bet = payload.new.bet || 0;
-
-                            // Only deduct if both have enough balance
-                            if (creatorBalance >= bet && opponentBalance >= bet) {
-                                await Promise.all([
-                                    supabase
-                                        .from('users')
-                                        .update({ balance: creatorBalance - bet })
-                                        .eq('phone', payload.new.creator_phone),
-                                    supabase
-                                        .from('users')
-                                        .update({ balance: opponentBalance - bet })
-                                        .eq('phone', payload.new.opponent_phone),
-                                    supabase
-                                        .from('card_games')
-                                        .update({ bet_deducted: true })
-                                        .eq('code', payload.new.code)
-                                ]);
-                                gameState.betDeducted = true;
-                            } else {
-                                // (Optional) Handle insufficient funds (e.g., cancel game, notify players)
-                                // For now, just log:
-                                console.warn("One or both players don't have enough balance for the bet.");
-                            }
+                            await deductBetIfNeeded(payload.new.code);
+                            gameState.betDeducted = true;
                         } catch (err) {
                             console.error("Error deducting bet:", err);
                         }
