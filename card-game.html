@@ -6,144 +6,110 @@
     <title>Card Game</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
-        /* Base Styles - Green Theme */
         :root {
-          --primary-color: #2e7d32; /* Dark green */
-          --secondary-color: #1b5e20; /* Darker green */
-          --accent-color: #4caf50; /* Bright green */
-          --background-color: #e8f5e9; /* Light green background */
-          --card-back-color: #1b5e20; /* Dark green for card backs */
-          --text-color: #263238; /* Dark gray for text */
-          --success-color: #388e3c; /* Green */
-          --error-color: #d32f2f; /* Red */
-          --info-color: #1976d2; /* Blue */
-          --warning-color: #ffa000; /* Amber */
-          --heart-color: #e74c3c; /* Red */
-          --diamond-color: #e74c3c; /* Red */
-          --club-color: #263238; /* Dark gray */
-          --spade-color: #263238; /* Dark gray */
-          --card-white: #ffffff; /* Pure white for cards */
-          --card-shadow: 0 2px 6px rgba(0,0,0,0.15);
-          --card-radius: 8px;
-          --card-border: 1px solid rgba(0,0,0,0.1);
-          --header-height: 50px;
-          --footer-height: 70px;
-          --card-width: 80px;
-          --card-height: 120px;
+            --primary-color: #2e7d32;
+            --secondary-color: #1b5e20;
+            --accent-color: #4caf50;
+            --background-color: #e8f5e9;
+            --card-back-color: #1b5e20;
+            --text-color: #263238;
+            --success-color: #388e3c;
+            --error-color: #d32f2f;
+            --info-color: #1976d2;
+            --warning-color: #ffa000;
+            --heart-color: #d32f2f;
+            --diamond-color: #d32f2f;
+            --club-color: #263238;
+            --spade-color: #263238;
+            --card-white: #fff8f0;
+            --card-shadow: 0 4px 18px rgba(0,0,0,0.18), 0 1.5px 6px rgba(0,0,0,0.08);
+            --card-radius: 10px;
+            --card-border: 1.5px solid #ececec;
+            --header-height: 50px;
+            --footer-height: 70px;
         }
 
         * {
-          box-sizing: border-box;
-          margin: 0;
-          padding: 0;
-          font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-        }
-
-        #waiting-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.8);
-            display: none;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            z-index: 1000;
-            font-size: 1.5rem;
-            text-align: center;
-        }
-
-        #game-container {
-            opacity: 0;
-            transition: opacity 0.5s;
-        }
-
-        @keyframes fadeOut {
-            from { opacity: 1; }
-            to { opacity: 0; }
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
         }
 
         body {
-          background-color: var(--background-color);
-          color: var(--text-color);
-          height: 100vh;
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
 
-        /* Game Container - Optimized for Telegram viewport */
         .game-container {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-          padding: 0;
-          overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            overflow: hidden;
         }
 
-        /* Header - Fixed height */
         .game-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 0 12px;
-          height: var(--header-height);
-          background: white;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-          z-index: 10;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 12px;
+            height: var(--header-height);
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            z-index: 10;
         }
 
         #back-btn {
-          background: var(--primary-color);
-          color: white;
-          border: none;
-          padding: 6px 12px;
-          border-radius: 16px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          font-weight: 500;
-          font-size: 14px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: 500;
+            font-size: 14px;
         }
 
         #game-code-display {
-          background: rgba(0, 0, 0, 0.08);
-          padding: 6px 12px;
-          border-radius: 16px;
-          font-weight: bold;
-          color: var(--secondary-color);
-          font-family: 'Courier New', monospace;
-          font-size: 14px;
+            background: rgba(0, 0, 0, 0.08);
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-weight: bold;
+            color: var(--secondary-color);
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
         }
 
-        /* Main Game Area - Flexible space between header and footer */
         .game-main {
-          flex: 1;
-          overflow-y: auto;
-          padding: 12px;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 8px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
 
-        /* Game Status */
         .game-status {
-          text-align: center;
-          background: white;
-          padding: 12px;
-          border-radius: 8px;
-          box-shadow: var(--card-shadow);
+            text-align: center;
+            background: white;
+            padding: 8px;
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
         }
 
         #current-suit {
-          font-size: 18px;
-          font-weight: bold;
-          margin-bottom: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 4px;
         }
 
         .suit-hearts { color: var(--heart-color); }
@@ -152,357 +118,325 @@
         .suit-spades { color: var(--spade-color); }
 
         #game-status {
-          padding: 8px 12px;
-          border-radius: 16px;
-          font-weight: 500;
-          font-size: 16px;
-          display: inline-block;
+            padding: 6px;
+            border-radius: 16px;
+            font-weight: 500;
+            font-size: 14px;
         }
 
         .status-your-turn {
-          background-color: var(--success-color);
-          color: white;
+            background-color: var(--success-color);
+            color: white;
         }
 
         .status-opponent-turn {
-          background-color: var(--info-color);
-          color: white;
+            background-color: var(--info-color);
+            color: white;
         }
 
-        /* Player Areas */
         .opponent-info, .player-info {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 12px;
-          background: white;
-          border-radius: 8px;
-          box-shadow: var(--card-shadow);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
         }
 
         #opponent-avatar, #player-avatar {
-          width: 40px;
-          height: 40px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          font-weight: bold;
-          background: var(--primary-color);
-          font-size: 18px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            background: var(--primary-color);
+            font-size: 16px;
+            border: 2px solid #c8e6c9;
         }
 
         #opponent-name, #player-name {
-          font-weight: 500;
-          flex-grow: 1;
-          font-size: 16px;
+            font-weight: 500;
+            flex-grow: 1;
+            font-size: 14px;
         }
 
         #opponent-hand-count {
-          background: var(--accent-color);
-          color: white;
-          padding: 6px 12px;
-          border-radius: 16px;
-          font-weight: bold;
-          min-width: 40px;
-          text-align: center;
-          font-size: 16px;
+            background: var(--accent-color);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 16px;
+            font-weight: bold;
+            min-width: 30px;
+            text-align: center;
+            font-size: 14px;
         }
 
-        /* Discard Pile */
         .discard-pile {
-          min-height: 140px;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          background: white;
-          border-radius: 8px;
-          box-shadow: var(--card-shadow);
-          margin: 8px 0;
-          padding: 12px;
+            min-height: 110px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: white;
+            border-radius: 10px;
+            box-shadow: var(--card-shadow);
+            margin: 4px 0;
+            position: relative;
         }
 
-        /* Cards - Realistic Styling */
+        /* Realistic Card Styles */
         .card {
-          width: var(--card-width);
-          height: var(--card-height);
-          background: var(--card-white);
-          border-radius: var(--card-radius);
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          padding: 10px;
-          box-shadow: var(--card-shadow);
-          position: relative;
-          cursor: default;
-          transition: transform 0.2s, box-shadow 0.2s;
-          border: var(--card-border);
-          font-weight: 700;
+            width: 64px;
+            height: 96px;
+            background: var(--card-white);
+            border-radius: var(--card-radius);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 8px 6px 8px 8px;
+            margin: 4px;
+            box-shadow: var(--card-shadow);
+            position: relative;
+            cursor: default;
+            transition: transform 0.17s, box-shadow 0.17s, filter 0.13s;
+            border: var(--card-border);
+            font-weight: 600;
+            user-select: none;
+            /* Realistic shine */
+            overflow: hidden;
+            background: linear-gradient(135deg, #fff8f0 90%, #f6efe5 100%);
         }
 
-        /* Card texture effect */
         .card::before {
-          content: "";
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.8), rgba(255,255,255,0.4));
-          border-radius: var(--card-radius);
-          pointer-events: none;
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: var(--card-radius);
+            border: 1.2px solid #e0e0e0;
+            pointer-events: none;
+            z-index: 2;
+        }
+        .card::after {
+            content: '';
+            position: absolute;
+            top: 7px; left: 10px; right: 10px; bottom: 7px;
+            border-radius: 7px;
+            background: linear-gradient(120deg, rgba(255,255,255,0.16) 20%, transparent 85%);
+            z-index: 1;
+            pointer-events: none;
         }
 
         .card.playable {
-          cursor: pointer;
+            cursor: pointer;
         }
-
-        .card.playable:hover {
-          transform: translateY(-10px);
-          box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+        .card.playable:active,
+        .card.playable:focus {
+            filter: brightness(0.97) drop-shadow(0 0 5px #4caf5022);
+            box-shadow: 0 8px 18px rgba(44,80,44,0.12), 0 1.5px 6px rgba(0,0,0,0.08);
+            transform: scale(1.04) rotate(-1.5deg);
+        }
+        .card:hover {
+            transform: translateY(-6px) scale(1.02);
+            box-shadow: 0 7px 18px rgba(0,0,0,0.19), 0 1.5px 6px rgba(0,0,0,0.08);
+            z-index: 20;
         }
 
         .card.hearts, .card.diamonds { color: var(--heart-color); }
         .card.clubs, .card.spades { color: var(--club-color); }
 
-        /* Card value styling */
         .card-value {
-          font-size: 16px;
-          font-weight: bold;
-          position: absolute;
-          z-index: 1;
+            font-size: 14px;
+            font-weight: bold;
+            position: relative;
+            z-index: 3;
+            text-shadow: 0px 1px 0px white, 0px 1px 3px #d1bfa7;
         }
 
-        .card-value.top {
-          top: 8px;
-          left: 10px;
-        }
-
-        .card-value.bottom {
-          bottom: 8px;
-          right: 10px;
-          transform: rotate(180deg);
-        }
-
-        /* Card suit styling */
+        .card-value.top { align-self: flex-start; }
+        .card-value.bottom { align-self: flex-end; transform: rotate(180deg);}
         .card-suit {
-          font-size: 36px;
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          z-index: 1;
+            align-self: center;
+            position: relative;
+            z-index: 3;
+            margin: 0 0 2px 0;
+            width: 26px; height: 26px;
+        }
+        /* Realistic SVG suit icons */
+        .card-suit::after {
+            content: '';
+            display: block;
+            width: 26px; height: 26px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            filter: drop-shadow(0px 0px 1.5px rgba(0,0,0,0.07));
+        }
+        .card.hearts .card-suit::after {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d32f2f'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E");
+        }
+        .card.diamonds .card-suit::after {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d32f2f'%3E%3Cpath d='M19 12l-7-10-7 10 7 10 7-10z'/%3E%3C/svg%3E");
+        }
+        .card.clubs .card-suit::after {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200' fill='%23263238'%3E%3Ccircle cx='100' cy='60' r='35'/%3E%3Ccircle cx='60' cy='130' r='35'/%3E%3Ccircle cx='140' cy='130' r='35'/%3E%3Cpath d='M100 100 L100 170 C100 185 85 185 85 170 L85 100 Z'/%3E%3C/svg%3E");
+        }
+        .card.spades .card-suit::after {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200' fill='%23263238'%3E%3Cpath d='M100 20 L160 120 L40 120 Z'/%3E%3Cpath d='M100 110 L100 180 C100 195 85 195 85 180 L85 110 Z'/%3E%3Ccircle cx='100' cy='115' r='20'/%3E%3C/svg%3E");
+            transform: rotate(180deg);
         }
 
-        /* Corner indicators */
-        .card-corner {
-          position: absolute;
-          width: 20px;
-          height: 20px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          font-size: 10px;
-          z-index: 1;
+        /* Realistic border and shadow for stacked/played cards */
+        .card.stacked-card {
+            position: absolute;
+            top: 0;
+            left: 0;
+            opacity: 0.92;
+            filter: blur(0.3px) brightness(0.94);
+            z-index: 2;
+        }
+        .card.top-card {
+            position: relative;
+            z-index: 20;
+            box-shadow: 0 7px 18px rgba(0,0,0,0.23), 0 1.5px 6px rgba(0,0,0,0.09);
         }
 
-        .card-corner.top-left {
-          top: 2px;
-          left: 5px;
-        }
-
-        .card-corner.bottom-right {
-          bottom: 2px;
-          right: 5px;
-          transform: rotate(180deg);
-        }
-
-        /* Special styling for face cards */
-        .card.J .card-suit,
-        .card.Q .card-suit,
-        .card.K .card-suit {
-          font-size: 42px;
-        }
-
-        /* Player Hand - Fixed height with scrolling */
         .player-hand {
-          display: flex;
-          flex-wrap: nowrap;
-          overflow-x: auto;
-          padding: 12px;
-          background: white;
-          border-radius: 8px;
-          box-shadow: var(--card-shadow);
-          min-height: calc(var(--card-height) + 20px);
-          scrollbar-width: none; /* Firefox */
-          -ms-overflow-style: none; /* IE/Edge */
-          gap: 4px;
+            display: flex;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            padding: 8px 2px 14px 2px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: var(--card-shadow);
+            min-height: 110px;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
         }
+        .player-hand::-webkit-scrollbar { display: none; }
 
-        .player-hand::-webkit-scrollbar {
-          display: none; /* Chrome/Safari */
-        }
-
-        /* Game Controls - Fixed footer */
         .game-controls {
-          display: flex;
-          justify-content: center;
-          gap: 12px;
-          padding: 12px;
-          background: white;
-          box-shadow: 0 -1px 3px rgba(0,0,0,0.1);
-          height: var(--footer-height);
-          z-index: 10;
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: white;
+            box-shadow: 0 -1px 3px rgba(0,0,0,0.1);
+            height: var(--footer-height);
+            z-index: 10;
         }
 
         #draw-card-btn, #pass-turn-btn {
-          background: var(--primary-color);
-          color: white;
-          border: none;
-          padding: 12px 20px;
-          border-radius: 24px;
-          font-size: 16px;
-          font-weight: 500;
-          cursor: pointer;
-          flex: 1;
-          max-width: 180px;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-          transition: transform 0.2s, box-shadow 0.2s;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            flex: 1;
+            max-width: 150px;
         }
 
-        #draw-card-btn:hover, #pass-turn-btn:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-        }
-
-        /* Discard Pile Styles */
-        .discard-pile-container {
-          position: relative;
-          width: var(--card-width);
-          height: var(--card-height);
-          margin: 0 auto;
-        }
-
-        .top-card {
-          position: relative;
-          z-index: 10;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-        }
-
-        .stacked-card {
-          position: absolute;
-          top: 0;
-          left: 0;
-          opacity: 0.8;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-          filter: brightness(0.9);
-        }
-
-        .discard-pile-count {
-          position: absolute;
-          bottom: -20px;
-          left: 50%;
-          transform: translateX(-50%);
-          background: rgba(0,0,0,0.7);
-          color: white;
-          padding: 4px 10px;
-          border-radius: 12px;
-          font-size: 12px;
-          z-index: 20;
-        }
-
-        /* Modals - For suit selection */
         .suit-selector-modal {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0,0,0,0.5);
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          z-index: 1000;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
         }
-
         .suit-selector {
-          background: white;
-          padding: 24px;
-          border-radius: 16px;
-          width: 90%;
-          max-width: 300px;
-          box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            background: white;
+            padding: 16px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 300px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         }
-
         .suit-selector h3 {
-          margin-bottom: 20px;
-          text-align: center;
-          color: var(--primary-color);
-          font-size: 20px;
+            margin-bottom: 16px;
+            text-align: center;
+            color: var(--primary-color);
+            font-size: 18px;
         }
-
         .suit-options {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 12px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
         }
-
         .suit-option {
-          padding: 16px;
-          border: none;
-          border-radius: 8px;
-          cursor: pointer;
-          font-weight: bold;
-          text-align: center;
-          font-size: 16px;
-          transition: transform 0.2s, box-shadow 0.2s;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            text-align: center;
+            font-size: 14px;
         }
-
-        .suit-option:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-
         .suit-option.hearts { background: var(--heart-color); color: white; }
         .suit-option.diamonds { background: var(--diamond-color); color: white; }
         .suit-option.clubs { background: var(--club-color); color: white; }
         .suit-option.spades { background: var(--spade-color); color: white; }
 
-        /* Responsive adjustments */
-        @media (max-width: 400px) {
-          :root {
-            --card-width: 70px;
-            --card-height: 105px;
-          }
-          
-          .card-suit {
-            font-size: 32px;
-          }
-          
-          .card.J .card-suit,
-          .card.Q .card-suit,
-          .card.K .card-suit {
-            font-size: 38px;
-          }
+        /* Card back for draw pile or hidden cards */
+        .card-back {
+            width: 64px;
+            height: 96px;
+            background: repeating-linear-gradient(135deg, var(--card-back-color), var(--card-back-color) 12px, #194c1b 12px, #194c1b 24px);
+            border-radius: var(--card-radius);
+            margin: 4px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.22), 0 1.5px 6px rgba(0,0,0,0.10);
+            position: relative;
+            border: 2px solid #265c2c;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .card-back::after {
+            content: '';
+            display: block;
+            width: 32px;
+            height: 32px;
+            background: url("data:image/svg+xml,%3Csvg width='32' height='32' fill='white' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='24' height='24' rx='5' fill='white' fill-opacity='0.17'/%3E%3C/svg%3E");
+            background-size: contain;
+            background-repeat: no-repeat;
+            opacity: 0.2;
         }
 
-        @media (min-width: 600px) {
-          :root {
-            --card-width: 90px;
-            --card-height: 135px;
-          }
-          
-          .card-suit {
-            font-size: 42px;
-          }
-          
-          .card.J .card-suit,
-          .card.Q .card-suit,
-          .card.K .card-suit {
-            font-size: 48px;
-          }
+        /* Discard pile count badge */
+        .discard-pile-count {
+            position: absolute;
+            bottom: 2px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.74);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            z-index: 30;
+            pointer-events: none;
+        }
+
+        @media (min-width: 400px) {
+            .card, .card-back {
+                width: 72px;
+                height: 110px;
+            }
+            .player-hand {
+                min-height: 130px;
+            }
+        }
+        @media (max-width: 350px) {
+            .card, .card-back {
+                width: 50px;
+                height: 72px;
+            }
         }
     </style>
 </head>
@@ -514,87 +448,64 @@
             </button>
             <div id="game-code-display">GAME-CODE</div>
         </div>
-        
         <div class="game-main">
             <div class="game-status">
                 <div id="current-suit" class="suit-hearts">Hearts</div>
                 <div id="game-status" class="status-your-turn">Your Turn</div>
             </div>
-            
             <div class="opponent-info">
                 <div id="opponent-avatar">O</div>
                 <div id="opponent-name">Opponent</div>
                 <div id="opponent-hand-count">5</div>
             </div>
-            
             <div id="discard-pile" class="discard-pile">
-                <div class="discard-pile-container">
-                    <div class="card hearts top-card">
-                        <div class="card-value top">Q</div>
-                        <div class="card-suit">♥</div>
-                        <div class="card-value bottom">Q</div>
-                        <div class="card-corner top-left">Q<br>♥</div>
-                        <div class="card-corner bottom-right">Q<br>♥</div>
-                    </div>
-                    <div class="card hearts stacked-card">
-                        <div class="card-value top">10</div>
-                        <div class="card-suit">♥</div>
-                        <div class="card-value bottom">10</div>
-                    </div>
-                    <div class="discard-pile-count">+3 more</div>
+                <div class="card hearts top-card">
+                    <div class="card-value top">Q</div>
+                    <div class="card-suit"></div>
+                    <div class="card-value bottom">Q</div>
                 </div>
+                <!-- Example stacked card (simulate a realistic pile) -->
+                <div class="card diamonds stacked-card" style="top:8px; left:9px; transform: rotate(-2deg) scale(0.98);"></div>
+                <div class="card clubs stacked-card" style="top:16px; left:5px; transform: rotate(3deg) scale(0.97);"></div>
+                <span class="discard-pile-count">12</span>
             </div>
-            
             <div class="player-info">
                 <div id="player-avatar">Y</div>
                 <div id="player-name">You</div>
             </div>
-            
             <div id="player-hand" class="player-hand">
                 <div class="card clubs playable">
                     <div class="card-value top">A</div>
-                    <div class="card-suit">♣</div>
+                    <div class="card-suit"></div>
                     <div class="card-value bottom">A</div>
-                    <div class="card-corner top-left">A<br>♣</div>
-                    <div class="card-corner bottom-right">A<br>♣</div>
                 </div>
                 <div class="card hearts playable">
                     <div class="card-value top">7</div>
-                    <div class="card-suit">♥</div>
+                    <div class="card-suit"></div>
                     <div class="card-value bottom">7</div>
-                    <div class="card-corner top-left">7<br>♥</div>
-                    <div class="card-corner bottom-right">7<br>♥</div>
                 </div>
                 <div class="card diamonds playable">
                     <div class="card-value top">K</div>
-                    <div class="card-suit">♦</div>
+                    <div class="card-suit"></div>
                     <div class="card-value bottom">K</div>
-                    <div class="card-corner top-left">K<br>♦</div>
-                    <div class="card-corner bottom-right">K<br>♦</div>
                 </div>
                 <div class="card spades">
                     <div class="card-value top">2</div>
-                    <div class="card-suit">♠</div>
+                    <div class="card-suit"></div>
                     <div class="card-value bottom">2</div>
-                    <div class="card-corner top-left">2<br>♠</div>
-                    <div class="card-corner bottom-right">2<br>♠</div>
                 </div>
                 <div class="card clubs playable">
                     <div class="card-value top">10</div>
-                    <div class="card-suit">♣</div>
+                    <div class="card-suit"></div>
                     <div class="card-value bottom">10</div>
-                    <div class="card-corner top-left">10<br>♣</div>
-                    <div class="card-corner bottom-right">10<br>♣</div>
                 </div>
             </div>
         </div>
-        
         <div class="game-controls">
             <button id="draw-card-btn">Draw Card</button>
             <button id="pass-turn-btn">Pass Turn</button>
         </div>
     </div>
-
     <script type="module" src="card-game.js"></script>
 </body>
 </html>
