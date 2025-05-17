@@ -54,36 +54,41 @@ function getSuitSVG(suit) {
 }
 
 // --- Realistic Card HTML (player hand & discard pile) ---
-function renderCardHTML(card, {isTop = false, isStacked = false, isPlayable = false, forDeck = false} = {}) {
-    // Realistic gloss/shine/edge
-    // forDeck: render as card back
-    if (forDeck) {
-        return `
-        <div class="card-back-realistic">
-            <div class="card-back-inner"></div>
-        </div>
-        `;
+
+// --- Updated renderPlayerHand (realistic cards) ---
+
+// --- Realistic Card HTML (matches index.html style for player hand) ---
+function renderCardHTML(card, {isPlayable = false} = {}) {
+    // SVG suits
+    function getSuitSVG(suit) {
+        switch (suit) {
+            case 'hearts':
+                return `<svg width="24" height="24" viewBox="0 0 24 24" fill="#d32f2f"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`;
+            case 'diamonds':
+                return `<svg width="24" height="24" viewBox="0 0 24 24" fill="#d32f2f"><path d="M19 12l-7-10-7 10 7 10 7-10z"/></svg>`;
+            case 'clubs':
+                return `<svg width="24" height="24" viewBox="0 0 200 200" fill="#263238"><circle cx="100" cy="60" r="35"/><circle cx="60" cy="130" r="35"/><circle cx="140" cy="130" r="35"/><path d="M100 100 L100 170 C100 185 85 185 85 170 L85 100 Z"/></svg>`;
+            case 'spades':
+                return `<svg width="24" height="24" viewBox="0 0 200 200" fill="#263238"><path d="M100 20 L160 120 L40 120 Z"/><path d="M100 110 L100 180 C100 195 85 195 85 180 L85 110 Z"/><circle cx="100" cy="115" r="20"/></svg>`;
+            default:
+                return '';
+        }
     }
-    // Normal face card
+
+    // Card color class
+    const colorClass = (card.suit === 'hearts' || card.suit === 'diamonds') ? 'red' : 'black';
+
     return `
-    <div class="card-realistic ${card.suit} ${isPlayable ? 'playable' : ''} ${isStacked ? 'stacked-card' : ''} ${isTop ? 'top-card' : ''}">
-        <div class="card-gloss"></div>
-        <div class="card-inner">
-            <div class="card-corner card-corner-top">
-                <span class="card-value">${card.value}</span>
-                <span class="card-suit-svg">${getSuitSVG(card.suit)}</span>
-            </div>
-            <div class="card-center">${getSuitSVG(card.suit)}</div>
-            <div class="card-corner card-corner-bottom">
-                <span class="card-value">${card.value}</span>
-                <span class="card-suit-svg">${getSuitSVG(card.suit)}</span>
-            </div>
-        </div>
+    <div class="card ${card.suit} ${isPlayable ? 'playable' : ''}" style="position:relative;">
+        <div class="card-value top">${card.value}</div>
+        <div class="card-suit" style="align-self:center;">${getSuitSVG(card.suit)}</div>
+        <div class="card-value bottom">${card.value}</div>
+        <div style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:6px;background:linear-gradient(135deg,rgba(255,255,255,0.14) 0%,transparent 80%);z-index:2;pointer-events:none;"></div>
     </div>
     `;
 }
 
-// --- Updated renderPlayerHand (realistic cards) ---
+// --- Update renderPlayerHand to use the above realistic card ---
 function renderPlayerHand() {
     if (!playerHandEl) return;
     playerHandEl.innerHTML = '';
@@ -93,7 +98,7 @@ function renderPlayerHand() {
     gameState.playerHand.forEach((card, index) => {
         const isPlayable = isMyTurn && canPlayCard(card);
         const wrapper = document.createElement('div');
-        wrapper.innerHTML = renderCardHTML(card, {isPlayable});
+        wrapper.innerHTML = renderCardHTML(card, { isPlayable });
         const cardEl = wrapper.firstElementChild;
         if (isPlayable) {
             cardEl.addEventListener('click', () => playCard(index));
@@ -101,6 +106,7 @@ function renderPlayerHand() {
         playerHandEl.appendChild(cardEl);
     });
 }
+
 
 // --- Updated renderDiscardPile (realistic cards) ---
 function renderDiscardPile() {
