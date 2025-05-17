@@ -1,3 +1,4 @@
+what i want is that if a player goes out or goes back  or doesnt respond for 1 min name the other guy a winner
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 // --- Supabase Setup ---
@@ -676,7 +677,78 @@ async function recordTransaction(transactionData) {
 }
 
 // 2. Update bet deduction logic: only the creator records the transaction for both players at bet time.
-// --- FULL loadGameData function ---
+
+async function handleOpponentJoined(gameData) {
+    const users = JSON.parse(localStorage.getItem('user')) || {};
+    const isCreator = users.phone === gameData.creator_phone;
+
+    if (isCreator && gameData.opponent_phone) {
+        // Atomic: Only update bet_deducted if still false, only ONE creator client will succeed here
+        const { data: updatedGame, error: betFlagError } = await supabase
+            .from('card_games')
+            .update({ bet_deducted: true })
+            .eq('code', gameData.code)
+            .eq('bet_deducted', false)
+            .select()
+            .single();
+
+        if (betFlagError) {
+            console.error('Failed to set bet_deducted flag:', betFlagError);
+            return;
+        }
+        if (!updatedGame) {
+            // Someone else (maybe this client in another tab) already did it
+            return;
+        }
+
+        // Fetch balances for BOTH players
+        const { data: creatorData, error: creatorError } = await supabase
+            .from('users')
+            .select('balance')
+            .eq('phone', gameData.creator_phone)
+            .single();
+
+        const { data: opponentData, error: opponentError } = await supabase
+            .from('users')
+            .select('balance')
+            .eq('phone', gameData.opponent_phone)
+            .single();
+
+        if (creatorError || !creatorData || opponentError || !opponentData) {
+            console.error('Failed to fetch balances for deduction');
+            return;
+        }
+        if (creatorData.balance < gameData.bet || opponentData.balance < gameData.bet) {
+            alert('One or both players do not have enough balance for the bet.');
+            return;
+        }
+
+        // Deduct for both
+        await Promise.all([
+            supabase.from('users').update({ balance: creatorData.balance - gameData.bet }).eq('phone', gameData.creator_phone),
+            supabase.from('users').update({ balance: opponentData.balance - gameData.bet }).eq('phone', gameData.opponent_phone)
+        ]);
+
+        // Record transactions for both
+        await recordTransaction({
+            player_phone: gameData.creator_phone,
+            transaction_type: 'bet',
+            amount: -gameData.bet,
+            description: `Bet placed for game ${gameData.code}`,
+            status: 'success'
+        });
+        await recordTransaction({
+            player_phone: gameData.opponent_phone,
+            transaction_type: 'bet',
+            amount: -gameData.bet,
+            description: `Bet placed for game ${gameData.code}`,
+            status: 'success'
+        });
+    }
+}
+
+
+// --- Call this after loading game data in loadGameData ---
 async function loadGameData() {
     try {
         const { data: gameData, error } = await supabase
@@ -731,7 +803,7 @@ async function loadGameData() {
         }
         gameState.lastSuitChangeMethod = gameData.last_suit_change_method;
 
-        // Deduct bets if needed (only creator will actually run this)
+        // ---- ADD THIS: Handle bet deduction if opponent joined ----
         await handleOpponentJoined(gameData);
 
         updateGameUI();
@@ -743,7 +815,7 @@ async function loadGameData() {
     }
 }
 
-// --- FULL setupRealtimeUpdates function ---
+// --- Also, in setupRealtimeUpdates, listen for opponent joining and re-run handleOpponentJoined() ---
 function setupRealtimeUpdates() {
     const channel = supabase
         .channel(`card_game_${gameState.gameCode}`)
@@ -810,7 +882,7 @@ function setupRealtimeUpdates() {
                         showGameResult(isWinner, amount);
                     }
 
-                    // Deduct bets if needed (only creator will actually run this)
+                    // ---- ADD THIS: Check if opponent just joined and handle bet deduction ----
                     await handleOpponentJoined(payload.new);
 
                     updateGameUI();
@@ -823,8 +895,6 @@ function setupRealtimeUpdates() {
 
     return channel;
 }
-
-
 
 
 // --- Game Functions ---
