@@ -287,8 +287,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     if (gameCodeDisplay) gameCodeDisplay.textContent = gameState.gameCode;
-        document.getElementById('game-container').style.opacity = '0';
-    document.getElementById('waiting-screen').style.display = 'flex';
+      
     try {
 
         await loadGameData();
