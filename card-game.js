@@ -1292,7 +1292,7 @@ function setupRealtimeUpdates() {
                 table: 'card_games',
                 filter: `code=eq.${gameState.gameCode}`
             },
-            (payload) => {
+            async (payload) => {
                 try {
                     gameState.status = payload.new.status;
                     gameState.currentPlayer = payload.new.current_player;
