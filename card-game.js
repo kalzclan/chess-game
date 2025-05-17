@@ -1,4 +1,3 @@
-what i want is that if a player goes out or goes back  or doesnt respond for 1 min name the other guy a winner
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 // --- Supabase Setup ---
