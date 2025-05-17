@@ -730,8 +730,8 @@ async function handleOpponentJoined(gameData) {
 
         // Deduct for both
         await Promise.all([
-            supabase.from('users').update({ balance: creatorData.balance - gameData.bet }).eq('phone', gameData.creator_phone),
-            supabase.from('users').update({ balance: opponentData.balance - gameData.bet }).eq('phone', gameData.opponent_phone)
+            supabase.from('users').update({ balance: creatorData.balance -( gameData.bet/2) }).eq('phone', gameData.creator_phone),
+            supabase.from('users').update({ balance: opponentData.balance - ( gameData.bet/2) }).eq('phone', gameData.opponent_phone)
         ]);
 
         // Record transactions for both
