@@ -198,7 +198,7 @@ async function createCardGame(bet) {
         
         // Deal 6 cards to creator
         const creatorHand = [];
-        for (let i = 0; i < 6 && deck.length > 0; i++) {
+        for (let i = 0; i < 7 && deck.length > 0; i++) {
             creatorHand.push(deck.pop());
         }
 
@@ -259,7 +259,7 @@ async function joinCardGame(gameCode, gameBet) {
         // Deal 6 cards to opponent from remaining deck
         const deck = JSON.parse(gameData.deck);
         const opponentHand = [];
-        for (let i = 0; i < 6 && deck.length > 0; i++) {
+        for (let i = 0; i < 7 && deck.length > 0; i++) {
             opponentHand.push(deck.pop());
         }
 
