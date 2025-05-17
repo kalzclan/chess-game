@@ -490,11 +490,7 @@ function renderPlayerHand() {
             default: suitSymbol = card.suit;
         }
         
-        cardEl.innerHTML = `
-            <div class="card-value top">${card.value}</div>
-            <div class="card-value bottom">${card.value}</div>
-            <div class="card-suit">${suitSymbol}</div>
-        `;
+        
         
         // Add corner indicators for better visibility
         const cornerTop = document.createElement('div');
