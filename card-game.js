@@ -879,6 +879,8 @@ function setupRealtimeUpdates() {
                         if (gameState.status === 'waiting') {
                             gameState.status = 'ongoing';
                         }
+                        // Only handle bet deduction when opponent first joins
+                        await handleOpponentJoined(payload.new);
                     }
 
                     if (payload.new.status === 'finished') {
