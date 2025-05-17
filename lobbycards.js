@@ -222,7 +222,7 @@ async function createCardGame(bet) {
         if (error) throw error;
 
         const newBalance = user.balance - bet;
-        await updateUserBalance(newBalance);
+       // await updateUserBalance(newBalance);
 
         window.location.href = `${BASE_URL}/card-game?code=${createdGameData.code}`;
     } catch (error) {
@@ -254,7 +254,7 @@ async function joinCardGame(gameCode, gameBet) {
         if (gameData.creator_phone === users.phone) throw new Error('Cannot join your own game');
 
         const newBalance = user.balance - gameBet;
-        await updateUserBalance(newBalance);
+        //await updateUserBalance(newBalance);
 
         // Deal 6 cards to opponent from remaining deck
         const deck = JSON.parse(gameData.deck);
