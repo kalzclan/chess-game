@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 // --- Supabase Setup ---
@@ -288,8 +289,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (gameCodeDisplay) gameCodeDisplay.textContent = gameState.gameCode;
     
     try {
-            await retryFailedTransactions();
-
         await loadGameData();
         setupEventListeners();
         setupRealtimeUpdates();
@@ -608,41 +607,29 @@ case 'change_suit':
     }
 
     // Check for win condition
-// Inside the win condition check in processCardPlay()
-if (gameState.playerHand.length === 0) {
-    updateData.status = 'finished';
-    updateData.winner = users.phone;
-    gameState.status = 'finished';
+    if (gameState.playerHand.length === 0) {
+        updateData.status = 'finished';
+        updateData.winner = users.phone;
+        gameState.status = 'finished';
 
-    const winnings = Math.floor(gameState.betAmount * 1.8);
-    
-    try {
-        // Record winnings for winner
-        await recordTransaction({
-            player_phone: users.phone,
-            transaction_type: 'win',
-            amount: winnings,
-            description: `Won game of cards ${gameState.gameCode}`,
-            status: 'completed'
-        });
+        const winnings = Math.floor(gameState.betAmount * 1.8);
+        const { data: userData } = await supabase
+            .from('users')
+            .select('balance')
+            .eq('phone', users.phone)
+            .single();
 
-        // Record loss for opponent
-        const opponentPhone = isCreator ? gameState.opponent.phone : gameState.creator.phone;
-        await recordTransaction({
-            player_phone: opponentPhone,
-            transaction_type: 'loss',
-            amount: -gameState.betAmount,
-            description: `Lost game of cards ${gameState.gameCode}`,
-            status: 'completed'
-        });
+        if (userData) {
+            const newBalance = userData.balance + winnings;
+            await supabase
+                .from('users')
+                .update({ balance: newBalance })
+                .eq('phone', users.phone);
+        }
 
-        showGameResult(true, winnings);
-    } catch (error) {
-        console.error('Error recording transaction:', error);
-        // Still show win even if transaction recording fails
         showGameResult(true, winnings);
     }
-}
+
     // Update game in database
     const { error } = await supabase
         .from('card_games')
@@ -1076,7 +1063,6 @@ function showGameResult(isWinner, amount) {
         <div class="result-content">
             <h2>${isWinner ? 'You Won!' : 'You Lost'}</h2>
             <p>${isWinner ? `You won ${amount} ETB!` : 'Better luck next time'}</p>
-            ${isWinner ? `<p class="transaction-note">The amount has been added to your balance</p>` : ''}
             <button id="result-close-btn">Close</button>
         </div>
     `;
@@ -1088,6 +1074,20 @@ function showGameResult(isWinner, amount) {
         closeBtn.addEventListener('click', () => {
             resultModal.remove();
             window.location.href = 'home.html';
+        });
+    }
+
+    // Record transaction if winner
+    if (isWinner) {
+        const users = JSON.parse(localStorage.getItem('user')) || {};
+        recordTransaction({
+            player_phone: users.phone,
+            transaction_type: 'game_winnings',
+            amount: amount,
+            description: `Won game ${gameState.gameCode}`,
+            status: 'completed'
+        }).catch(error => {
+            console.error('Failed to record winning transaction:', error);
         });
     }
 }
@@ -1221,6 +1221,7 @@ function renderDiscardPile() {
     discardPileEl.appendChild(pileContainer);
 }
 function setupRealtimeUpdates() {
+
     const channel = supabase
         .channel(`card_game_${gameState.gameCode}`)
         .on(
@@ -1231,17 +1232,14 @@ function setupRealtimeUpdates() {
                 table: 'card_games',
                 filter: `code=eq.${gameState.gameCode}`
             },
-            async (payload) => {
+            (payload) => {
                 try {
-                    // Update game state from payload
                     gameState.status = payload.new.status;
                     gameState.currentPlayer = payload.new.current_player;
                     gameState.currentSuit = payload.new.current_suit;
                     gameState.hasDrawnThisTurn = payload.new.has_drawn_this_turn || false;
-                    gameState.lastSuitChangeMethod = payload.new.last_suit_change_method;
-                    gameState.betAmount = payload.new.bet || 0;
+                       gameState.lastSuitChangeMethod = payload.new.last_suit_change_method;
 
-                    // Parse last card
                     if (payload.new.last_card) {
                         try {
                             gameState.lastCard = typeof payload.new.last_card === 'string' ? 
@@ -1255,7 +1253,6 @@ function setupRealtimeUpdates() {
                         gameState.lastCard = null;
                     }
                     
-                    // Update other game state fields
                     gameState.pendingAction = payload.new.pending_action;
                     gameState.pendingActionData = payload.new.pending_action_data;
                     gameState.mustPlaySuit = payload.new.must_play_suit || false;
@@ -1265,7 +1262,6 @@ function setupRealtimeUpdates() {
                     const users = JSON.parse(localStorage.getItem('user')) || {};
                     const isCreator = gameState.playerRole === 'creator';
                     
-                    // Update hands
                     if (isCreator) {
                         gameState.playerHand = safeParseJSON(payload.new.creator_hand) || [];
                         gameState.opponentHandCount = safeParseJSON(payload.new.opponent_hand)?.length || 0;
@@ -1274,7 +1270,6 @@ function setupRealtimeUpdates() {
                         gameState.opponentHandCount = safeParseJSON(payload.new.creator_hand)?.length || 0;
                     }
                     
-                    // Handle opponent joining and bet deduction
                     if (payload.new.opponent_phone && !gameState.opponent.phone) {
                         gameState.opponent = {
                             username: payload.new.opponent_username,
@@ -1283,97 +1278,18 @@ function setupRealtimeUpdates() {
                         
                         if (gameState.status === 'waiting') {
                             gameState.status = 'ongoing';
-                            
-                            // Deduct bet amount from both players only if not already deducted
-                            if (!payload.new.bets_deducted) {
-                                try {
-                                    // Deduct from creator
-                                    await deductBetAmount(
-                                        payload.new.creator_phone, 
-                                        payload.new.bet
-                                    );
-                                    
-                                    // Deduct from opponent
-                                    await deductBetAmount(
-                                        payload.new.opponent_phone, 
-                                        payload.new.bet
-                                    );
-                                    
-                                    // Mark bets as deducted in database
-                                    const { error: updateError } = await supabase
-                                        .from('card_games')
-                                        .update({ 
-                                            bets_deducted: true,
-                                            updated_at: new Date().toISOString()
-                                        })
-                                        .eq('code', gameState.gameCode);
-                                        
-                                    if (updateError) throw updateError;
-                                    
-                                    console.log('Bet amounts deducted from both players');
-                                } catch (error) {
-                                    console.error('Failed to deduct bet amounts:', error);
-                                    if (gameStatusEl) {
-                                        gameStatusEl.textContent = 'Payment processing failed - please refresh';
-                                        gameStatusEl.className = 'status-error';
-                                    }
-                                }
-                            }
                         }
                     }
                     
-                    // Handle game completion
                     if (payload.new.status === 'finished') {
                         const isWinner = payload.new.winner === users.phone;
-                        const winnings = Math.floor(gameState.betAmount * 1.8);
-                        
-                        // Only process if we haven't already shown the result
-                        if (gameState.status !== 'finished') {
-                            try {
-                                if (isWinner) {
-                                    // Record winnings for winner
-                                    await recordTransaction({
-                                        player_phone: users.phone,
-                                        transaction_type: 'win',
-                                        amount: winnings,
-                                        description: `Won game ${gameState.gameCode}`,
-                                        status: 'completed'
-                                    });
-                                    
-                                    // Record loss for opponent
-                                    const opponentPhone = isCreator ? 
-                                        gameState.opponent.phone : 
-                                        gameState.creator.phone;
-                                        
-                                    await recordTransaction({
-                                        player_phone: opponentPhone,
-                                        transaction_type: 'loss',
-                                        amount: -gameState.betAmount,
-                                        description: `Lost game ${gameState.gameCode}`,
-                                        status: 'completed'
-                                    });
-                                }
-                            } catch (error) {
-                                console.error('Error recording game result transactions:', error);
-                                // Continue to show result even if transaction recording fails
-                            }
-                            
-                            showGameResult(isWinner, winnings);
-                        }
+                        const amount = Math.floor(gameState.betAmount * 1.8);
+                        showGameResult(isWinner, amount);
                     }
                     
-                    // Update UI with new state
                     updateGameUI();
-                    
-                    // Handle any pending actions
-                    handlePendingAction();
-                    
                 } catch (error) {
                     console.error('Error processing realtime update:', error);
-                    if (gameStatusEl) {
-                        gameStatusEl.textContent = 'Error updating game state';
-                        gameStatusEl.className = 'status-error';
-                    }
                 }
             }
         )
@@ -1381,34 +1297,6 @@ function setupRealtimeUpdates() {
         
     return channel;
 }
-async function retryFailedTransactions() {
-    try {
-        const failedTransactions = JSON.parse(localStorage.getItem('failedTransactions') || '[]');
-        
-        if (failedTransactions.length === 0) return;
-        
-        const successful = [];
-        const stillFailed = [];
-        
-        for (const tx of failedTransactions) {
-            try {
-                await recordTransaction(tx);
-                successful.push(tx);
-            } catch (error) {
-                stillFailed.push(tx);
-            }
-        }
-        
-        localStorage.setItem('failedTransactions', JSON.stringify(stillFailed));
-        
-        if (successful.length > 0) {
-            console.log(`Successfully retried ${successful.length} transactions`);
-        }
-    } catch (error) {
-        console.error('Error retrying failed transactions:', error);
-    }
-}
-
 
 function safeParseJSON(json) {
     try {
@@ -1441,24 +1329,63 @@ function shuffleArray(array) {
     }
     return newArray;
 }
-
-async function deductBetAmount(phone, amount) {
+// --- Transaction Handling ---
+async function recordTransaction(transactionData) {
     try {
-        await recordTransaction({
-            player_phone: phone,
-            transaction_type: 'bet',
-            amount: -amount, // Negative amount for deduction
-            description: `Game bet for match ${gameState.gameCode}`,
-            status: 'completed'
-        });
-        
-        // Update house balance with the commission (10% of bet)
-        const commission = amount * 0.1;
-        await updateHouseBalance(commission);
-        
-        return true;
+        // 1. First handle the user balance update
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('balance')
+            .eq('phone', transactionData.player_phone)
+            .single();
+
+        if (userError) throw userError;
+
+        const balance_before = userData?.balance || 0;
+        const balance_after = balance_before + transactionData.amount;
+
+        // 2. Attempt to create transaction record without game_id reference
+        const { error } = await supabase
+            .from('player_transactions')
+            .insert({
+                player_phone: transactionData.player_phone,
+                transaction_type: transactionData.transaction_type,
+                amount: transactionData.amount,
+                balance_before,
+                balance_after,
+                description: transactionData.description,
+                status: transactionData.status,
+                created_at: new Date().toISOString()
+            });
+
+        if (error) throw error;
+
+        // 3. Update user balance
+        const { error: updateError } = await supabase
+            .from('users')
+            .update({ balance: balance_after })
+            .eq('phone', transactionData.player_phone);
+
+        if (updateError) throw updateError;
+
+        console.log('Transaction recorded successfully:', transactionData);
+
     } catch (error) {
-        console.error('Error deducting bet amount:', error);
+        console.error('Failed to record transaction:', error);
+        
+        // Fallback: Store transaction data in local storage if Supabase fails
+        try {
+            const failedTransactions = JSON.parse(localStorage.getItem('failedTransactions') || [];
+            failedTransactions.push({
+                ...transactionData,
+                timestamp: new Date().toISOString()
+            });
+            localStorage.setItem('failedTransactions', JSON.stringify(failedTransactions));
+            console.warn('Transaction stored locally for later recovery');
+        } catch (localStorageError) {
+            console.error('Failed to store transaction locally:', localStorageError);
+        }
+        
         throw error;
     }
 }
