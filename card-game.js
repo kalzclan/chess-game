@@ -299,7 +299,49 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     if (backBtn) backBtn.addEventListener('click', () => window.location.href = 'home.html');
 });
+async function handleGameBet(gameCode) {
+    try {
+        // Get game data
+        const { data: gameData, error: gameError } = await supabase
+            .from('card_games')
+            .select('creator_phone, opponent_phone, bet, status')
+            .eq('code', gameCode)
+            .single();
 
+        if (gameError) throw gameError;
+        if (!gameData) throw new Error('Game not found');
+        
+        // Only process if both players have joined and game is starting
+        if (gameData.opponent_phone && gameData.status === 'ongoing' && gameData.bet > 0) {
+            // Deduct bet from both players
+            const creatorTransaction = await recordTransaction({
+                player_phone: gameData.creator_phone,
+                transaction_type: 'game_bet',
+                amount: -gameData.bet,
+                description: `Bet for game ${gameCode}`,
+                status: 'completed',
+                game_id: gameCode
+            });
+
+            const opponentTransaction = await recordTransaction({
+                player_phone: gameData.opponent_phone,
+                transaction_type: 'game_bet',
+                amount: -gameData.bet,
+                description: `Bet for game ${gameCode}`,
+                status: 'completed',
+                game_id: gameCode
+            });
+
+            if (!creatorTransaction || !opponentTransaction) {
+                throw new Error('Failed to record one or more bet transactions');
+            }
+
+            console.log('Successfully processed bets for both players');
+        }
+    } catch (error) {
+        console.error('Error handling game bet:', error);
+    }
+}
 // --- Game Functions ---
 async function loadGameData() {
     try {
@@ -1056,7 +1098,7 @@ function handlePendingAction() {
     }
 }
 
-function showGameResult(isWinner, amount) {
+async function showGameResult(isWinner, amount) {
     const resultModal = document.createElement('div');
     resultModal.className = 'game-result-modal';
     resultModal.innerHTML = `
@@ -1077,18 +1119,36 @@ function showGameResult(isWinner, amount) {
         });
     }
 
-    // Record transaction if winner
-    if (isWinner) {
-        const users = JSON.parse(localStorage.getItem('user')) || {};
-        recordTransaction({
-            player_phone: users.phone,
-            transaction_type: 'game_winnings',
-            amount: amount,
-            description: `Won game ${gameState.gameCode}`,
-            status: 'completed'
-        }).catch(error => {
-            console.error('Failed to record winning transaction:', error);
+    // Record results for both players
+    const users = JSON.parse(localStorage.getItem('user')) || {};
+    const isCreator = gameState.playerRole === 'creator';
+    const opponentPhone = isCreator ? gameState.opponent.phone : gameState.creator.phone;
+
+    try {
+        // Record winner's winnings
+        if (isWinner) {
+            await recordTransaction({
+                player_phone: users.phone,
+                transaction_type: 'game_winnings',
+                amount: amount,
+                description: `Won game ${gameState.gameCode}`,
+                status: 'completed',
+                game_id: gameState.gameCode
+            });
+        }
+
+        // Record opponent's loss (for tracking purposes)
+        await recordTransaction({
+            player_phone: opponentPhone,
+            transaction_type: 'game_result',
+            amount: 0,
+            description: isWinner ? `Lost game ${gameState.gameCode}` : `Won game ${gameState.gameCode}`,
+            status: 'completed',
+            game_id: gameState.gameCode
         });
+
+    } catch (error) {
+        console.error('Error recording game results:', error);
     }
 }
 
@@ -1239,6 +1299,12 @@ function setupRealtimeUpdates() {
                     gameState.currentSuit = payload.new.current_suit;
                     gameState.hasDrawnThisTurn = payload.new.has_drawn_this_turn || false;
                        gameState.lastSuitChangeMethod = payload.new.last_suit_change_method;
+  // Handle bet recording when both players join
+                    if (payload.new.opponent_phone && 
+                        !gameState.opponent.phone && 
+                        payload.new.status === 'ongoing') {
+                        await handleGameBet(gameState.gameCode);
+                    }
 
                     if (payload.new.last_card) {
                         try {
@@ -1330,6 +1396,7 @@ function shuffleArray(array) {
     return newArray;
 }
 // --- Transaction Handling ---
+// --- Transaction Handling ---
 async function recordTransaction(transactionData) {
     try {
         // 1. First handle the user balance update
@@ -1344,7 +1411,7 @@ async function recordTransaction(transactionData) {
         const balance_before = userData?.balance || 0;
         const balance_after = balance_before + transactionData.amount;
 
-        // 2. Attempt to create transaction record without game_id reference
+        // 2. Attempt to create transaction record with game_id reference
         const { error } = await supabase
             .from('player_transactions')
             .insert({
@@ -1355,6 +1422,7 @@ async function recordTransaction(transactionData) {
                 balance_after,
                 description: transactionData.description,
                 status: transactionData.status,
+                game_id: transactionData.game_id,
                 created_at: new Date().toISOString()
             });
 
@@ -1369,13 +1437,14 @@ async function recordTransaction(transactionData) {
         if (updateError) throw updateError;
 
         console.log('Transaction recorded successfully:', transactionData);
+        return true;
 
     } catch (error) {
         console.error('Failed to record transaction:', error);
         
         // Fallback: Store transaction data in local storage if Supabase fails
         try {
-            const failedTransactions = JSON.parse(localStorage.getItem('failedTransactions') || []);
+            const failedTransactions = JSON.parse(localStorage.getItem('failedTransactions') || [];
             failedTransactions.push({
                 ...transactionData,
                 timestamp: new Date().toISOString()
@@ -1386,6 +1455,6 @@ async function recordTransaction(transactionData) {
             console.error('Failed to store transaction locally:', localStorageError);
         }
         
-        throw error;
+        return false;
     }
 }
