@@ -834,12 +834,17 @@ function setupRealtimeUpdates() {
             },
             async (payload) => {
                 try {
+                    // Store previous opponent phone for comparison
+                    const previousOpponentPhone = gameState.opponent?.phone;
+                    
+                    // Update game state from payload
                     gameState.status = payload.new.status;
                     gameState.currentPlayer = payload.new.current_player;
                     gameState.currentSuit = payload.new.current_suit;
                     gameState.hasDrawnThisTurn = payload.new.has_drawn_this_turn || false;
                     gameState.lastSuitChangeMethod = payload.new.last_suit_change_method;
 
+                    // Parse last card
                     if (payload.new.last_card) {
                         try {
                             gameState.lastCard = typeof payload.new.last_card === 'string' ?
@@ -853,12 +858,14 @@ function setupRealtimeUpdates() {
                         gameState.lastCard = null;
                     }
 
+                    // Update pending actions
                     gameState.pendingAction = payload.new.pending_action;
                     gameState.pendingActionData = payload.new.pending_action_data;
                     gameState.mustPlaySuit = payload.new.must_play_suit || false;
                     gameState.currentSuitToMatch = payload.new.current_suit_to_match || '';
                     gameState.discardPile = payload.new.discard_pile ? safeParseJSON(payload.new.discard_pile) : [];
 
+                    // Update player hands
                     const users = JSON.parse(localStorage.getItem('user')) || {};
                     const isCreator = gameState.playerRole === 'creator';
 
@@ -870,7 +877,8 @@ function setupRealtimeUpdates() {
                         gameState.opponentHandCount = safeParseJSON(payload.new.creator_hand)?.length || 0;
                     }
 
-                    if (payload.new.opponent_phone && !gameState.opponent.phone) {
+                    // Handle opponent joining
+                    if (payload.new.opponent_phone && !previousOpponentPhone) {
                         gameState.opponent = {
                             username: payload.new.opponent_username,
                             phone: payload.new.opponent_phone
@@ -879,18 +887,20 @@ function setupRealtimeUpdates() {
                         if (gameState.status === 'waiting') {
                             gameState.status = 'ongoing';
                         }
+
                         // Only handle bet deduction when opponent first joins
-                        await handleOpponentJoined(payload.new);
+                        // and we're the creator of the game
+                        if (isCreator) {
+                            await handleOpponentJoined(payload.new);
+                        }
                     }
 
+                    // Handle game completion
                     if (payload.new.status === 'finished') {
                         const isWinner = payload.new.winner === users.phone;
                         const amount = Math.floor(gameState.betAmount * 1.8);
                         showGameResult(isWinner, amount);
                     }
-
-                    // ---- ADD THIS: Check if opponent just joined and handle bet deduction ----
-                    await handleOpponentJoined(payload.new);
 
                     updateGameUI();
                 } catch (error) {
