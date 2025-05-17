@@ -1438,21 +1438,21 @@ async function showSevenCardDialog(initialCardIndex) {
 }
 function updateGameUI() {
     const users = JSON.parse(localStorage.getItem('user')) || {};
-    const isMyTurn = users.phone === gameState.currentPlayer;
-    
-    // Update player info
+        const isMyTurn = users.phone === gameState.currentPlayer;
+
+    // Always show creator at the top
+    if (opponentNameEl) opponentNameEl.textContent = gameState.creator.username || 'Waiting...';
+    if (opponentAvatarEl) {
+        opponentAvatarEl.style.backgroundColor = generateAvatarColor(gameState.creator.username);
+        opponentAvatarEl.textContent = gameState.creator.username ? 
+            gameState.creator.username.charAt(0).toUpperCase() : 'C';
+    }
+
+    // Always show current user ("me") at the bottom
     if (playerNameEl) playerNameEl.textContent = users.username || 'You';
-    if (opponentNameEl) opponentNameEl.textContent = gameState.opponent.username || 'Waiting...';
-    
     if (playerAvatarEl) {
         playerAvatarEl.style.backgroundColor = generateAvatarColor(users.username);
         playerAvatarEl.textContent = users.username ? users.username.charAt(0).toUpperCase() : 'Y';
-    }
-    
-    if (opponentAvatarEl) {
-        opponentAvatarEl.style.backgroundColor = generateAvatarColor(gameState.opponent.username);
-        opponentAvatarEl.textContent = gameState.opponent.username ? 
-            gameState.opponent.username.charAt(0).toUpperCase() : 'O';
     }
     
     // Update game state display
