@@ -44,7 +44,67 @@
             flex-direction: column;
             overflow: hidden;
         }
+/* Add these styles to your existing CSS */
+.player-hand-scroll {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch; /* For smooth scrolling on iOS */
+    padding: 10px 0;
+    margin-bottom: 10px;
+    
+    /* Hide scrollbar for Chrome, Safari and Opera */
+    &::-webkit-scrollbar {
+        display: none;
+    }
+    
+    /* Hide scrollbar for IE, Edge and Firefox */
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
 
+.player-hand-cards {
+    display: flex;
+    gap: 10px; /* Space between cards */
+    padding: 0 10px; /* Add padding on sides to prevent cards from touching edges */
+    min-width: min-content; /* Ensure container can shrink to fit */
+    
+    /* For smooth card transitions */
+    transition: transform 0.3s ease;
+}
+
+/* Adjust card sizing to be more consistent */
+.card {
+    flex: 0 0 auto; /* Prevent cards from shrinking */
+    width: 64px; /* Base card width */
+    min-width: 64px; /* Ensure minimum width */
+    margin: 0; /* Remove default margins as we're using gap */
+}
+
+/* Responsive card sizing */
+@media (min-width: 768px) {
+    .card {
+        width: 72px;
+        min-width: 72px;
+    }
+}
+
+@media (max-width: 480px) {
+    .card {
+        width: 56px;
+        min-width: 56px;
+    }
+}
+
+/* Optional: Add scroll shadows to indicate more content */
+.player-hand-scroll {
+    background: 
+        linear-gradient(to right, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 5%),
+        linear-gradient(to left, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 5%);
+    background-position: left center, right center;
+    background-repeat: no-repeat;
+    background-size: 20px 100%, 20px 100%;
+}
         .game-container {
             width: 100vw;
             height: 100vh;
