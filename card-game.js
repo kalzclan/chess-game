@@ -677,26 +677,32 @@ async function recordTransaction(transactionData) {
 
 // 2. Update bet deduction logic: only the creator records the transaction for both players at bet time.
 
+// ... all your other code above ...
+
 async function handleOpponentJoined(gameData) {
     const users = JSON.parse(localStorage.getItem('user')) || {};
     const isCreator = users.phone === gameData.creator_phone;
 
+    // Only the creator's client should EVER do this.
     if (isCreator && gameData.opponent_phone) {
-        // Atomic: Only update bet_deducted if still false, only ONE creator client will succeed here
-        const { data: updatedGame, error: betFlagError } = await supabase
+        // Try to atomically set bet_deducted. Only the first will succeed.
+        const { data: updatedGames, error: betFlagError } = await supabase
             .from('card_games')
             .update({ bet_deducted: true })
             .eq('code', gameData.code)
             .eq('bet_deducted', false)
-            .select()
-            .single();
+            .select();
 
+        // If no rows updated (i.e., updatedGames is empty array), another client already did it.
         if (betFlagError) {
-            console.error('Failed to set bet_deducted flag:', betFlagError);
+            // Only treat as error if it's NOT "no rows found" (which is expected if already set)
+            if (betFlagError.code !== 'PGRST116') {
+                console.error('Failed to set bet_deducted flag:', betFlagError);
+            }
             return;
         }
-        if (!updatedGame) {
-            // Someone else (maybe this client in another tab) already did it
+        if (!updatedGames || updatedGames.length === 0) {
+            // Flag was already set, nothing to do!
             return;
         }
 
