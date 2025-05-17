@@ -1178,80 +1178,88 @@ async function showSevenCardDialog(initialCardIndex) {
 function updateGameUI() {
     const users = JSON.parse(localStorage.getItem('user')) || {};
     const isMyTurn = users.phone === gameState.currentPlayer;
-    
+
     // Update player info
     if (playerNameEl) playerNameEl.textContent = users.username || 'You';
     if (opponentNameEl) opponentNameEl.textContent = gameState.opponent.username || 'Waiting...';
-    
+
     if (playerAvatarEl) {
         playerAvatarEl.style.backgroundColor = generateAvatarColor(users.username);
         playerAvatarEl.textContent = users.username ? users.username.charAt(0).toUpperCase() : 'Y';
     }
-    
+
     if (opponentAvatarEl) {
         opponentAvatarEl.style.backgroundColor = generateAvatarColor(gameState.opponent.username);
-        opponentAvatarEl.textContent = gameState.opponent.username ? 
+        opponentAvatarEl.textContent = gameState.opponent.username ?
             gameState.opponent.username.charAt(0).toUpperCase() : 'O';
     }
-    
-    // Update game state display
-    if (currentSuitDisplay) {
-        currentSuitDisplay.textContent = gameState.currentSuit 
-            ? `${gameState.currentSuit.toUpperCase()}` 
-            : 'Not set';
-        currentSuitDisplay.className = `suit-${gameState.currentSuit}`;
-    }
-    
-    if (opponentHandCountEl) {
-        opponentHandCountEl.textContent = `${gameState.opponentHandCount} cards`;
-    }
-    
-    // Show/hide action buttons based on game state
-    if (drawCardBtn) {
-        drawCardBtn.style.display = isMyTurn && !gameState.hasDrawnThisTurn ? 'block' : 'none';
-    }
-    
-    if (passTurnBtn) {
-        // Only show pass button if player has drawn this turn
-        passTurnBtn.style.display = isMyTurn && gameState.hasDrawnThisTurn ? 'block' : 'none';
-        
-        // Exception: Also show if forced to pass due to suit mismatch
 
-        if (isMyTurn && gameState.mustPlaySuit && !hasCardsOfSuit(gameState.currentSuitToMatch)) {
-           // passTurnBtn.style.display = 'block';
+    // Only show cards and game state when both players have joined AND bet is deducted
+    const bothJoined = gameState.creator.phone && gameState.opponent.phone;
+    const betDeducted = gameState.betDeducted || gameState.bet_deducted; // support both camelCase and snake_case
+
+    if (bothJoined && betDeducted) {
+        if (currentSuitDisplay) {
+            currentSuitDisplay.textContent = gameState.currentSuit
+                ? `${gameState.currentSuit.toUpperCase()}`
+                : 'Not set';
+            currentSuitDisplay.className = `suit-${gameState.currentSuit}`;
         }
-    }
-    
-    // Render game elements
-     const bothJoined = gameState.creator.phone && gameState.opponent.phone;
 
-    if (bothJoined) {
-        renderPlayerHand();
-        renderDiscardPile();
         if (opponentHandCountEl) {
             opponentHandCountEl.textContent = `${gameState.opponentHandCount} cards`;
+        }
+
+        // Show/hide action buttons based on game state
+        if (drawCardBtn) {
+            drawCardBtn.style.display = isMyTurn && !gameState.hasDrawnThisTurn ? 'block' : 'none';
+        }
+
+        if (passTurnBtn) {
+            // Only show pass button if player has drawn this turn
+            passTurnBtn.style.display = isMyTurn && gameState.hasDrawnThisTurn ? 'block' : 'none';
+
+            // Exception: Also show if forced to pass due to suit mismatch
+            if (isMyTurn && gameState.mustPlaySuit && !hasCardsOfSuit(gameState.currentSuitToMatch)) {
+                // passTurnBtn.style.display = 'block';
+            }
+        }
+
+        // Render game elements
+        renderDiscardPile();
+        renderPlayerHand();
+
+        // Update game status
+        if (gameStatusEl) {
+            if (gameState.status === 'waiting') {
+                gameStatusEl.textContent = 'Waiting for opponent...';
+            } else {
+                let statusText = isMyTurn ? 'Your turn!' : 'Opponent\'s turn';
+
+                if (isMyTurn && gameState.pendingAction === 'draw_two') {
+                    const drawCount = gameState.pendingActionData || 2;
+                    statusText = `You must draw ${drawCount} cards or play a 2`;
+                }
+
+                gameStatusEl.textContent = statusText;
+                gameStatusEl.className = isMyTurn ? 'status-your-turn' : 'status-opponent-turn';
+            }
         }
     } else {
         // Show waiting message instead of hands/pile
         if (playerHandEl) playerHandEl.innerHTML = '<div class="waiting-msg">Waiting for both players…</div>';
         if (discardPileEl) discardPileEl.innerHTML = '';
         if (opponentHandCountEl) opponentHandCountEl.textContent = '';
-    }
-    
-    // Update game status
-    if (gameStatusEl) {
-        if (gameState.status === 'waiting') {
-            gameStatusEl.textContent = 'Waiting for opponent...';
-        } else {
-            let statusText = isMyTurn ? 'Your turn!' : 'Opponent\'s turn';
-            
-            if (isMyTurn && gameState.pendingAction === 'draw_two') {
-                const drawCount = gameState.pendingActionData || 2;
-                statusText = `You must draw ${drawCount} cards or play a 2`;
+        if (drawCardBtn) drawCardBtn.style.display = 'none';
+        if (passTurnBtn) passTurnBtn.style.display = 'none';
+        if (currentSuitDisplay) currentSuitDisplay.textContent = '';
+        if (gameStatusEl) {
+            if (!bothJoined) {
+                gameStatusEl.textContent = 'Waiting for both players to join...';
+            } else if (!betDeducted) {
+                gameStatusEl.textContent = 'Waiting for bet to be deducted...';
             }
-            
-            gameStatusEl.textContent = statusText;
-            gameStatusEl.className = isMyTurn ? 'status-your-turn' : 'status-opponent-turn';
+            gameStatusEl.className = 'status-message info';
         }
     }
 }
@@ -1398,7 +1406,6 @@ function showGameResult(isWinner, amount) {
 
 
 function setupRealtimeUpdates() {
-
     const channel = supabase
         .channel(`card_game_${gameState.gameCode}`)
         .on(
@@ -1409,19 +1416,21 @@ function setupRealtimeUpdates() {
                 table: 'card_games',
                 filter: `code=eq.${gameState.gameCode}`
             },
-            (payload) => {
+            async (payload) => {
                 try {
+                    // Update gameState from payload
                     gameState.status = payload.new.status;
                     gameState.currentPlayer = payload.new.current_player;
                     gameState.currentSuit = payload.new.current_suit;
                     gameState.hasDrawnThisTurn = payload.new.has_drawn_this_turn || false;
-                       gameState.lastSuitChangeMethod = payload.new.last_suit_change_method;
+                    gameState.lastSuitChangeMethod = payload.new.last_suit_change_method;
+                    gameState.betDeducted = payload.new.bet_deducted;
 
                     if (payload.new.last_card) {
                         try {
-                            gameState.lastCard = typeof payload.new.last_card === 'string' ? 
-                                JSON.parse(payload.new.last_card) : 
-                                payload.new.last_card;
+                            gameState.lastCard = typeof payload.new.last_card === 'string'
+                                ? JSON.parse(payload.new.last_card)
+                                : payload.new.last_card;
                         } catch (e) {
                             console.error('Error parsing last_card:', e);
                             gameState.lastCard = null;
@@ -1429,16 +1438,16 @@ function setupRealtimeUpdates() {
                     } else {
                         gameState.lastCard = null;
                     }
-                    
+
                     gameState.pendingAction = payload.new.pending_action;
                     gameState.pendingActionData = payload.new.pending_action_data;
                     gameState.mustPlaySuit = payload.new.must_play_suit || false;
                     gameState.currentSuitToMatch = payload.new.current_suit_to_match || '';
                     gameState.discardPile = payload.new.discard_pile ? safeParseJSON(payload.new.discard_pile) : [];
-                    
+
                     const users = JSON.parse(localStorage.getItem('user')) || {};
                     const isCreator = gameState.playerRole === 'creator';
-                    
+
                     if (isCreator) {
                         gameState.playerHand = safeParseJSON(payload.new.creator_hand) || [];
                         gameState.opponentHandCount = safeParseJSON(payload.new.opponent_hand)?.length || 0;
@@ -1446,24 +1455,76 @@ function setupRealtimeUpdates() {
                         gameState.playerHand = safeParseJSON(payload.new.opponent_hand) || [];
                         gameState.opponentHandCount = safeParseJSON(payload.new.creator_hand)?.length || 0;
                     }
-                    
+
+                    // Set player info if opponent just joined
                     if (payload.new.opponent_phone && !gameState.opponent.phone) {
                         gameState.opponent = {
                             username: payload.new.opponent_username,
                             phone: payload.new.opponent_phone
                         };
-                        
                         if (gameState.status === 'waiting') {
                             gameState.status = 'ongoing';
                         }
                     }
-                    
+
+                    // --- Bet deduction logic: only deduct when both players joined and not deducted yet ---
+                    if (
+                        payload.new.creator_phone &&
+                        payload.new.opponent_phone &&
+                        !payload.new.bet_deducted
+                    ) {
+                        try {
+                            // Fetch creator and opponent balances
+                            const [creatorRes, opponentRes] = await Promise.all([
+                                supabase
+                                    .from('users')
+                                    .select('balance')
+                                    .eq('phone', payload.new.creator_phone)
+                                    .single(),
+                                supabase
+                                    .from('users')
+                                    .select('balance')
+                                    .eq('phone', payload.new.opponent_phone)
+                                    .single()
+                            ]);
+                            const creatorBalance = creatorRes.data?.balance ?? 0;
+                            const opponentBalance = opponentRes.data?.balance ?? 0;
+                            const bet = payload.new.bet || 0;
+
+                            // Only deduct if both have enough balance
+                            if (creatorBalance >= bet && opponentBalance >= bet) {
+                                await Promise.all([
+                                    supabase
+                                        .from('users')
+                                        .update({ balance: creatorBalance - bet })
+                                        .eq('phone', payload.new.creator_phone),
+                                    supabase
+                                        .from('users')
+                                        .update({ balance: opponentBalance - bet })
+                                        .eq('phone', payload.new.opponent_phone),
+                                    supabase
+                                        .from('card_games')
+                                        .update({ bet_deducted: true })
+                                        .eq('code', payload.new.code)
+                                ]);
+                                gameState.betDeducted = true;
+                            } else {
+                                // (Optional) Handle insufficient funds (e.g., cancel game, notify players)
+                                // For now, just log:
+                                console.warn("One or both players don't have enough balance for the bet.");
+                            }
+                        } catch (err) {
+                            console.error("Error deducting bet:", err);
+                        }
+                    }
+
+                    // Show game result if finished
                     if (payload.new.status === 'finished') {
                         const isWinner = payload.new.winner === users.phone;
                         const amount = Math.floor(gameState.betAmount * 1.8);
                         showGameResult(isWinner, amount);
                     }
-                    
+
                     updateGameUI();
                 } catch (error) {
                     console.error('Error processing realtime update:', error);
@@ -1471,7 +1532,7 @@ function setupRealtimeUpdates() {
             }
         )
         .subscribe();
-        
+
     return channel;
 }
 
