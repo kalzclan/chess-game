@@ -42,7 +42,6 @@ class SoundManager {
     }
 
     initializeSounds() {
-        // Create audio context for better browser compatibility
         try {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         } catch (e) {
@@ -50,13 +49,10 @@ class SoundManager {
             this.enabled = false;
             return;
         }
-        
-        // Generate sounds programmatically
         this.generateSounds();
     }
 
     generateSounds() {
-        // Generate all sound effects
         this.sounds = {
             cardPlay: this.createCardPlaySound(),
             cardDraw: this.createCardDrawSound(),
@@ -264,13 +260,47 @@ class AnimationManager {
             element.style.transition = '';
         }, duration);
     }
+
+    slideCard(cardElement, fromElement, toElement, duration = 500) {
+        return new Promise(resolve => {
+            const fromRect = fromElement.getBoundingClientRect();
+            const toRect = toElement.getBoundingClientRect();
+            
+            const startX = fromRect.left + fromRect.width / 2;
+            const startY = fromRect.top + fromRect.height / 2;
+            const endX = toRect.left + toRect.width / 2;
+            const endY = toRect.top + toRect.height / 2;
+            
+            cardElement.style.position = 'fixed';
+            cardElement.style.left = startX + 'px';
+            cardElement.style.top = startY + 'px';
+            cardElement.style.zIndex = '1000';
+            cardElement.style.transition = `all ${duration}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)`;
+            
+            requestAnimationFrame(() => {
+                cardElement.style.left = endX + 'px';
+                cardElement.style.top = endY + 'px';
+                cardElement.style.transform = 'scale(0.8) rotate(10deg)';
+            });
+            
+            setTimeout(() => {
+                cardElement.style.position = '';
+                cardElement.style.left = '';
+                cardElement.style.top = '';
+                cardElement.style.transform = '';
+                cardElement.style.zIndex = '';
+                cardElement.style.transition = '';
+                resolve();
+            }, duration);
+        });
+    }
 }
 
 // Initialize managers
 const soundManager = new SoundManager();
 const animationManager = new AnimationManager();
 
-// --- Fixed Game State Class ---
+// --- Game State Class (Updated for Database Schema) ---
 class GameState {
     constructor() {
         this.reset();
@@ -278,16 +308,32 @@ class GameState {
     }
 
     reset() {
-        this.gameCode = '';
-        this.players = [];
-        this.currentPlayerIndex = 0;
+        this.id = null;
+        this.code = '';
+        this.creator_phone = '';
+        this.creator_username = '';
+        this.opponent_phone = '';
+        this.opponent_username = '';
+        this.status = 'waiting';
+        this.is_private = false;
         this.deck = [];
-        this.discardPile = [];
-        this.lastCard = null;
-        this.currentSuit = '';
-        this.playerHand = [];
-        this.opponentHand = [];
-        this.gameStatus = 'waiting';
+        this.creator_hand = [];
+        this.opponent_hand = [];
+        this.discard_pile = [];
+        this.current_player = '';
+        this.game_type = '';
+        this.current_suit = '';
+        this.next_play_hearts = false;
+        this.last_card = null;
+        this.pending_action = '';
+        this.pending_action_data = null;
+        this.current_suit_to_match = '';
+        this.must_play_suit = '';
+        this.next_draws_this_turn = 0;
+        this.last_suit_change_me = false;
+        this.bet_deducted = false;
+        
+        // Local game state
         this.turnState = {
             canPlayMultiple: false,
             cardsPlayedThisTurn: 0,
@@ -297,17 +343,44 @@ class GameState {
         };
     }
 
-    get currentPlayer() {
-        return this.players[this.currentPlayerIndex]?.phone || '';
+    get currentUser() {
+        return JSON.parse(localStorage.getItem('user')) || {};
+    }
+
+    get isCreator() {
+        return this.currentUser.phone === this.creator_phone;
     }
 
     get isMyTurn() {
-        const user = JSON.parse(localStorage.getItem('user')) || {};
-        return this.currentPlayer === user.phone;
+        return this.current_player === this.currentUser.phone;
     }
 
-    nextPlayer() {
-        this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.players.length;
+    get myHand() {
+        return this.isCreator ? this.creator_hand : this.opponent_hand;
+    }
+
+    get opponentHand() {
+        return this.isCreator ? this.opponent_hand : this.creator_hand;
+    }
+
+    set myHand(cards) {
+        if (this.isCreator) {
+            this.creator_hand = cards;
+        } else {
+            this.opponent_hand = cards;
+        }
+    }
+
+    get lastCard() {
+        return this.last_card;
+    }
+
+    set lastCard(card) {
+        this.last_card = card;
+    }
+
+    get gameCode() {
+        return this.code;
     }
 
     createDeck() {
@@ -327,14 +400,33 @@ class GameState {
         }
     }
 
+    dealCards() {
+        this.creator_hand = [];
+        this.opponent_hand = [];
+        
+        // Deal 7 cards to each player
+        for (let i = 0; i < 7; i++) {
+            this.creator_hand.push(this.deck.pop());
+            this.opponent_hand.push(this.deck.pop());
+        }
+        
+        // Set first card
+        this.lastCard = this.deck.pop();
+        this.current_suit = this.lastCard.suit;
+        this.current_suit_to_match = this.lastCard.suit;
+    }
+
     canPlayCard(card) {
         if (!this.lastCard || !this.isMyTurn) return false;
         
         // Ace of Spades can always be played
         if (card.value === 'A' && card.suit === 'spades') return true;
         
+        // Check for must play suit restriction
+        if (this.must_play_suit && card.suit !== this.must_play_suit) return false;
+        
         // Regular matching rules
-        return card.suit === this.currentSuit || 
+        return card.suit === this.current_suit_to_match || 
                card.value === this.lastCard.value || 
                SPECIAL_CARDS[card.value];
     }
@@ -345,7 +437,7 @@ class GameState {
             return false;
         }
 
-        const card = this.playerHand[cardIndex];
+        const card = this.myHand[cardIndex];
         if (!this.canPlayCard(card)) {
             this.showStatus("You can't play that card!");
             const cardElements = document.querySelectorAll('.player-hand-cards .card');
@@ -358,28 +450,34 @@ class GameState {
         try {
             soundManager.play('cardPlay');
 
-            // Remove card from hand with animation
+            // Animate card play
             const cardElements = document.querySelectorAll('.player-hand-cards .card');
             if (cardElements[cardIndex]) {
                 animationManager.glow(cardElements[cardIndex], '#4caf50');
             }
 
-            this.playerHand.splice(cardIndex, 1);
+            // Remove card from hand
+            const playedCard = this.myHand.splice(cardIndex, 1)[0];
             
             // Add to discard pile
             if (this.lastCard) {
-                this.discardPile.push(this.lastCard);
+                this.discard_pile.push(this.lastCard);
             }
-            this.lastCard = card;
-            this.currentSuit = card.suit;
+            this.lastCard = playedCard;
+            this.current_suit = playedCard.suit;
+            this.current_suit_to_match = playedCard.suit;
             this.turnState.cardsPlayedThisTurn++;
 
+            // Reset restrictions
+            this.must_play_suit = '';
+            this.next_play_hearts = false;
+
             // Handle special card effects
-            await this.handleSpecialCard(card);
+            await this.handleSpecialCard(playedCard);
 
             // Check for win condition
-            if (this.playerHand.length === 0) {
-                this.gameStatus = 'finished';
+            if (this.myHand.length === 0) {
+                this.status = 'finished';
                 this.showStatus("You won!");
                 soundManager.play('win');
                 await this.updateGameState();
@@ -407,7 +505,9 @@ class GameState {
                 if (card.value === '8' || card.value === 'J') {
                     const newSuit = await this.showSuitSelectionDialog();
                     if (newSuit) {
-                        this.currentSuit = newSuit;
+                        this.current_suit = newSuit;
+                        this.current_suit_to_match = newSuit;
+                        this.last_suit_change_me = true;
                         this.showStatus(`Suit changed to ${newSuit}`);
                     }
                 }
@@ -428,6 +528,7 @@ class GameState {
             case 'draw_two':
                 soundManager.play('special');
                 this.turnState.pendingDraws += 2;
+                this.next_draws_this_turn = this.turnState.pendingDraws;
                 this.showStatus("Next player must draw 2 cards!");
                 break;
                 
@@ -451,7 +552,7 @@ class GameState {
         // Handle skip turn
         if (this.turnState.skipNextTurn) {
             this.turnState.skipNextTurn = false;
-            this.nextPlayer(); // Skip the next player
+            // Skip is handled by staying on current player, then switching normally
         }
         
         // Reset turn state
@@ -459,7 +560,7 @@ class GameState {
         this.turnState.cardsPlayedThisTurn = 0;
         
         // Move to next player
-        this.nextPlayer();
+        this.current_player = this.isCreator ? this.opponent_phone : this.creator_phone;
         
         // Handle pending draws
         if (this.turnState.pendingDraws > 0) {
@@ -471,10 +572,15 @@ class GameState {
                 for (let i = 0; i < this.turnState.pendingDraws; i++) {
                     if (this.deck.length === 0) this.reshuffleDeck();
                     if (this.deck.length > 0) {
-                        this.opponentHand.push(this.deck.pop());
+                        if (this.isCreator) {
+                            this.opponent_hand.push(this.deck.pop());
+                        } else {
+                            this.creator_hand.push(this.deck.pop());
+                        }
                     }
                 }
                 this.turnState.pendingDraws = 0;
+                this.next_draws_this_turn = 0;
                 this.turnState.mustDrawCards = false;
             }
         }
@@ -499,11 +605,12 @@ class GameState {
                 
                 if (this.deck.length > 0) {
                     const drawnCard = this.deck.pop();
-                    this.playerHand.push(drawnCard);
+                    this.myHand.push(drawnCard);
                 }
             }
             
             this.turnState.pendingDraws = 0;
+            this.next_draws_this_turn = 0;
             this.turnState.mustDrawCards = false;
             
             // End turn after drawing (unless can play multiple)
@@ -555,9 +662,9 @@ class GameState {
     }
 
     reshuffleDeck() {
-        if (this.discardPile.length === 0) return;
+        if (this.discard_pile.length === 0) return;
         
-        const cardsToShuffle = this.discardPile.splice(0, this.discardPile.length - 1);
+        const cardsToShuffle = this.discard_pile.splice(0, this.discard_pile.length - 1);
         this.deck.push(...cardsToShuffle);
         this.shuffleDeck();
         this.showStatus("Deck reshuffled!");
@@ -621,7 +728,7 @@ class GameState {
     updateGameStatusDisplay() {
         if (!gameStatusEl) return;
         
-        if (this.gameStatus === 'finished') {
+        if (this.status === 'finished') {
             gameStatusEl.textContent = 'Game Over';
             return;
         }
@@ -633,8 +740,8 @@ class GameState {
         } else if (this.isMyTurn) {
             gameStatusEl.textContent = 'Your turn - Play a card or draw';
         } else {
-            const currentPlayerName = this.players.find(p => p.phone === this.currentPlayer)?.name || 'Opponent';
-            gameStatusEl.textContent = `${currentPlayerName}'s turn`;
+            const opponentName = this.isCreator ? this.opponent_username : this.creator_username;
+            gameStatusEl.textContent = `${opponentName || 'Opponent'}'s turn`;
         }
     }
 
@@ -702,7 +809,7 @@ class GameState {
         const cardsContainer = document.createElement('div');
         cardsContainer.className = 'player-hand-cards';
         
-        this.playerHand.forEach((card, index) => {
+        this.myHand.forEach((card, index) => {
             const isPlayable = this.isMyTurn && this.canPlayCard(card);
             const wrapper = document.createElement('div');
             wrapper.innerHTML = this.renderCardHTML(card, { isPlayable });
@@ -730,7 +837,7 @@ class GameState {
         const pileContainer = document.createElement('div');
         pileContainer.className = 'discard-pile-container';
 
-        const allCards = [...this.discardPile];
+        const allCards = [...this.discard_pile];
         if (this.lastCard) allCards.push(this.lastCard);
 
         const cardsToShow = 7;
@@ -778,8 +885,8 @@ class GameState {
         this.updateGameStatusDisplay();
         
         // Update current suit display
-        if (currentSuitDisplay && this.currentSuit) {
-            currentSuitDisplay.innerHTML = `Current suit: ${this.getSuitSVG(this.currentSuit)}`;
+        if (currentSuitDisplay && this.current_suit) {
+            currentSuitDisplay.innerHTML = `Current suit: ${this.getSuitSVG(this.current_suit)}`;
         }
         
         // Update opponent hand count
@@ -788,75 +895,56 @@ class GameState {
             opponentHandCountEl.textContent = `Opponent: ${opponentCount} cards`;
         }
         
+        // Update player info
+        if (playerNameEl) {
+            playerNameEl.textContent = this.currentUser.username || 'You';
+        }
+        
+        if (opponentNameEl) {
+            const opponentName = this.isCreator ? this.opponent_username : this.creator_username;
+            opponentNameEl.textContent = opponentName || 'Opponent';
+        }
+        
         // Update button states
         if (drawCardBtn) {
-            drawCardBtn.disabled = !this.isMyTurn || this.gameStatus === 'finished';
+            drawCardBtn.disabled = !this.isMyTurn || this.status === 'finished';
         }
         
         if (passTurnBtn) {
             const shouldShow = this.turnState.canPlayMultiple && this.isMyTurn;
-            passTurnBtn.disabled = !this.isMyTurn || this.gameStatus === 'finished' || this.turnState.mustDrawCards;
             passTurnBtn.style.display = shouldShow ? 'block' : 'none';
+            passTurnBtn.disabled = !this.isMyTurn || this.status === 'finished' || this.turnState.mustDrawCards;
         }
     }
 
-    // --- Fixed Database Methods ---
+    // Database operations using correct field names
     async updateGameState() {
         try {
-            // First, try to get the current game to understand the database structure
-            const { data: existingGame, error: fetchError } = await supabase
-                .from('games')
-                .select('*')
-                .eq('id', this.gameCode) // Try with 'id' first
-                .single();
+            const updateData = {
+                status: this.status,
+                deck: this.deck,
+                creator_hand: this.creator_hand,
+                opponent_hand: this.opponent_hand,
+                discard_pile: this.discard_pile,
+                current_player: this.current_player,
+                current_suit: this.current_suit,
+                next_play_hearts: this.next_play_hearts,
+                last_card: this.last_card,
+                pending_action: this.pending_action,
+                pending_action_data: this.pending_action_data,
+                current_suit_to_match: this.current_suit_to_match,
+                must_play_suit: this.must_play_suit,
+                next_draws_this_turn: this.next_draws_this_turn,
+                last_suit_change_me: this.last_suit_change_me,
+                updated_at: new Date().toISOString()
+            };
 
-            if (fetchError && fetchError.code !== 'PGRST116') {
-                // If 'id' doesn't work, try other common field names
-                const { data: gameByCode, error: codeError } = await supabase
-                    .from('games')
-                    .select('*')
-                    .eq('code', this.gameCode) // Try with 'code'
-                    .single();
+            const { error } = await supabase
+                .from('card_games')
+                .update(updateData)
+                .eq('code', this.code);
 
-                if (codeError) {
-                    // If that doesn't work, try 'game_id'
-                    const { data: gameById, error: idError } = await supabase
-                        .from('games')
-                        .select('*')
-                        .eq('game_id', this.gameCode)
-                        .single();
-
-                    if (idError) {
-                        console.error('Could not find game with any common field names:', idError);
-                        return;
-                    }
-                } else {
-                    // Update using 'code' field
-                    const { error: updateError } = await supabase
-                        .from('games')
-                        .update({
-                            game_state: this.toJSON(),
-                            updated_at: new Date().toISOString()
-                        })
-                        .eq('code', this.gameCode);
-
-                    if (updateError) throw updateError;
-                    return;
-                }
-            } else {
-                // Update using 'id' field
-                const { error: updateError } = await supabase
-                    .from('games')
-                    .update({
-                        game_state: this.toJSON(),
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', this.gameCode);
-
-                if (updateError) throw updateError;
-                return;
-            }
-
+            if (error) throw error;
         } catch (error) {
             console.error('Error updating game state:', error);
         }
@@ -864,107 +952,51 @@ class GameState {
 
     async loadGameState() {
         try {
-            // Try different field names to find the game
-            let gameData = null;
-            let error = null;
-
-            // Try 'id' first
-            const { data: dataById, error: errorById } = await supabase
-                .from('games')
+            const { data, error } = await supabase
+                .from('card_games')
                 .select('*')
-                .eq('id', this.gameCode)
+                .eq('code', this.code)
                 .single();
 
-            if (!errorById && dataById) {
-                gameData = dataById;
-            } else {
-                // Try 'code'
-                const { data: dataByCode, error: errorByCode } = await supabase
-                    .from('games')
-                    .select('*')
-                    .eq('code', this.gameCode)
-                    .single();
-
-                if (!errorByCode && dataByCode) {
-                    gameData = dataByCode;
-                } else {
-                    // Try 'game_id'
-                    const { data: dataByGameId, error: errorByGameId } = await supabase
-                        .from('games')
-                        .select('*')
-                        .eq('game_id', this.gameCode)
-                        .single();
-
-                    if (!errorByGameId && dataByGameId) {
-                        gameData = dataByGameId;
-                    } else {
-                        throw errorByGameId || errorByCode || errorById;
-                    }
-                }
-            }
-
-            if (gameData && gameData.game_state) {
-                this.fromJSON(gameData.game_state);
+            if (error) throw error;
+            
+            if (data) {
+                // Map database fields to local state
+                Object.assign(this, data);
                 this.renderGame();
             }
         } catch (error) {
             console.error('Error loading game state:', error);
-            this.showStatus('Error loading game. Please refresh.');
         }
     }
 
     setupGameSubscription() {
-        try {
-            this.subscription = supabase
-                .channel('game-updates')
-                .on('postgres_changes', 
-                    { 
-                        event: 'UPDATE', 
-                        schema: 'public', 
-                        table: 'games'
-                    }, 
-                    (payload) => {
-                        if (payload.new && payload.new.game_state) {
-                            // Check if this update is for our game
-                            const isOurGame = payload.new.id === this.gameCode || 
-                                            payload.new.code === this.gameCode || 
-                                            payload.new.game_id === this.gameCode;
-                            
-                            if (isOurGame) {
-                                this.fromJSON(payload.new.game_state);
-                                this.renderGame();
-                            }
-                        }
-                    }
-                )
-                .subscribe();
-        } catch (error) {
-            console.error('Error setting up game subscription:', error);
+        if (this.subscription) {
+            this.subscription.unsubscribe();
         }
-    }
 
-    toJSON() {
-        return {
-            gameCode: this.gameCode,
-            players: this.players,
-            currentPlayerIndex: this.currentPlayerIndex,
-            deck: this.deck,
-            discardPile: this.discardPile,
-            lastCard: this.lastCard,
-            currentSuit: this.currentSuit,
-            playerHand: this.playerHand,
-            opponentHand: this.opponentHand,
-            gameStatus: this.gameStatus,
-            turnState: this.turnState
-        };
-    }
-
-    fromJSON(data) {
-        Object.assign(this, data);
+        this.subscription = supabase
+            .channel('game-updates')
+            .on('postgres_changes', 
+                { 
+                    event: 'UPDATE', 
+                    schema: 'public', 
+                    table: 'card_games',
+                    filter: `code=eq.${this.code}`
+                }, 
+                (payload) => {
+                    if (payload.new) {
+                        // Update local state with database changes
+                        Object.assign(this, payload.new);
+                        this.renderGame();
+                    }
+                }
+            )
+            .subscribe();
     }
 }
 
-// Create global game state instance
+// Global game state instance
 const gameState = new GameState();
 
 // --- Event Listeners ---
@@ -982,8 +1014,24 @@ if (backBtn) {
     });
 }
 
+// --- Initialize Game ---
+function initializeGame() {
+    const urlParams = new URLSearchParams(window.location.search);
+    gameState.code = urlParams.get('code') || '';
+    
+    if (gameCodeDisplay) {
+        gameCodeDisplay.textContent = gameState.code;
+    }
+    
+    // Load initial game state
+    gameState.loadGameState();
+    
+    // Set up real-time subscription
+    gameState.setupGameSubscription();
+}
+
 // --- CSS Styles ---
-const enhancedCSS = `
+const gameCSS = `
 .card-realistic {
     --card-width: 64px;
     --card-height: 96px;
@@ -998,9 +1046,7 @@ const enhancedCSS = `
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), 
-                box-shadow 0.2s ease-out, 
-                filter 0.2s ease-out;
+    transition: transform 0.13s, box-shadow 0.13s, filter 0.13s;
     user-select: none;
     overflow: visible;
     cursor: pointer;
@@ -1013,17 +1059,18 @@ const enhancedCSS = `
 }
 
 .card-realistic.playable:hover {
-    transform: translateY(-6px) scale(1.05);
-    box-shadow: 0 15px 30px rgba(76,175,80,0.25), 0 3px 12px rgba(50,150,50,0.15);
-    filter: brightness(1.1);
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 12px 25px rgba(76,175,80,0.2), 0 2px 10px rgba(50,150,50,0.1);
 }
 
 .card-realistic.playable:active {
-    transform: translateY(-2px) scale(1.02);
-    filter: brightness(0.95);
+    filter: brightness(0.97) drop-shadow(0 0 6px #4caf5044);
+    transform: translateY(-2px) scale(1.04);
+    z-index: 20;
 }
 
 .card-realistic .card-gloss {
+    content: '';
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
     border-radius: 11px;
@@ -1155,108 +1202,63 @@ const enhancedCSS = `
     white-space: nowrap;
 }
 
-/* Enhanced Modal Styles */
 .card-selection-modal {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.8);
+    background-color: rgba(0, 0, 0, 0.7);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 1000;
-    animation: fadeIn 0.3s ease-out;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
 }
 
 .selection-content {
-    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-    padding: 30px;
-    border-radius: 15px;
+    background-color: #2c3e50;
+    padding: 20px;
+    border-radius: 10px;
     width: 90%;
     max-width: 400px;
     color: white;
     text-align: center;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-    animation: slideUp 0.3s ease-out;
-}
-
-@keyframes slideUp {
-    from { 
-        opacity: 0;
-        transform: translateY(30px) scale(0.9);
-    }
-    to { 
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
 }
 
 .suit-selection-options {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 15px;
-    margin: 25px 0;
+    margin: 20px 0;
 }
 
 .suit-option {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 20px;
+    padding: 15px;
     background: rgba(255,255,255,0.1);
-    border-radius: 12px;
+    border-radius: 8px;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    border: 2px solid transparent;
+    transition: all 0.2s;
 }
 
 .suit-option:hover {
     background: rgba(255,255,255,0.2);
-    transform: translateY(-3px) scale(1.05);
-    border-color: rgba(255,255,255,0.3);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    transform: scale(1.05);
 }
 
 .suit-option svg {
-    width: 40px;
-    height: 40px;
-    margin-bottom: 10px;
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    width: 32px;
+    height: 32px;
+    margin-bottom: 8px;
 }
 
 .suit-option span {
     font-weight: bold;
-    font-size: 16px;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    font-size: 14px;
 }
 
-/* Enhanced Button Styles */
-button {
-    transition: all 0.2s ease-out;
-}
-
-button:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-}
-
-button:active:not(:disabled) {
-    transform: translateY(0);
-}
-
-/* Game Status Animation */
-#game-status {
-    transition: all 0.3s ease-out;
-}
-
-/* Responsive Design */
 @media (min-width: 400px) {
     .card-realistic,
     .card-back-realistic {
@@ -1287,38 +1289,14 @@ button:active:not(:disabled) {
 }
 `;
 
-// Inject styles
 const styleElement = document.createElement('style');
-styleElement.textContent = enhancedCSS;
+styleElement.textContent = gameCSS;
 document.head.appendChild(styleElement);
-
-// --- Initialize Game ---
-function initializeGame() {
-    const urlParams = new URLSearchParams(window.location.search);
-    gameState.gameCode = urlParams.get('code') || '';
-    
-    if (gameCodeDisplay) {
-        gameCodeDisplay.textContent = gameState.gameCode;
-    }
-    
-    // Load initial game state
-    gameState.loadGameState();
-    
-    // Set up real-time subscription
-    gameState.setupGameSubscription();
-    
-    // Enable audio context on first user interaction
-    document.addEventListener('click', () => {
-        if (soundManager.audioContext && soundManager.audioContext.state === 'suspended') {
-            soundManager.audioContext.resume();
-        }
-    }, { once: true });
-}
 
 // Start the game when page loads
 document.addEventListener('DOMContentLoaded', initializeGame);
 
-// Cleanup on page unload
+// Cleanup subscription on page unload
 window.addEventListener('beforeunload', () => {
     if (gameState.subscription) {
         gameState.subscription.unsubscribe();
