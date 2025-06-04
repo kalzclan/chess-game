@@ -703,7 +703,7 @@
     </div>
   </div>
 
-  <script type="module">
+<script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
     const supabaseUrl = "https://evberyanshxxalxtwnnc.supabase.co";
     const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2YmVyeWFuc2h4eGFseHR3bm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQwODMwOTcsImV4cCI6MjA1OTY1OTA5N30.pEoPiIi78Tvl5URw0Xy_vAxsd-3XqRlC8FTnX9HpgMw";
@@ -724,16 +724,20 @@
 
     // Function to format phone number
     function formatPhoneNumber(phone) {
+      // Remove all non-digit characters
       const cleaned = phone.replace(/\D/g, '');
       
+      // Check if it's a 10-digit number starting with 0 (like 0961401822)
       if (cleaned.length === 10 && cleaned.startsWith('0')) {
         return `+251${cleaned.substring(1)}`;
       }
       
+      // Check if it's a 9-digit number (like 961401822)
       if (cleaned.length === 9 && !cleaned.startsWith('0')) {
         return `+251${cleaned}`;
       }
       
+      // If it's already in international format, return as is
       return cleaned.startsWith('+') ? cleaned : `+${cleaned}`;
     }
 
@@ -855,11 +859,10 @@
 
         if (userError) throw userError;
 
+        // Store user data in memory instead of localStorage
         window.userData = userData;
         window.userPhone = phone;
- // Store user data in localStorage
-        localStorage.setItem("user", JSON.stringify(userData));
-        localStorage.setItem("phone", phone);
+
         window.location.href = "home.html";
       } catch (err) {
         console.error("Login error:", err);
@@ -910,7 +913,7 @@
         validateInput(document.getElementById("password"), false);
         isValid = false;
       }
-if (password !== confirmPassword) {
+      if (password !== confirmPassword) {
         validateInput(document.getElementById("confirmPassword"), false);
         showError("registerError", "Passwords do not match.");
         isValid = false;
@@ -951,7 +954,12 @@ if (password !== confirmPassword) {
         // Sign up with Supabase Auth
         const { data: authData, error: authError } = await supabase.auth.signUp({
           phone: phone,
-          password: password
+          password: password,
+          options: {
+            data: {
+              username: username
+            }
+          }
         });
 
         if (authError) throw authError;
@@ -963,8 +971,8 @@ if (password !== confirmPassword) {
             {
               username: username,
               phone: phone,
+              balance: 0,
               auth_id: authData.user?.id,
-              coins: 100, // Starting coins
               created_at: new Date().toISOString()
             }
           ])
@@ -973,13 +981,10 @@ if (password !== confirmPassword) {
 
         if (userError) throw userError;
 
-        // Store user data globally
+        // Store user data in memory instead of localStorage
         window.userData = userData;
         window.userPhone = phone;
 
-        // Store user data in localStorage
-        localStorage.setItem("user", JSON.stringify(userData));
-        localStorage.setItem("phone", phone);
         // Redirect to home page
         window.location.href = "home.html";
 
