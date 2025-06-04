@@ -260,47 +260,13 @@ class AnimationManager {
             element.style.transition = '';
         }, duration);
     }
-
-    slideCard(cardElement, fromElement, toElement, duration = 500) {
-        return new Promise(resolve => {
-            const fromRect = fromElement.getBoundingClientRect();
-            const toRect = toElement.getBoundingClientRect();
-            
-            const startX = fromRect.left + fromRect.width / 2;
-            const startY = fromRect.top + fromRect.height / 2;
-            const endX = toRect.left + toRect.width / 2;
-            const endY = toRect.top + toRect.height / 2;
-            
-            cardElement.style.position = 'fixed';
-            cardElement.style.left = startX + 'px';
-            cardElement.style.top = startY + 'px';
-            cardElement.style.zIndex = '1000';
-            cardElement.style.transition = `all ${duration}ms cubic-bezier(0.25, 0.46, 0.45, 0.94)`;
-            
-            requestAnimationFrame(() => {
-                cardElement.style.left = endX + 'px';
-                cardElement.style.top = endY + 'px';
-                cardElement.style.transform = 'scale(0.8) rotate(10deg)';
-            });
-            
-            setTimeout(() => {
-                cardElement.style.position = '';
-                cardElement.style.left = '';
-                cardElement.style.top = '';
-                cardElement.style.transform = '';
-                cardElement.style.zIndex = '';
-                cardElement.style.transition = '';
-                resolve();
-            }, duration);
-        });
-    }
 }
 
 // Initialize managers
 const soundManager = new SoundManager();
 const animationManager = new AnimationManager();
 
-// --- Game State Class (Fixed for Database Schema) ---
+// --- Game State Class (Using EXACT Database Schema) ---
 class GameState {
     constructor() {
         this.reset();
@@ -308,7 +274,7 @@ class GameState {
     }
 
     reset() {
-        // Database fields that actually exist
+        // EXACT database columns from your schema
         this.id = null;
         this.code = '';
         this.creator_phone = '';
@@ -323,6 +289,8 @@ class GameState {
         this.discard_pile = [];
         this.current_player = '';
         this.game_type = '';
+        this.created_at = null;
+        this.updated_at = null;
         this.current_suit = '';
         this.next_play_hearts = false;
         this.last_card = null;
@@ -331,15 +299,14 @@ class GameState {
         this.current_suit_to_match = '';
         this.must_play_suit = '';
         this.next_draws_this_turn = 0;
+        this.last_suit_change_me = false;
         this.bet_deducted = false;
         
-        // Local game state (not saved to database)
+        // Local state for gameplay (not saved to database)
         this.turnState = {
             canPlayMultiple: false,
             cardsPlayedThisTurn: 0,
-            pendingDraws: 0,
-            skipNextTurn: false,
-            mustDrawCards: false
+            skipNextTurn: false
         };
     }
 
@@ -379,23 +346,14 @@ class GameState {
         }
     }
 
-    get lastCard() {
-        return this.last_card;
-    }
-
-    set lastCard(card) {
-        this.last_card = card;
-    }
-
     get gameCode() {
         return this.code;
     }
 
-    // Initialize from database data
+    // Load from database using exact column names
     loadFromDatabase(data) {
         if (!data) return;
         
-        // Only map fields that exist in the database
         this.id = data.id;
         this.code = data.code || '';
         this.creator_phone = data.creator_phone || '';
@@ -410,6 +368,8 @@ class GameState {
         this.discard_pile = Array.isArray(data.discard_pile) ? data.discard_pile : [];
         this.current_player = data.current_player || '';
         this.game_type = data.game_type || '';
+        this.created_at = data.created_at;
+        this.updated_at = data.updated_at;
         this.current_suit = data.current_suit || '';
         this.next_play_hearts = data.next_play_hearts || false;
         this.last_card = data.last_card;
@@ -418,11 +378,8 @@ class GameState {
         this.current_suit_to_match = data.current_suit_to_match || data.current_suit || '';
         this.must_play_suit = data.must_play_suit || '';
         this.next_draws_this_turn = data.next_draws_this_turn || 0;
+        this.last_suit_change_me = data.last_suit_change_me || false;
         this.bet_deducted = data.bet_deducted || false;
-        
-        // Update turn state based on database
-        this.turnState.pendingDraws = this.next_draws_this_turn;
-        this.turnState.mustDrawCards = this.next_draws_this_turn > 0 && this.isMyTurn;
     }
 
     createDeck() {
@@ -442,24 +399,8 @@ class GameState {
         }
     }
 
-    dealCards() {
-        this.creator_hand = [];
-        this.opponent_hand = [];
-        
-        // Deal 7 cards to each player
-        for (let i = 0; i < 7; i++) {
-            this.creator_hand.push(this.deck.pop());
-            this.opponent_hand.push(this.deck.pop());
-        }
-        
-        // Set first card
-        this.lastCard = this.deck.pop();
-        this.current_suit = this.lastCard.suit;
-        this.current_suit_to_match = this.lastCard.suit;
-    }
-
     canPlayCard(card) {
-        if (!this.lastCard || !this.isMyTurn) return false;
+        if (!this.last_card || !this.isMyTurn) return false;
         
         // Ace of Spades can always be played
         if (card.value === 'A' && card.suit === 'spades') return true;
@@ -470,7 +411,7 @@ class GameState {
         // Regular matching rules
         const currentSuit = this.current_suit_to_match || this.current_suit;
         return card.suit === currentSuit || 
-               card.value === this.lastCard.value || 
+               card.value === this.last_card.value || 
                SPECIAL_CARDS[card.value];
     }
 
@@ -508,13 +449,12 @@ class GameState {
             const playedCard = this.myHand.splice(cardIndex, 1)[0];
             
             // Add to discard pile
-            if (this.lastCard) {
-                this.discard_pile.push(this.lastCard);
+            if (this.last_card) {
+                this.discard_pile.push(this.last_card);
             }
-            this.lastCard = playedCard;
+            this.last_card = playedCard;
             this.current_suit = playedCard.suit;
             this.current_suit_to_match = playedCard.suit;
-            this.turnState.cardsPlayedThisTurn++;
 
             // Reset restrictions
             this.must_play_suit = '';
@@ -555,6 +495,7 @@ class GameState {
                     if (newSuit) {
                         this.current_suit = newSuit;
                         this.current_suit_to_match = newSuit;
+                        this.last_suit_change_me = true;
                         this.showStatus(`Suit changed to ${newSuit}`);
                     }
                 }
@@ -574,8 +515,7 @@ class GameState {
                 
             case 'draw_two':
                 soundManager.play('special');
-                this.turnState.pendingDraws += 2;
-                this.next_draws_this_turn = this.turnState.pendingDraws;
+                this.next_draws_this_turn += 2;
                 this.showStatus("Next player must draw 2 cards!");
                 break;
                 
@@ -599,7 +539,7 @@ class GameState {
         // Handle skip turn
         if (this.turnState.skipNextTurn) {
             this.turnState.skipNextTurn = false;
-            // Skip is handled by staying on current player, then switching normally
+            // Skip handled by staying on current player
         }
         
         // Reset turn state
@@ -609,27 +549,19 @@ class GameState {
         // Move to next player
         this.current_player = this.isCreator ? this.opponent_phone : this.creator_phone;
         
-        // Handle pending draws
-        if (this.turnState.pendingDraws > 0) {
-            if (this.isMyTurn) {
-                this.turnState.mustDrawCards = true;
-                this.showStatus(`You must draw ${this.turnState.pendingDraws} cards!`);
-            } else {
-                // AI/opponent draws cards
-                for (let i = 0; i < this.turnState.pendingDraws; i++) {
-                    if (this.deck.length === 0) this.reshuffleDeck();
-                    if (this.deck.length > 0) {
-                        if (this.isCreator) {
-                            this.opponent_hand.push(this.deck.pop());
-                        } else {
-                            this.creator_hand.push(this.deck.pop());
-                        }
+        // Handle pending draws for opponent
+        if (this.next_draws_this_turn > 0 && !this.isMyTurn) {
+            for (let i = 0; i < this.next_draws_this_turn; i++) {
+                if (this.deck.length === 0) this.reshuffleDeck();
+                if (this.deck.length > 0) {
+                    if (this.isCreator) {
+                        this.opponent_hand.push(this.deck.pop());
+                    } else {
+                        this.creator_hand.push(this.deck.pop());
                     }
                 }
-                this.turnState.pendingDraws = 0;
-                this.next_draws_this_turn = 0;
-                this.turnState.mustDrawCards = false;
             }
+            this.next_draws_this_turn = 0;
         }
     }
 
@@ -642,7 +574,7 @@ class GameState {
         try {
             soundManager.play('cardDraw');
             
-            const cardsToDraw = this.turnState.pendingDraws > 0 ? this.turnState.pendingDraws : 1;
+            const cardsToDraw = this.next_draws_this_turn > 0 ? this.next_draws_this_turn : 1;
             
             for (let i = 0; i < cardsToDraw; i++) {
                 if (this.deck.length === 0) {
@@ -656,9 +588,7 @@ class GameState {
                 }
             }
             
-            this.turnState.pendingDraws = 0;
             this.next_draws_this_turn = 0;
-            this.turnState.mustDrawCards = false;
             
             // End turn after drawing (unless can play multiple)
             if (!this.turnState.canPlayMultiple) {
@@ -691,7 +621,7 @@ class GameState {
             return false;
         }
 
-        if (this.turnState.mustDrawCards) {
+        if (this.next_draws_this_turn > 0) {
             this.showStatus("You must draw cards first!");
             return false;
         }
@@ -780,8 +710,8 @@ class GameState {
             return;
         }
         
-        if (this.turnState.mustDrawCards && this.isMyTurn) {
-            gameStatusEl.textContent = `Draw ${this.turnState.pendingDraws} card(s)!`;
+        if (this.next_draws_this_turn > 0 && this.isMyTurn) {
+            gameStatusEl.textContent = `Draw ${this.next_draws_this_turn} card(s)!`;
         } else if (this.turnState.canPlayMultiple && this.isMyTurn) {
             gameStatusEl.textContent = 'Play another card or pass turn';
         } else if (this.isMyTurn) {
@@ -885,7 +815,7 @@ class GameState {
         pileContainer.className = 'discard-pile-container';
 
         const allCards = [...this.discard_pile];
-        if (this.lastCard) allCards.push(this.lastCard);
+        if (this.last_card) allCards.push(this.last_card);
 
         const cardsToShow = 7;
         const startIdx = Math.max(0, allCards.length - cardsToShow);
@@ -942,17 +872,6 @@ class GameState {
             opponentHandCountEl.textContent = `Opponent: ${opponentCount} cards`;
         }
         
-        // Update player names
-        if (playerNameEl) {
-            const playerName = this.isCreator ? this.creator_username : this.opponent_username;
-            playerNameEl.textContent = playerName || 'You';
-        }
-        
-        if (opponentNameEl) {
-            const opponentName = this.isCreator ? this.opponent_username : this.creator_username;
-            opponentNameEl.textContent = opponentName || 'Opponent';
-        }
-        
         // Update button states
         if (drawCardBtn) {
             drawCardBtn.disabled = !this.isMyTurn || this.status === 'finished';
@@ -960,12 +879,12 @@ class GameState {
         
         if (passTurnBtn) {
             const shouldShow = this.turnState.canPlayMultiple && this.isMyTurn;
-            passTurnBtn.disabled = !this.isMyTurn || this.status === 'finished' || this.turnState.mustDrawCards;
             passTurnBtn.style.display = shouldShow ? 'block' : 'none';
+            passTurnBtn.disabled = !shouldShow || this.next_draws_this_turn > 0;
         }
     }
 
-    // Fixed updateGameState method to only use existing database columns
+    // Database operations using exact column names
     async updateGameState() {
         try {
             const updateData = {
@@ -990,6 +909,7 @@ class GameState {
                 current_suit_to_match: this.current_suit_to_match,
                 must_play_suit: this.must_play_suit,
                 next_draws_this_turn: this.next_draws_this_turn,
+                last_suit_change_me: this.last_suit_change_me,
                 bet_deducted: this.bet_deducted,
                 updated_at: new Date().toISOString()
             };
@@ -1045,8 +965,39 @@ class GameState {
     }
 }
 
-// Create global game instance
+// Global game state
 const gameState = new GameState();
+
+// --- Event Listeners ---
+if (drawCardBtn) {
+    drawCardBtn.addEventListener('click', () => gameState.drawCard());
+}
+
+if (passTurnBtn) {
+    passTurnBtn.addEventListener('click', () => gameState.passTurn());
+}
+
+if (backBtn) {
+    backBtn.addEventListener('click', () => {
+        window.location.href = 'index.html';
+    });
+}
+
+// --- Initialize Game ---
+function initializeGame() {
+    const urlParams = new URLSearchParams(window.location.search);
+    gameState.code = urlParams.get('code') || '';
+    
+    if (gameCodeDisplay) {
+        gameCodeDisplay.textContent = gameState.code;
+    }
+    
+    // Load initial game state
+    gameState.loadGameState();
+    
+    // Set up real-time subscription
+    gameState.setupGameSubscription();
+}
 
 // --- CSS Styles ---
 const gameCSS = `
@@ -1088,6 +1039,7 @@ const gameCSS = `
 }
 
 .card-realistic .card-gloss {
+    content: '';
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
     border-radius: 11px;
@@ -1307,48 +1259,9 @@ const gameCSS = `
 }
 `;
 
-// Inject CSS
-const styleEl = document.createElement('style');
-styleEl.textContent = gameCSS;
-document.head.appendChild(styleEl);
-
-// --- Event Listeners ---
-if (drawCardBtn) {
-    drawCardBtn.addEventListener('click', () => gameState.drawCard());
-}
-
-if (passTurnBtn) {
-    passTurnBtn.addEventListener('click', () => gameState.passTurn());
-}
-
-if (backBtn) {
-    backBtn.addEventListener('click', () => {
-        window.location.href = 'index.html';
-    });
-}
-
-// --- Initialize Game ---
-function initializeGame() {
-    const urlParams = new URLSearchParams(window.location.search);
-    gameState.code = urlParams.get('code') || '';
-    
-    if (gameCodeDisplay) {
-        gameCodeDisplay.textContent = gameState.code;
-    }
-    
-    // Load initial game state
-    gameState.loadGameState();
-    
-    // Set up real-time subscription
-    gameState.setupGameSubscription();
-}
+const styleElement = document.createElement('style');
+styleElement.textContent = gameCSS;
+document.head.appendChild(styleElement);
 
 // Start the game when page loads
 document.addEventListener('DOMContentLoaded', initializeGame);
-
-// Cleanup subscription on page unload
-window.addEventListener('beforeunload', () => {
-    if (gameState.subscription) {
-        gameState.subscription.unsubscribe();
-    }
-});
