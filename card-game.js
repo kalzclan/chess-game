@@ -300,7 +300,7 @@ class AnimationManager {
 const soundManager = new SoundManager();
 const animationManager = new AnimationManager();
 
-// --- Game State Class (Fixed) ---
+// --- Game State Class (Fixed for Database Schema) ---
 class GameState {
     constructor() {
         this.reset();
@@ -308,6 +308,7 @@ class GameState {
     }
 
     reset() {
+        // Database fields that actually exist
         this.id = null;
         this.code = '';
         this.creator_phone = '';
@@ -330,10 +331,9 @@ class GameState {
         this.current_suit_to_match = '';
         this.must_play_suit = '';
         this.next_draws_this_turn = 0;
-        this.last_suit_change_me = false;
         this.bet_deducted = false;
         
-        // Local game state
+        // Local game state (not saved to database)
         this.turnState = {
             canPlayMultiple: false,
             cardsPlayedThisTurn: 0,
@@ -395,7 +395,7 @@ class GameState {
     loadFromDatabase(data) {
         if (!data) return;
         
-        // Map database fields
+        // Only map fields that exist in the database
         this.id = data.id;
         this.code = data.code || '';
         this.creator_phone = data.creator_phone || '';
@@ -418,7 +418,6 @@ class GameState {
         this.current_suit_to_match = data.current_suit_to_match || data.current_suit || '';
         this.must_play_suit = data.must_play_suit || '';
         this.next_draws_this_turn = data.next_draws_this_turn || 0;
-        this.last_suit_change_me = data.last_suit_change_me || false;
         this.bet_deducted = data.bet_deducted || false;
         
         // Update turn state based on database
@@ -556,7 +555,6 @@ class GameState {
                     if (newSuit) {
                         this.current_suit = newSuit;
                         this.current_suit_to_match = newSuit;
-                        this.last_suit_change_me = true;
                         this.showStatus(`Suit changed to ${newSuit}`);
                     }
                 }
@@ -858,14 +856,7 @@ class GameState {
         const cardsContainer = document.createElement('div');
         cardsContainer.className = 'player-hand-cards';
         
-        const myCards = this.myHand;
-        if (!Array.isArray(myCards)) {
-            console.warn('Player hand is not an array:', myCards);
-            playerHandEl.appendChild(scrollWrapper);
-            return;
-        }
-        
-        myCards.forEach((card, index) => {
+        this.myHand.forEach((card, index) => {
             const isPlayable = this.isMyTurn && this.canPlayCard(card);
             const wrapper = document.createElement('div');
             wrapper.innerHTML = this.renderCardHTML(card, { isPlayable });
@@ -893,7 +884,7 @@ class GameState {
         const pileContainer = document.createElement('div');
         pileContainer.className = 'discard-pile-container';
 
-        const allCards = [...(Array.isArray(this.discard_pile) ? this.discard_pile : [])];
+        const allCards = [...this.discard_pile];
         if (this.lastCard) allCards.push(this.lastCard);
 
         const cardsToShow = 7;
@@ -952,8 +943,9 @@ class GameState {
         }
         
         // Update player names
-        if (playerNameEl && this.currentUser.username) {
-            playerNameEl.textContent = this.currentUser.username;
+        if (playerNameEl) {
+            const playerName = this.isCreator ? this.creator_username : this.opponent_username;
+            playerNameEl.textContent = playerName || 'You';
         }
         
         if (opponentNameEl) {
@@ -968,31 +960,43 @@ class GameState {
         
         if (passTurnBtn) {
             const shouldShow = this.turnState.canPlayMultiple && this.isMyTurn;
-            passTurnBtn.style.display = shouldShow ? 'block' : 'none';
             passTurnBtn.disabled = !this.isMyTurn || this.status === 'finished' || this.turnState.mustDrawCards;
+            passTurnBtn.style.display = shouldShow ? 'block' : 'none';
         }
     }
 
-    // Database operations
+    // Fixed updateGameState method to only use existing database columns
     async updateGameState() {
         try {
+            const updateData = {
+                code: this.code,
+                creator_phone: this.creator_phone,
+                creator_username: this.creator_username,
+                opponent_phone: this.opponent_phone,
+                opponent_username: this.opponent_username,
+                status: this.status,
+                is_private: this.is_private,
+                deck: this.deck,
+                creator_hand: this.creator_hand,
+                opponent_hand: this.opponent_hand,
+                discard_pile: this.discard_pile,
+                current_player: this.current_player,
+                game_type: this.game_type,
+                current_suit: this.current_suit,
+                next_play_hearts: this.next_play_hearts,
+                last_card: this.last_card,
+                pending_action: this.pending_action,
+                pending_action_data: this.pending_action_data,
+                current_suit_to_match: this.current_suit_to_match,
+                must_play_suit: this.must_play_suit,
+                next_draws_this_turn: this.next_draws_this_turn,
+                bet_deducted: this.bet_deducted,
+                updated_at: new Date().toISOString()
+            };
+
             const { error } = await supabase
                 .from('card_games')
-                .update({
-                    creator_hand: this.creator_hand,
-                    opponent_hand: this.opponent_hand,
-                    discard_pile: this.discard_pile,
-                    deck: this.deck,
-                    current_player: this.current_player,
-                    current_suit: this.current_suit,
-                    current_suit_to_match: this.current_suit_to_match,
-                    last_card: this.last_card,
-                    status: this.status,
-                    must_play_suit: this.must_play_suit,
-                    next_draws_this_turn: this.next_draws_this_turn,
-                    last_suit_change_me: this.last_suit_change_me,
-                    updated_at: new Date().toISOString()
-                })
+                .update(updateData)
                 .eq('code', this.code);
 
             if (error) throw error;
@@ -1021,10 +1025,6 @@ class GameState {
     }
 
     setupGameSubscription() {
-        if (this.subscription) {
-            this.subscription.unsubscribe();
-        }
-
         this.subscription = supabase
             .channel('game-updates')
             .on('postgres_changes', 
@@ -1045,38 +1045,11 @@ class GameState {
     }
 }
 
-// Initialize game state
+// Create global game instance
 const gameState = new GameState();
 
-// --- Event Handlers ---
-async function handleDrawCard() {
-    await gameState.drawCard();
-}
-
-async function handlePassTurn() {
-    await gameState.passTurn();
-}
-
-function handleBackButton() {
-    window.location.href = 'index.html';
-}
-
-// --- Event Listeners ---
-if (drawCardBtn) {
-    drawCardBtn.addEventListener('click', handleDrawCard);
-}
-
-if (passTurnBtn) {
-    passTurnBtn.addEventListener('click', handlePassTurn);
-}
-
-if (backBtn) {
-    backBtn.addEventListener('click', handleBackButton);
-}
-
 // --- CSS Styles ---
-const gameStyles = `
-/* Card Styles */
+const gameCSS = `
 .card-realistic {
     --card-width: 64px;
     --card-height: 96px;
@@ -1115,7 +1088,6 @@ const gameStyles = `
 }
 
 .card-realistic .card-gloss {
-    content: '';
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
     border-radius: 11px;
@@ -1335,10 +1307,25 @@ const gameStyles = `
 }
 `;
 
-// Inject styles
-const styleElement = document.createElement('style');
-styleElement.textContent = gameStyles;
-document.head.appendChild(styleElement);
+// Inject CSS
+const styleEl = document.createElement('style');
+styleEl.textContent = gameCSS;
+document.head.appendChild(styleEl);
+
+// --- Event Listeners ---
+if (drawCardBtn) {
+    drawCardBtn.addEventListener('click', () => gameState.drawCard());
+}
+
+if (passTurnBtn) {
+    passTurnBtn.addEventListener('click', () => gameState.passTurn());
+}
+
+if (backBtn) {
+    backBtn.addEventListener('click', () => {
+        window.location.href = 'index.html';
+    });
+}
 
 // --- Initialize Game ---
 function initializeGame() {
@@ -1359,7 +1346,7 @@ function initializeGame() {
 // Start the game when page loads
 document.addEventListener('DOMContentLoaded', initializeGame);
 
-// Cleanup on page unload
+// Cleanup subscription on page unload
 window.addEventListener('beforeunload', () => {
     if (gameState.subscription) {
         gameState.subscription.unsubscribe();
