@@ -857,7 +857,9 @@
 
         window.userData = userData;
         window.userPhone = phone;
-
+ // Store user data in localStorage
+        localStorage.setItem("user", JSON.stringify(userData));
+        localStorage.setItem("phone", phone);
         window.location.href = "home.html";
       } catch (err) {
         console.error("Login error:", err);
@@ -975,6 +977,9 @@ if (password !== confirmPassword) {
         window.userData = userData;
         window.userPhone = phone;
 
+        // Store user data in localStorage
+        localStorage.setItem("user", JSON.stringify(userData));
+        localStorage.setItem("phone", phone);
         // Redirect to home page
         window.location.href = "home.html";
 
