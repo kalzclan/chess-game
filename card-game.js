@@ -300,7 +300,7 @@ class AnimationManager {
 const soundManager = new SoundManager();
 const animationManager = new AnimationManager();
 
-// --- Game State Class (Updated for Database Schema) ---
+// --- Game State Class (Fixed) ---
 class GameState {
     constructor() {
         this.reset();
@@ -356,18 +356,26 @@ class GameState {
     }
 
     get myHand() {
-        return this.isCreator ? this.creator_hand : this.opponent_hand;
+        if (this.isCreator) {
+            return Array.isArray(this.creator_hand) ? this.creator_hand : [];
+        } else {
+            return Array.isArray(this.opponent_hand) ? this.opponent_hand : [];
+        }
     }
 
     get opponentHand() {
-        return this.isCreator ? this.opponent_hand : this.creator_hand;
+        if (this.isCreator) {
+            return Array.isArray(this.opponent_hand) ? this.opponent_hand : [];
+        } else {
+            return Array.isArray(this.creator_hand) ? this.creator_hand : [];
+        }
     }
 
     set myHand(cards) {
         if (this.isCreator) {
-            this.creator_hand = cards;
+            this.creator_hand = Array.isArray(cards) ? cards : [];
         } else {
-            this.opponent_hand = cards;
+            this.opponent_hand = Array.isArray(cards) ? cards : [];
         }
     }
 
@@ -381,6 +389,41 @@ class GameState {
 
     get gameCode() {
         return this.code;
+    }
+
+    // Initialize from database data
+    loadFromDatabase(data) {
+        if (!data) return;
+        
+        // Map database fields
+        this.id = data.id;
+        this.code = data.code || '';
+        this.creator_phone = data.creator_phone || '';
+        this.creator_username = data.creator_username || '';
+        this.opponent_phone = data.opponent_phone || '';
+        this.opponent_username = data.opponent_username || '';
+        this.status = data.status || 'waiting';
+        this.is_private = data.is_private || false;
+        this.deck = Array.isArray(data.deck) ? data.deck : [];
+        this.creator_hand = Array.isArray(data.creator_hand) ? data.creator_hand : [];
+        this.opponent_hand = Array.isArray(data.opponent_hand) ? data.opponent_hand : [];
+        this.discard_pile = Array.isArray(data.discard_pile) ? data.discard_pile : [];
+        this.current_player = data.current_player || '';
+        this.game_type = data.game_type || '';
+        this.current_suit = data.current_suit || '';
+        this.next_play_hearts = data.next_play_hearts || false;
+        this.last_card = data.last_card;
+        this.pending_action = data.pending_action || '';
+        this.pending_action_data = data.pending_action_data;
+        this.current_suit_to_match = data.current_suit_to_match || data.current_suit || '';
+        this.must_play_suit = data.must_play_suit || '';
+        this.next_draws_this_turn = data.next_draws_this_turn || 0;
+        this.last_suit_change_me = data.last_suit_change_me || false;
+        this.bet_deducted = data.bet_deducted || false;
+        
+        // Update turn state based on database
+        this.turnState.pendingDraws = this.next_draws_this_turn;
+        this.turnState.mustDrawCards = this.next_draws_this_turn > 0 && this.isMyTurn;
     }
 
     createDeck() {
@@ -426,7 +469,8 @@ class GameState {
         if (this.must_play_suit && card.suit !== this.must_play_suit) return false;
         
         // Regular matching rules
-        return card.suit === this.current_suit_to_match || 
+        const currentSuit = this.current_suit_to_match || this.current_suit;
+        return card.suit === currentSuit || 
                card.value === this.lastCard.value || 
                SPECIAL_CARDS[card.value];
     }
@@ -434,6 +478,11 @@ class GameState {
     async playCard(cardIndex) {
         if (!this.isMyTurn) {
             this.showStatus("It's not your turn!");
+            return false;
+        }
+
+        if (cardIndex >= this.myHand.length) {
+            this.showStatus("Invalid card selection!");
             return false;
         }
 
@@ -809,7 +858,14 @@ class GameState {
         const cardsContainer = document.createElement('div');
         cardsContainer.className = 'player-hand-cards';
         
-        this.myHand.forEach((card, index) => {
+        const myCards = this.myHand;
+        if (!Array.isArray(myCards)) {
+            console.warn('Player hand is not an array:', myCards);
+            playerHandEl.appendChild(scrollWrapper);
+            return;
+        }
+        
+        myCards.forEach((card, index) => {
             const isPlayable = this.isMyTurn && this.canPlayCard(card);
             const wrapper = document.createElement('div');
             wrapper.innerHTML = this.renderCardHTML(card, { isPlayable });
@@ -837,7 +893,7 @@ class GameState {
         const pileContainer = document.createElement('div');
         pileContainer.className = 'discard-pile-container';
 
-        const allCards = [...this.discard_pile];
+        const allCards = [...(Array.isArray(this.discard_pile) ? this.discard_pile : [])];
         if (this.lastCard) allCards.push(this.lastCard);
 
         const cardsToShow = 7;
@@ -891,13 +947,13 @@ class GameState {
         
         // Update opponent hand count
         if (opponentHandCountEl) {
-            const opponentCount = this.opponentHand ? this.opponentHand.length : 0;
+            const opponentCount = this.opponentHand.length;
             opponentHandCountEl.textContent = `Opponent: ${opponentCount} cards`;
         }
         
-        // Update player info
-        if (playerNameEl) {
-            playerNameEl.textContent = this.currentUser.username || 'You';
+        // Update player names
+        if (playerNameEl && this.currentUser.username) {
+            playerNameEl.textContent = this.currentUser.username;
         }
         
         if (opponentNameEl) {
@@ -917,31 +973,26 @@ class GameState {
         }
     }
 
-    // Database operations using correct field names
+    // Database operations
     async updateGameState() {
         try {
-            const updateData = {
-                status: this.status,
-                deck: this.deck,
-                creator_hand: this.creator_hand,
-                opponent_hand: this.opponent_hand,
-                discard_pile: this.discard_pile,
-                current_player: this.current_player,
-                current_suit: this.current_suit,
-                next_play_hearts: this.next_play_hearts,
-                last_card: this.last_card,
-                pending_action: this.pending_action,
-                pending_action_data: this.pending_action_data,
-                current_suit_to_match: this.current_suit_to_match,
-                must_play_suit: this.must_play_suit,
-                next_draws_this_turn: this.next_draws_this_turn,
-                last_suit_change_me: this.last_suit_change_me,
-                updated_at: new Date().toISOString()
-            };
-
             const { error } = await supabase
                 .from('card_games')
-                .update(updateData)
+                .update({
+                    creator_hand: this.creator_hand,
+                    opponent_hand: this.opponent_hand,
+                    discard_pile: this.discard_pile,
+                    deck: this.deck,
+                    current_player: this.current_player,
+                    current_suit: this.current_suit,
+                    current_suit_to_match: this.current_suit_to_match,
+                    last_card: this.last_card,
+                    status: this.status,
+                    must_play_suit: this.must_play_suit,
+                    next_draws_this_turn: this.next_draws_this_turn,
+                    last_suit_change_me: this.last_suit_change_me,
+                    updated_at: new Date().toISOString()
+                })
                 .eq('code', this.code);
 
             if (error) throw error;
@@ -961,8 +1012,7 @@ class GameState {
             if (error) throw error;
             
             if (data) {
-                // Map database fields to local state
-                Object.assign(this, data);
+                this.loadFromDatabase(data);
                 this.renderGame();
             }
         } catch (error) {
@@ -986,8 +1036,7 @@ class GameState {
                 }, 
                 (payload) => {
                     if (payload.new) {
-                        // Update local state with database changes
-                        Object.assign(this, payload.new);
+                        this.loadFromDatabase(payload.new);
                         this.renderGame();
                     }
                 }
@@ -996,42 +1045,38 @@ class GameState {
     }
 }
 
-// Global game state instance
+// Initialize game state
 const gameState = new GameState();
+
+// --- Event Handlers ---
+async function handleDrawCard() {
+    await gameState.drawCard();
+}
+
+async function handlePassTurn() {
+    await gameState.passTurn();
+}
+
+function handleBackButton() {
+    window.location.href = 'index.html';
+}
 
 // --- Event Listeners ---
 if (drawCardBtn) {
-    drawCardBtn.addEventListener('click', () => gameState.drawCard());
+    drawCardBtn.addEventListener('click', handleDrawCard);
 }
 
 if (passTurnBtn) {
-    passTurnBtn.addEventListener('click', () => gameState.passTurn());
+    passTurnBtn.addEventListener('click', handlePassTurn);
 }
 
 if (backBtn) {
-    backBtn.addEventListener('click', () => {
-        window.location.href = 'index.html';
-    });
-}
-
-// --- Initialize Game ---
-function initializeGame() {
-    const urlParams = new URLSearchParams(window.location.search);
-    gameState.code = urlParams.get('code') || '';
-    
-    if (gameCodeDisplay) {
-        gameCodeDisplay.textContent = gameState.code;
-    }
-    
-    // Load initial game state
-    gameState.loadGameState();
-    
-    // Set up real-time subscription
-    gameState.setupGameSubscription();
+    backBtn.addEventListener('click', handleBackButton);
 }
 
 // --- CSS Styles ---
-const gameCSS = `
+const gameStyles = `
+/* Card Styles */
 .card-realistic {
     --card-width: 64px;
     --card-height: 96px;
@@ -1202,6 +1247,7 @@ const gameCSS = `
     white-space: nowrap;
 }
 
+/* Suit Selection Modal */
 .card-selection-modal {
     position: fixed;
     top: 0;
@@ -1289,14 +1335,31 @@ const gameCSS = `
 }
 `;
 
+// Inject styles
 const styleElement = document.createElement('style');
-styleElement.textContent = gameCSS;
+styleElement.textContent = gameStyles;
 document.head.appendChild(styleElement);
+
+// --- Initialize Game ---
+function initializeGame() {
+    const urlParams = new URLSearchParams(window.location.search);
+    gameState.code = urlParams.get('code') || '';
+    
+    if (gameCodeDisplay) {
+        gameCodeDisplay.textContent = gameState.code;
+    }
+    
+    // Load initial game state
+    gameState.loadGameState();
+    
+    // Set up real-time subscription
+    gameState.setupGameSubscription();
+}
 
 // Start the game when page loads
 document.addEventListener('DOMContentLoaded', initializeGame);
 
-// Cleanup subscription on page unload
+// Cleanup on page unload
 window.addEventListener('beforeunload', () => {
     if (gameState.subscription) {
         gameState.subscription.unsubscribe();
