@@ -2,109 +2,213 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <title>Habesha Games</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --primary-color: #2e7d32;
-      --secondary-color: #4caf50;
-      --accent-color: #f2f2f2;
-      --text-color: #2c3e50;
-      --btn-hover: #1b5e20;
+      --primary-color: #2E7D32;
+      --secondary-color: #4CAF50;
+      --accent-color: #E8F5E9;
+      --text-color: #263238;
+      --btn-hover: #1B5E20;
+      --card-bg: rgba(255, 255, 255, 0.95);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
     }
 
     body {
-      font-family: 'Segoe UI', sans-serif;
+      font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
       background-color: var(--accent-color);
       margin: 0;
       padding: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: flex-start;
       min-height: 100vh;
+      color: var(--text-color);
+      overflow-x: hidden;
+      position: relative;
+      touch-action: manipulation;
+    }
+
+    /* Background game elements */
+    .game-element {
+      position: absolute;
+      opacity: 0.15;
+      z-index: 0;
+      animation: float 20s infinite linear;
+      pointer-events: none;
+    }
+
+    @keyframes float {
+      0% {
+        transform: translate(0, 0) rotate(0deg);
+      }
+      25% {
+        transform: translate(10vw, -5vh) rotate(90deg);
+      }
+      50% {
+        transform: translate(0, -10vh) rotate(180deg);
+      }
+      75% {
+        transform: translate(-10vw, -5vh) rotate(270deg);
+      }
+      100% {
+        transform: translate(0, 0) rotate(360deg);
+      }
+    }
+
+    .chess-piece {
+      font-size: 2.5rem;
+      color: var(--primary-color);
+    }
+
+    .card {
+      font-size: 2rem;
+      color: var(--primary-color);
+    }
+
+    .dice {
+      font-size: 1.8rem;
+      color: var(--primary-color);
     }
 
     header {
-      background-color: var(--primary-color);
+      background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
       width: 100%;
-      padding: 20px 0;
+      padding: 1.5rem 0;
       text-align: center;
       color: white;
-      font-size: 1.5rem;
-      font-weight: bold;
-      letter-spacing: 1px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      font-size: 1.8rem;
+      font-weight: 600;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      z-index: 10;
+      position: relative;
     }
 
     main {
-      margin-top: 40px;
+      margin-top: 1.5rem;
       width: 90%;
-      max-width: 400px;
+      max-width: 100%;
+      z-index: 10;
+      padding-bottom: 2rem;
     }
 
     .auth-toggle {
       display: flex;
-      margin-bottom: 20px;
-      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      border-radius: 50px;
       overflow: hidden;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      background: white;
     }
 
     .auth-toggle button {
       flex: 1;
-      padding: 12px;
+      padding: 0.9rem;
       border: none;
-      background-color: white;
+      background-color: transparent;
       color: var(--text-color);
       font-size: 1rem;
+      font-weight: 500;
       cursor: pointer;
-      transition: all 0.3s;
+      transition: all 0.3s ease;
+      position: relative;
     }
 
     .auth-toggle button.active {
+      color: var(--primary-color);
+    }
+
+    .auth-toggle button.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 50%;
+      height: 3px;
       background-color: var(--primary-color);
-      color: white;
+      border-radius: 3px;
     }
 
     form {
-      background: white;
-      padding: 25px;
-      border-radius: 12px;
-      box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+      background: var(--card-bg);
+      padding: 1.5rem;
+      border-radius: 16px;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.08);
       display: flex;
       flex-direction: column;
+      border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .form-group {
+      position: relative;
+      margin-bottom: 1.2rem;
     }
 
     input {
       font-size: 1rem;
-      padding: 14px;
-      margin-bottom: 15px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
+      padding: 0.9rem 0.9rem 0.9rem 2.8rem;
+      width: 100%;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
       outline: none;
+      transition: all 0.2s;
+      background-color: #f5f5f5;
+      -webkit-appearance: none;
     }
 
-    button {
-      padding: 14px;
+    input:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.2);
+      background-color: white;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #757575;
+      font-size: 1.1rem;
+    }
+
+    button[type="submit"] {
+      padding: 1rem;
       font-size: 1rem;
+      font-weight: 500;
       background-color: var(--primary-color);
       color: white;
       border: none;
-      border-radius: 8px;
+      border-radius: 12px;
       cursor: pointer;
-      transition: background-color 0.3s;
+      transition: all 0.2s;
+      margin-top: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
     }
 
-    button:hover {
+    button[type="submit"]:active {
       background-color: var(--btn-hover);
+      transform: scale(0.98);
     }
 
     .error {
-      margin-top: 10px;
-      color: red;
-      font-size: 0.9rem;
+      margin-top: 0.8rem;
+      color: #D32F2F;
+      font-size: 0.85rem;
       text-align: center;
+      padding: 0.7rem;
+      background-color: #FFEBEE;
+      border-radius: 8px;
+      border: 1px solid #EF9A9A;
     }
 
     .hidden {
@@ -112,23 +216,70 @@
     }
 
     .loader {
-      border: 3px solid #f3f3f3;
-      border-top: 3px solid var(--primary-color);
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top: 2px solid white;
       border-radius: 50%;
-      width: 20px;
-      height: 20px;
+      width: 18px;
+      height: 18px;
       animation: spin 1s linear infinite;
-      margin: 0 auto;
     }
 
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.8rem;
+    }
+
+    .logo-icon {
+      font-size: 1.6rem;
+    }
+
+    /* Responsive adjustments for very small screens */
+    @media (max-width: 360px) {
+      header {
+        padding: 1.2rem 0;
+        font-size: 1.5rem;
+      }
+      
+      .auth-toggle button {
+        padding: 0.8rem;
+        font-size: 0.9rem;
+      }
+      
+      form {
+        padding: 1.2rem;
+      }
+      
+      input {
+        padding: 0.8rem 0.8rem 0.8rem 2.5rem;
+        font-size: 0.95rem;
+      }
+    }
   </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-  <header>Habesha Games</header>
+  <!-- Background game elements -->
+  <div class="game-element chess-piece" style="top: 15%; left: 5%; animation-delay: 0s;"><i class="fas fa-chess-queen"></i></div>
+  <div class="game-element card" style="top: 25%; right: 5%; animation-delay: 3s;"><i class="fas fa-spade"></i></div>
+  <div class="game-element chess-piece" style="bottom: 20%; left: 8%; animation-delay: 6s;"><i class="fas fa-chess-knight"></i></div>
+  <div class="game-element dice" style="bottom: 15%; right: 10%; animation-delay: 9s;"><i class="fas fa-dice"></i></div>
+  <div class="game-element card" style="top: 18%; right: 15%; animation-delay: 12s;"><i class="fas fa-club"></i></div>
+  <div class="game-element chess-piece" style="bottom: 25%; right: 5%; animation-delay: 15s;"><i class="fas fa-chess-rook"></i></div>
+  <div class="game-element dice" style="top: 22%; left: 10%; animation-delay: 18s;"><i class="fas fa-dice-five"></i></div>
+
+  <header>
+    <div class="logo">
+      <i class="fas fa-gamepad logo-icon"></i>
+      <span>Habesha Games</span>
+    </div>
+  </header>
 
   <main>
     <div class="auth-toggle">
@@ -137,8 +288,14 @@
     </div>
 
     <form id="loginForm">
-      <input type="tel" id="loginPhone" placeholder="Phone number" required />
-      <input type="password" id="loginPassword" placeholder="Password" required />
+      <div class="form-group">
+        <i class="fas fa-phone input-icon"></i>
+        <input type="tel" id="loginPhone" placeholder="Phone number" required inputmode="tel"/>
+      </div>
+      <div class="form-group">
+        <i class="fas fa-lock input-icon"></i>
+        <input type="password" id="loginPassword" placeholder="Password" required />
+      </div>
       <button type="submit" id="loginSubmit">
         <span id="loginText">Login</span>
         <div id="loginLoader" class="loader hidden"></div>
@@ -147,10 +304,22 @@
     </form>
 
     <form id="registerForm" class="hidden">
-      <input type="text" id="username" placeholder="Your name" required />
-      <input type="tel" id="phone" placeholder="Phone number" required />
-      <input type="password" id="password" placeholder="Password" required />
-      <input type="password" id="confirmPassword" placeholder="Confirm Password" required />
+      <div class="form-group">
+        <i class="fas fa-user input-icon"></i>
+        <input type="text" id="username" placeholder="Your name" required />
+      </div>
+      <div class="form-group">
+        <i class="fas fa-phone input-icon"></i>
+        <input type="tel" id="phone" placeholder="Phone number" required inputmode="tel"/>
+      </div>
+      <div class="form-group">
+        <i class="fas fa-lock input-icon"></i>
+        <input type="password" id="password" placeholder="Password" required />
+      </div>
+      <div class="form-group">
+        <i class="fas fa-lock input-icon"></i>
+        <input type="password" id="confirmPassword" placeholder="Confirm Password" required />
+      </div>
       <button type="submit" id="registerSubmit">
         <span id="registerText">Register</span>
         <div id="registerLoader" class="loader hidden"></div>
@@ -259,7 +428,7 @@
 
         // Store user data in localStorage
         localStorage.setItem("user", JSON.stringify(userData));
-                localStorage.setItem("phone", phone);
+        localStorage.setItem("phone", phone);
 
         window.location.href = "home.html";
       } catch (err) {
@@ -369,6 +538,16 @@
       registerLoader.classList.add("hidden");
       registerSubmit.disabled = false;
     }
+
+    // Better mobile input handling
+    document.querySelectorAll('input').forEach(input => {
+      input.addEventListener('focus', () => {
+        // Ensure the input is visible when keyboard appears
+        setTimeout(() => {
+          input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+      });
+    });
   </script>
 </body>
 </html>
