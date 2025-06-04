@@ -184,17 +184,12 @@
       return cleaned.startsWith('+') ? cleaned : `+${cleaned}`;
     }
 
-    // Check authentication state on page load
-    async function checkAuth() {
-      const { data: { session } } = await supabase.auth.getSession();
+    // Check authentication state
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        // If user is already logged in, redirect to home
         window.location.href = "home.html";
       }
-    }
-
-    // Initialize auth check
-    checkAuth();
+    });
 
     // Toggle between login and register forms
     const loginBtn = document.getElementById("loginBtn");
@@ -264,13 +259,7 @@
 
         // Store user data in localStorage
         localStorage.setItem("user", JSON.stringify(userData));
-        localStorage.setItem("phone", phone);
-
-        // Check if we have a valid session after login
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          throw new Error("Login failed - no session created");
-        }
+                localStorage.setItem("phone", phone);
 
         window.location.href = "home.html";
       } catch (err) {
@@ -366,22 +355,7 @@
         // Store user data in localStorage
         localStorage.setItem("user", JSON.stringify(newUser));
         localStorage.setItem("phone", phone);
-
-        // Immediately sign in the user after registration
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          phone: phone,
-          password: password
-        });
-
-        if (signInError) throw signInError;
-
-        // Check if we have a valid session
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          throw new Error("Registration failed - no session created");
-        }
-
-        // Redirect to home page after successful registration and login
+        // Redirect to home page after successful registration
         window.location.href = "home.html";
       } catch (err) {
         console.error("Registration error:", err);
@@ -395,18 +369,6 @@
       registerLoader.classList.add("hidden");
       registerSubmit.disabled = false;
     }
-
-    // Listen for auth state changes
-    supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth state changed:", event, session);
-      if (event === 'SIGNED_IN' && session) {
-        // User is signed in, we can redirect or update UI
-        console.log("User signed in:", session.user);
-      } else if (event === 'SIGNED_OUT') {
-        // User signed out
-        console.log("User signed out");
-      }
-    });
   </script>
 </body>
 </html>
