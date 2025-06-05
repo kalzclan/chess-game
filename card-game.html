@@ -62,7 +62,54 @@
     -ms-overflow-style: none;  /* IE and Edge */
     scrollbar-width: none;  /* Firefox */
 }
+/* Add to your existing card styles */
+.highlighted-card {
+    transform: translateY(-15px) scale(1.1);
+    box-shadow: 0 0 15px rgba(76, 175, 80, 0.6);
+    z-index: 10;
+    transition: all 0.2s ease;
+}
 
+.modern-card-chip {
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.modern-card-chip.selected {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.modern-card-chip.hearts {
+    background: #ffebee;
+    color: #d32f2f;
+}
+
+.modern-card-chip.diamonds {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.modern-card-chip.clubs {
+    background: #e8f5e9;
+    color: #388e3c;
+}
+
+.modern-card-chip.spades {
+    background: #efebe9;
+    color: #5d4037;
+}
+
+.modern-card-chip svg {
+    width: 18px;
+    height: 18px;
+}
 .player-hand-cards {
     display: flex;
     gap: 10px; /* Space between cards */
