@@ -743,8 +743,13 @@ function showGameResult(isWinner, amount) {
 // Enhanced suit change logic - Rule: If opponent changes suit with 8/J, you cannot immediately change it back with same card type
 function canPlayCard(card) {
     try {
-        // If no last card played, any card can be played
-        if (!gameState.lastCard) return true;
+        // If no last card played OR if it's the first turn of the game, any card can be played
+        if (!gameState.lastCard || gameState.discardPile.length === 0) return true;
+        
+        // Game starter can play any card on the very first turn
+        const users = JSON.parse(localStorage.getItem('user')) || {};
+        const isGameStarter = gameState.currentPlayer === users.phone && gameState.discardPile.length === 0;
+        if (isGameStarter) return true;
 
         // If there's a pending draw action, only 2s can be played
         if (gameState.pendingAction === 'draw_two') {
