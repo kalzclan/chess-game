@@ -394,6 +394,7 @@ async function processCardPlay(cardsToPlay) {
 
         switch (action) {
 // Inside processCardPlay, in the change_suit case:
+// Inside processCardPlay, in the change_suit case:
 case 'change_suit':
     if (lastPlayedCard.value === '8' || lastPlayedCard.value === 'J') {
         // Check if this is a suit change or regular play
@@ -402,19 +403,19 @@ case 'change_suit':
                               lastPlayedCard.suit !== gameState.currentSuitToMatch);
         
         if (isChangingSuit && !gameState.isSuitChangeBlocked) {
-            // This is a suit change
+            // This is a valid suit change
             gameState.lastSuitChangeMethod = lastPlayedCard.value;
             gameState.pendingAction = 'change_suit';
             updateData.pending_action = 'change_suit';
             updateData.current_player = users.phone;
             updateData.last_suit_change_method = lastPlayedCard.value;
             updateData.is_suit_change_blocked = true; // Block opponent from changing suit
-            delete updateData.current_suit;
+            delete updateData.current_suit; // Remove this to show suit selector
             showSuitSelector();
         } else {
-            // This is a regular play of 8/J
+            // This is a regular play of 8/J - maintain current suit
             updateData.current_player = opponentPhone;
-            updateData.current_suit = lastPlayedCard.suit; // Keep current suit
+            updateData.current_suit = gameState.currentSuit; // Keep current suit
             updateData.must_play_suit = false;
             updateData.current_suit_to_match = '';
             updateData.is_suit_change_blocked = false; // Reset the block
