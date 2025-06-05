@@ -1292,6 +1292,12 @@ function updateGameUI() {
 }
 
 // Initialize enhanced game
+// Make functions globally accessible
+window.playCard = playCard;
+window.drawCard = drawCard;
+window.passTurn = passTurn;
+window.canPlayCard = canPlayCard;
+
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         const params = new URLSearchParams(window.location.search);
