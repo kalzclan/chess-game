@@ -281,15 +281,15 @@ function canPlayCard(card) {
         return card.suit === gameState.currentSuitToMatch;
     }
 
-    // Handle 8 and J - can only change suit if not blocked
+    // Handle 8 and J - can always be played regardless of suit when blocked
     if (card.value === '8' || card.value === 'J') {
-        // Check if suit change is blocked
+        // If suit change is blocked, they can still play the card but can't change suit
+        // The card will be treated as a normal card matching value
         if (gameState.isSuitChangeBlocked) {
-            // Can only play as regular card matching suit or value
-            return card.suit === gameState.currentSuit || 
-                   card.value === gameState.lastCard.value;
+            return true; // Can always play 8/J, but suit won't change
         }
-        return true; // Can always play to change suit if not blocked
+        // If not blocked, can play to change suit
+        return true;
     }
 
     // Handle 2 cards - can only be played on same suit or another 2
@@ -393,35 +393,36 @@ async function processCardPlay(cardsToPlay) {
         const action = SPECIAL_CARDS[lastPlayedCard.value];
 
         switch (action) {
-            case 'change_suit':
-                if (lastPlayedCard.value === '8' || lastPlayedCard.value === 'J') {
-                    // Check if this is a suit change or regular play
-                    const isChangingSuit = !gameState.mustPlaySuit || 
-                                         (gameState.mustPlaySuit && 
-                                          lastPlayedCard.suit !== gameState.currentSuitToMatch);
-                    
-                    if (isChangingSuit && !gameState.isSuitChangeBlocked) {
-                        // This is a suit change
-                        gameState.lastSuitChangeMethod = lastPlayedCard.value;
-                        gameState.pendingAction = 'change_suit';
-                        updateData.pending_action = 'change_suit';
-                        updateData.current_player = users.phone;
-                        updateData.last_suit_change_method = lastPlayedCard.value;
-                        updateData.is_suit_change_blocked = true; // Block opponent from changing suit
-                        delete updateData.current_suit;
-                        showSuitSelector();
-                    } else {
-                        // This is a regular play of 8/J
-                        updateData.current_player = opponentPhone;
-                        updateData.must_play_suit = true;
-                        updateData.current_suit_to_match = gameState.currentSuit;
-                        updateData.is_suit_change_blocked = false; // Reset the block
-                    }
-                } else {
-                    updateData.current_player = opponentPhone;
-                }
-                break;
-
+// Inside processCardPlay, in the change_suit case:
+case 'change_suit':
+    if (lastPlayedCard.value === '8' || lastPlayedCard.value === 'J') {
+        // Check if this is a suit change or regular play
+        const isChangingSuit = !gameState.mustPlaySuit || 
+                             (gameState.mustPlaySuit && 
+                              lastPlayedCard.suit !== gameState.currentSuitToMatch);
+        
+        if (isChangingSuit && !gameState.isSuitChangeBlocked) {
+            // This is a suit change
+            gameState.lastSuitChangeMethod = lastPlayedCard.value;
+            gameState.pendingAction = 'change_suit';
+            updateData.pending_action = 'change_suit';
+            updateData.current_player = users.phone;
+            updateData.last_suit_change_method = lastPlayedCard.value;
+            updateData.is_suit_change_blocked = true; // Block opponent from changing suit
+            delete updateData.current_suit;
+            showSuitSelector();
+        } else {
+            // This is a regular play of 8/J
+            updateData.current_player = opponentPhone;
+            updateData.current_suit = lastPlayedCard.suit; // Keep current suit
+            updateData.must_play_suit = false;
+            updateData.current_suit_to_match = '';
+            updateData.is_suit_change_blocked = false; // Reset the block
+        }
+    } else {
+        updateData.current_player = opponentPhone;
+    }
+    break;
             case 'skip_turn':
                 updateData.current_player = users.phone;
                 break;
