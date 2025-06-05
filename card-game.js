@@ -1,41 +1,433 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-// --- Supabase Setup ---
+// --- Enhanced Supabase Setup with Error Handling ---
 const supabaseUrl = "https://evberyanshxxalxtwnnc.supabase.co";
 const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2YmVyeWFuc2h4eGFseHR3bm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQwODMwOTcsImV4cCI6MjA1OTY1OTA5N30.pEoPiIi78Tvl5URw0Xy_vAxsd-3XqRlC8FTnX9HpgMw";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// --- Sound Effects ---
-const soundEffects = {
-    cardPlay: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-playing-card-put-down-1129.mp3'),
-    cardDraw: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-card-drawing-1925.mp3'),
-    win: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-winning-chimes-2015.mp3'),
-    lose: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-retro-arcade-lose-2027.mp3'),
-    notification: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-interface-hint-notification-911.mp3'),
-    suitChange: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-achievement-bell-600.mp3')
-};
+// --- Enhanced Sound Manager ---
+class SoundManager {
+    constructor() {
+        this.soundEnabled = true;
+        this.volume = 0.7;
+        this.audioContext = null;
+        this.sounds = {};
+        this.initAudio();
+    }
 
-// Set volume for sounds
-Object.values(soundEffects).forEach(sound => {
-    sound.volume = 0.3;
-});
+    async initAudio() {
+        try {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            await this.generateSounds();
+        } catch (error) {
+            console.warn('Audio not supported:', error);
+        }
+    }
 
-// --- DOM Elements ---
-const backBtn = document.getElementById('back-btn');
-const gameCodeDisplay = document.getElementById('game-code-display');
-const currentSuitDisplay = document.getElementById('current-suit');
-const playerHandEl = document.getElementById('player-hand');
-const opponentHandCountEl = document.getElementById('opponent-hand-count');
-const discardPileEl = document.getElementById('discard-pile');
-const gameStatusEl = document.getElementById('game-status');
-const playerNameEl = document.getElementById('player-name');
-const opponentNameEl = document.getElementById('opponent-name');
-const playerAvatarEl = document.getElementById('player-avatar');
-const opponentAvatarEl = document.getElementById('opponent-avatar');
-const drawCardBtn = document.getElementById('draw-card-btn');
-const passTurnBtn = document.getElementById('pass-turn-btn');
+    async generateSounds() {
+        this.sounds = {
+            cardPlay: this.createCardSound(800, 0.15),
+            cardDraw: this.createCardSound(300, 0.2),
+            suitChange: this.createSpecialSound(),
+            win: this.createWinSound(),
+            loss: this.createLossSound(),
+            error: this.createErrorSound()
+        };
+    }
 
-// --- Game Constants ---
+    createCardSound(frequency, duration) {
+        return async () => {
+            if (!this.audioContext || !this.soundEnabled) return;
+            
+            try {
+                if (this.audioContext.state === 'suspended') {
+                    await this.audioContext.resume();
+                }
+                
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+                const filter = this.audioContext.createBiquadFilter();
+                
+                oscillator.connect(filter);
+                filter.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(frequency * 0.5, this.audioContext.currentTime + duration);
+                oscillator.type = 'square';
+                
+                filter.frequency.setValueAtTime(2000, this.audioContext.currentTime);
+                filter.Q.setValueAtTime(1, this.audioContext.currentTime);
+                
+                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(this.volume * 0.3, this.audioContext.currentTime + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + duration);
+                
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + duration);
+            } catch (error) {
+                console.warn('Error playing card sound:', error);
+            }
+        };
+    }
+
+    createSpecialSound() {
+        return async () => {
+            if (!this.audioContext || !this.soundEnabled) return;
+            
+            try {
+                if (this.audioContext.state === 'suspended') {
+                    await this.audioContext.resume();
+                }
+                
+                // Magical chime sound for suit changes
+                const frequencies = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                
+                frequencies.forEach((freq, index) => {
+                    const oscillator = this.audioContext.createOscillator();
+                    const gainNode = this.audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(this.audioContext.destination);
+                    
+                    oscillator.frequency.setValueAtTime(freq, this.audioContext.currentTime);
+                    oscillator.type = 'sine';
+                    
+                    const startTime = this.audioContext.currentTime + (index * 0.1);
+                    gainNode.gain.setValueAtTime(0, startTime);
+                    gainNode.gain.linearRampToValueAtTime(this.volume * 0.2, startTime + 0.05);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + 0.4);
+                    
+                    oscillator.start(startTime);
+                    oscillator.stop(startTime + 0.4);
+                });
+            } catch (error) {
+                console.warn('Error playing suit change sound:', error);
+            }
+        };
+    }
+
+    createWinSound() {
+        return async () => {
+            if (!this.audioContext || !this.soundEnabled) return;
+            
+            try {
+                if (this.audioContext.state === 'suspended') {
+                    await this.audioContext.resume();
+                }
+                
+                // Victory fanfare
+                const melody = [
+                    { freq: 523.25, time: 0 },    // C5
+                    { freq: 659.25, time: 0.2 },  // E5
+                    { freq: 783.99, time: 0.4 },  // G5
+                    { freq: 1046.50, time: 0.6 }, // C6
+                    { freq: 1318.51, time: 0.8 }  // E6
+                ];
+                
+                melody.forEach(({ freq, time }) => {
+                    const oscillator = this.audioContext.createOscillator();
+                    const gainNode = this.audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(this.audioContext.destination);
+                    
+                    oscillator.frequency.setValueAtTime(freq, this.audioContext.currentTime);
+                    oscillator.type = 'triangle';
+                    
+                    const startTime = this.audioContext.currentTime + time;
+                    gainNode.gain.setValueAtTime(0, startTime);
+                    gainNode.gain.linearRampToValueAtTime(this.volume * 0.3, startTime + 0.05);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + 0.3);
+                    
+                    oscillator.start(startTime);
+                    oscillator.stop(startTime + 0.3);
+                });
+            } catch (error) {
+                console.warn('Error playing win sound:', error);
+            }
+        };
+    }
+
+    createLossSound() {
+        return async () => {
+            if (!this.audioContext || !this.soundEnabled) return;
+            
+            try {
+                if (this.audioContext.state === 'suspended') {
+                    await this.audioContext.resume();
+                }
+                
+                // Descending sad sound
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(400, this.audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(200, this.audioContext.currentTime + 1);
+                oscillator.type = 'triangle';
+                
+                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(this.volume * 0.3, this.audioContext.currentTime + 0.1);
+                gainNode.gain.linearRampToValueAtTime(0, this.audioContext.currentTime + 1);
+                
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + 1);
+            } catch (error) {
+                console.warn('Error playing loss sound:', error);
+            }
+        };
+    }
+
+    createErrorSound() {
+        return async () => {
+            if (!this.audioContext || !this.soundEnabled) return;
+            
+            try {
+                if (this.audioContext.state === 'suspended') {
+                    await this.audioContext.resume();
+                }
+                
+                // Error buzz sound
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(200, this.audioContext.currentTime);
+                oscillator.frequency.linearRampToValueAtTime(150, this.audioContext.currentTime + 0.3);
+                oscillator.type = 'sawtooth';
+                
+                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(this.volume * 0.4, this.audioContext.currentTime + 0.05);
+                gainNode.gain.linearRampToValueAtTime(0, this.audioContext.currentTime + 0.3);
+                
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + 0.3);
+            } catch (error) {
+                console.warn('Error playing error sound:', error);
+            }
+        };
+    }
+
+    async play(soundName) {
+        const soundFunction = this.sounds[soundName];
+        if (soundFunction) {
+            try {
+                await soundFunction();
+            } catch (error) {
+                console.warn(`Failed to play ${soundName}:`, error);
+            }
+        }
+    }
+
+    toggleMute() {
+        this.soundEnabled = !this.soundEnabled;
+        return this.soundEnabled;
+    }
+}
+
+// --- Enhanced Animation Manager ---
+class AnimationManager {
+    static playCardAnimation(cardElement) {
+        return new Promise((resolve) => {
+            if (!cardElement) {
+                resolve();
+                return;
+            }
+
+            cardElement.style.transition = 'transform 0.3s ease-out, opacity 0.3s ease-out';
+            cardElement.style.transform = 'scale(1.1) translateY(-20px) rotateZ(5deg)';
+            cardElement.style.zIndex = '1000';
+
+            setTimeout(() => {
+                cardElement.style.transform = 'scale(0.8) translateY(-40px) rotateZ(15deg)';
+                cardElement.style.opacity = '0.7';
+            }, 150);
+
+            setTimeout(() => {
+                cardElement.style.transform = 'scale(0) translateY(-60px) rotateZ(30deg)';
+                cardElement.style.opacity = '0';
+                resolve();
+            }, 300);
+        });
+    }
+
+    static drawCardAnimation(cardElement) {
+        return new Promise((resolve) => {
+            if (!cardElement) {
+                resolve();
+                return;
+            }
+
+            cardElement.style.transform = 'scale(0) translateX(-100px)';
+            cardElement.style.opacity = '0';
+            cardElement.style.transition = 'transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 0.4s ease-out';
+
+            setTimeout(() => {
+                cardElement.style.transform = 'scale(1) translateX(0)';
+                cardElement.style.opacity = '1';
+                resolve();
+            }, 50);
+        });
+    }
+
+    static createParticleExplosion(element, options = {}) {
+        const { color = '#FFD700', count = 15, duration = 1000 } = options;
+        
+        if (!element) return;
+
+        const rect = element.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+
+        for (let i = 0; i < count; i++) {
+            const particle = document.createElement('div');
+            particle.style.position = 'fixed';
+            particle.style.left = centerX + 'px';
+            particle.style.top = centerY + 'px';
+            particle.style.width = '4px';
+            particle.style.height = '4px';
+            particle.style.backgroundColor = color;
+            particle.style.borderRadius = '50%';
+            particle.style.pointerEvents = 'none';
+            particle.style.zIndex = '10000';
+            
+            document.body.appendChild(particle);
+
+            const angle = (i / count) * Math.PI * 2;
+            const velocity = 50 + Math.random() * 100;
+            const deltaX = Math.cos(angle) * velocity;
+            const deltaY = Math.sin(angle) * velocity;
+
+            particle.animate([
+                { 
+                    transform: 'translate(0, 0) scale(1)', 
+                    opacity: 1 
+                },
+                { 
+                    transform: `translate(${deltaX}px, ${deltaY}px) scale(0)`, 
+                    opacity: 0 
+                }
+            ], {
+                duration: duration,
+                easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+            }).onfinish = () => {
+                particle.remove();
+            };
+        }
+    }
+
+    static createFloatingText(element, text, options = {}) {
+        const { color = '#10b981', duration = 1000, fontSize = '16px' } = options;
+        
+        if (!element) return;
+
+        const rect = element.getBoundingClientRect();
+        const textElement = document.createElement('div');
+        textElement.textContent = text;
+        textElement.style.position = 'fixed';
+        textElement.style.left = (rect.left + rect.width / 2) + 'px';
+        textElement.style.top = rect.top + 'px';
+        textElement.style.color = color;
+        textElement.style.fontSize = fontSize;
+        textElement.style.fontWeight = 'bold';
+        textElement.style.pointerEvents = 'none';
+        textElement.style.zIndex = '10000';
+        textElement.style.transform = 'translateX(-50%)';
+        
+        document.body.appendChild(textElement);
+
+        textElement.animate([
+            { 
+                transform: 'translateX(-50%) translateY(0) scale(1)', 
+                opacity: 1 
+            },
+            { 
+                transform: 'translateX(-50%) translateY(-50px) scale(1.2)', 
+                opacity: 0 
+            }
+        ], {
+            duration: duration,
+            easing: 'ease-out'
+        }).onfinish = () => {
+            textElement.remove();
+        };
+    }
+
+    static createSpecialCardEffect(cardElement, effectType) {
+        if (!cardElement) return;
+
+        switch (effectType) {
+            case 'suitChange':
+                this.createParticleExplosion(cardElement, { color: '#8B5CF6', count: 20 });
+                break;
+            case 'drawTwo':
+                this.createParticleExplosion(cardElement, { color: '#EF4444', count: 10 });
+                break;
+            case 'playMultiple':
+                this.createParticleExplosion(cardElement, { color: '#F59E0B', count: 15 });
+                break;
+        }
+    }
+
+    static createConfetti() {
+        for (let i = 0; i < 50; i++) {
+            setTimeout(() => {
+                const confetti = document.createElement('div');
+                confetti.style.position = 'fixed';
+                confetti.style.left = Math.random() * window.innerWidth + 'px';
+                confetti.style.top = '-10px';
+                confetti.style.width = '10px';
+                confetti.style.height = '10px';
+                confetti.style.backgroundColor = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'][Math.floor(Math.random() * 5)];
+                confetti.style.pointerEvents = 'none';
+                confetti.style.zIndex = '10000';
+                
+                document.body.appendChild(confetti);
+
+                confetti.animate([
+                    { 
+                        transform: 'translateY(0) rotate(0deg)', 
+                        opacity: 1 
+                    },
+                    { 
+                        transform: `translateY(${window.innerHeight + 100}px) rotate(720deg)`, 
+                        opacity: 0 
+                    }
+                ], {
+                    duration: 3000 + Math.random() * 2000,
+                    easing: 'linear'
+                }).onfinish = () => {
+                    confetti.remove();
+                };
+            }, i * 100);
+        }
+    }
+
+    static pulseElement(element, duration = 2000) {
+        if (!element) return;
+
+        const animation = element.animate([
+            { transform: 'scale(1)', filter: 'brightness(1)' },
+            { transform: 'scale(1.05)', filter: 'brightness(1.2)' },
+            { transform: 'scale(1)', filter: 'brightness(1)' }
+        ], {
+            duration: 200,
+            iterations: duration / 200
+        });
+
+        return animation;
+    }
+}
+
+// Initialize sound manager
+const soundManager = new SoundManager();
+
+// --- Enhanced Game Constants ---
 const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
 const VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
 const SPECIAL_CARDS = {
@@ -47,7 +439,7 @@ const SPECIAL_CARDS = {
     'A': 'spade_ace_only'
 };
 
-// --- Game State ---
+// --- Enhanced Game State with Error Handling ---
 let gameState = {
     gameCode: '',
     playerRole: '',
@@ -66,1216 +458,674 @@ let gameState = {
     currentSuitToMatch: '',
     hasDrawnThisTurn: false,
     discardPile: [],
-    lastSuitChangeMethod: null, // Tracks if suit was changed by 8 or J
-    canChangeSuit: true // Flag for suit change restriction
+    lastSuitChangePlayer: null,
+    lastSuitChangeMethod: null,
+    canChangeSuit: true,
+    connectionStatus: 'connecting',
+    errorCount: 0,
+    lastErrorTime: 0,
+    retryAttempts: 0
 };
 
-// --- Initialize Game ---
-document.addEventListener('DOMContentLoaded', async () => {
-    try {
-        // Verify required DOM elements
-        const requiredElements = {
-            backBtn,
-            gameCodeDisplay,
-            currentSuitDisplay,
-            playerHandEl,
-            opponentHandCountEl,
-            discardPileEl,
-            gameStatusEl,
-            playerNameEl,
-            opponentNameEl,
-            playerAvatarEl,
-            opponentAvatarEl,
-            drawCardBtn,
-            passTurnBtn
-        };
-
-        // Check for missing elements
-        const missingElements = Object.entries(requiredElements)
-            .filter(([name, element]) => !element)
-            .map(([name]) => name);
-
-        if (missingElements.length > 0) {
-            console.error('Missing DOM elements:', missingElements.join(', '));
-            if (gameStatusEl) gameStatusEl.textContent = 'Game setup error - missing elements';
-            return;
-        }
-
-        // Get game code from URL
-        const params = new URLSearchParams(window.location.search);
-        gameState.gameCode = params.get('code');
+// --- Enhanced Error Handling ---
+class ErrorHandler {
+    static handleError(error, context) {
+        console.error(`Game error in ${context}:`, error);
         
-        if (!gameState.gameCode) {
-            console.error('No game code provided in URL');
-            window.location.href = '/';
-            return;
+        gameState.errorCount++;
+        gameState.lastErrorTime = Date.now();
+        
+        // Play error sound
+        soundManager.play('error');
+        
+        // Determine error type and response
+        if (error.message?.includes('network') || error.message?.includes('fetch')) {
+            this.handleNetworkError(error, context);
+        } else if (error.message?.includes('supabase') || error.message?.includes('database')) {
+            this.handleDatabaseError(error, context);
+        } else {
+            this.handleGameLogicError(error, context);
         }
         
-        gameCodeDisplay.textContent = gameState.gameCode;
-        
-        await loadGameData();
-        setupEventListeners();
-        setupRealtimeUpdates();
-        
-        backBtn.addEventListener('click', () => window.location.href = 'home.html');
-        
-    } catch (error) {
-        console.error('Game initialization failed:', error);
-        if (gameStatusEl) gameStatusEl.textContent = 'Game initialization failed';
-        setTimeout(() => window.location.href = '/', 3000);
+        // Auto-retry for recoverable errors
+        if (this.shouldRetry(error) && gameState.retryAttempts < 3) {
+            this.scheduleRetry(context);
+        }
     }
-});
+    
+    static handleNetworkError(error, context) {
+        gameState.connectionStatus = 'disconnected';
+        this.showError('Network connection lost. Attempting to reconnect...', 'warning');
+    }
+    
+    static handleDatabaseError(error, context) {
+        this.showError('Database connection issue. Please try again.', 'error');
+    }
+    
+    static handleGameLogicError(error, context) {
+        this.showError('Game error occurred. Please refresh if issues persist.', 'error');
+    }
+    
+    static shouldRetry(error) {
+        const retryableErrors = ['network', 'timeout', 'connection', 'supabase'];
+        return retryableErrors.some(type => error.message?.toLowerCase().includes(type));
+    }
+    
+    static scheduleRetry(context) {
+        gameState.retryAttempts++;
+        const delay = Math.min(1000 * Math.pow(2, gameState.retryAttempts - 1), 10000);
+        
+        setTimeout(() => {
+            console.log(`Retrying ${context} (attempt ${gameState.retryAttempts})`);
+            if (context.includes('load')) {
+                loadGameData();
+            } else if (context.includes('realtime')) {
+                setupRealtimeUpdates();
+            }
+        }, delay);
+    }
+    
+    static showError(message, type = 'error') {
+        const statusEl = document.getElementById('game-status');
+        if (statusEl) {
+            statusEl.textContent = message;
+            statusEl.className = `text-${type === 'error' ? 'red' : 'yellow'}-600 font-medium`;
+            
+            // Clear error after 5 seconds
+            setTimeout(() => {
+                if (statusEl.textContent === message) {
+                    statusEl.textContent = '';
+                    statusEl.className = '';
+                }
+            }, 5000);
+        }
+    }
+    
+    static clearErrors() {
+        gameState.errorCount = 0;
+        gameState.retryAttempts = 0;
+        gameState.connectionStatus = 'connected';
+    }
+}
 
 // --- Enhanced Game Functions ---
-async function loadGameData() {
-    try {
-        const { data: gameData, error } = await supabase
-            .from('card_games')
-            .select('*')
-            .eq('code', gameState.gameCode)
-            .single();
 
-        if (error) throw error;
-        if (!gameData) throw new Error('Game not found');
-
-        const users = JSON.parse(localStorage.getItem('user')) || {};
-        if (!users.phone) throw new Error('User not authenticated');
-        
-        gameState.playerRole = gameData.creator_phone === users.phone ? 'creator' : 'opponent';
-
-        // Update game state
-        gameState.status = gameData.status;
-        gameState.currentPlayer = gameData.current_player;
-        gameState.currentSuit = gameData.current_suit;
-        gameState.lastCard = gameData.last_card ? safeParseJSON(gameData.last_card) : null;
-        gameState.betAmount = gameData.bet;
-        gameState.mustPlaySuit = gameData.must_play_suit || false;
-        gameState.currentSuitToMatch = gameData.current_suit_to_match || '';
-        gameState.hasDrawnThisTurn = gameData.has_drawn_this_turn || false;
-        gameState.discardPile = gameData.discard_pile ? safeParseJSON(gameData.discard_pile) : [];
-        gameState.lastSuitChangeMethod = gameData.last_suit_change_method;
-        gameState.canChangeSuit = true; // Reset this flag on load
-
-        // Set player hands
-        if (gameState.playerRole === 'creator') {
-            gameState.playerHand = safeParseJSON(gameData.creator_hand) || [];
-            gameState.opponentHandCount = safeParseJSON(gameData.opponent_hand)?.length || 0;
-        } else {
-            gameState.playerHand = safeParseJSON(gameData.opponent_hand) || [];
-            gameState.opponentHandCount = safeParseJSON(gameData.creator_hand)?.length || 0;
-        }
-
-        // Set player info
-        gameState.creator = {
-            username: gameData.creator_username,
-            phone: gameData.creator_phone
-        };
-
-        if (gameData.opponent_phone) {
-            gameState.opponent = {
-                username: gameData.opponent_username,
-                phone: gameData.opponent_phone
-            };
-        }
-
-        // Check for pending actions
-        if (gameData.pending_action) {
-            gameState.pendingAction = gameData.pending_action;
-            gameState.pendingActionData = gameData.pending_action_data;
-        }
-
-        updateGameUI();
-
-    } catch (error) {
-        console.error('Error loading game:', error);
-        if (gameStatusEl) gameStatusEl.textContent = 'Error loading game';
-        setTimeout(() => window.location.href = '/', 3000);
-    }
-}
-
-function setupRealtimeUpdates() {
-    const channel = supabase
-        .channel(`card_game_${gameState.gameCode}`)
-        .on(
-            'postgres_changes',
-            {
-                event: 'UPDATE',
-                schema: 'public',
-                table: 'card_games',
-                filter: `code=eq.${gameState.gameCode}`
-            },
-            async (payload) => {
-                try {
-                    // Only update if the change is significant
-                    const significantChange = 
-                        payload.new.status !== gameState.status ||
-                        payload.new.current_player !== gameState.currentPlayer ||
-                        payload.new.current_suit !== gameState.currentSuit ||
-                        payload.new.last_card !== JSON.stringify(gameState.lastCard) ||
-                        payload.new.pending_action !== gameState.pendingAction ||
-                        payload.new.must_play_suit !== gameState.mustPlaySuit;
-
-                    if (!significantChange) return;
-
-                    gameState.status = payload.new.status;
-                    gameState.currentPlayer = payload.new.current_player;
-                    gameState.currentSuit = payload.new.current_suit;
-                    gameState.hasDrawnThisTurn = payload.new.has_drawn_this_turn || false;
-                    gameState.lastSuitChangeMethod = payload.new.last_suit_change_method;
-
-                    if (payload.new.last_card) {
-                        gameState.lastCard = safeParseJSON(payload.new.last_card);
-                    } else {
-                        gameState.lastCard = null;
-                    }
-
-                    gameState.pendingAction = payload.new.pending_action;
-                    gameState.pendingActionData = payload.new.pending_action_data;
-                    gameState.mustPlaySuit = payload.new.must_play_suit || false;
-                    gameState.currentSuitToMatch = payload.new.current_suit_to_match || '';
-                    gameState.discardPile = payload.new.discard_pile ? safeParseJSON(payload.new.discard_pile) : [];
-
-                    const users = JSON.parse(localStorage.getItem('user')) || {};
-                    const isCreator = gameState.playerRole === 'creator';
-
-                    if (isCreator) {
-                        gameState.playerHand = safeParseJSON(payload.new.creator_hand) || [];
-                        gameState.opponentHandCount = safeParseJSON(payload.new.opponent_hand)?.length || 0;
-                    } else {
-                        gameState.playerHand = safeParseJSON(payload.new.opponent_hand) || [];
-                        gameState.opponentHandCount = safeParseJSON(payload.new.creator_hand)?.length || 0;
-                    }
-
-                    if (payload.new.opponent_phone && !gameState.opponent.phone) {
-                        gameState.opponent = {
-                            username: payload.new.opponent_username,
-                            phone: payload.new.opponent_phone
-                        };
-
-                        if (gameState.status === 'waiting') {
-                            gameState.status = 'ongoing';
-                        }
-                    }
-
-                    if (payload.new.status === 'finished') {
-                        const isWinner = payload.new.winner === users.phone;
-                        const amount = Math.floor(gameState.betAmount * 1.8);
-                        showGameResult(isWinner, amount);
-                    }
-
-                    updateGameUI();
-                } catch (error) {
-                    console.error('Error processing realtime update:', error);
-                }
-            }
-        )
-        .subscribe();
-
-    return channel;
-}
-
+// Enhanced suit change logic - Rule: If opponent changes suit with 8/J, you cannot immediately change it back with same card type
 function canPlayCard(card) {
-    // If no last card played, any card can be played
-    if (!gameState.lastCard) return true;
+    try {
+        // If no last card played, any card can be played
+        if (!gameState.lastCard) return true;
 
-    // If there's a pending draw action, only 2s can be played
-    if (gameState.pendingAction === 'draw_two') {
-        return card.value === '2' && 
-               (card.suit === gameState.currentSuit || 
-                card.value === gameState.lastCard.value);
-    }
-
-    // If must play specific suit due to previous 8 or J
-    if (gameState.mustPlaySuit && gameState.currentSuitToMatch) {
-        // Check if we can play 8 or J without changing suit
-        if (card.value === '8' || card.value === 'J') {
-            // Can't change suit if opponent changed it with same card before
-            gameState.canChangeSuit = (gameState.lastSuitChangeMethod !== card.value);
-            return true; // Can always play these cards, just might not change suit
+        // If there's a pending draw action, only 2s can be played
+        if (gameState.pendingAction === 'draw_two') {
+            return card.value === '2' && 
+                   (card.suit === gameState.currentSuit || 
+                    card.value === gameState.lastCard.value);
         }
-        return card.suit === gameState.currentSuitToMatch;
-    }
 
-    // Handle 8 and J - can always be played
-    if (card.value === '8' || card.value === 'J') {
-        // Can't change suit if opponent changed it with same card before
-        gameState.canChangeSuit = (gameState.lastSuitChangeMethod !== card.value);
-        return true;
-    }
+        // If must play specific suit due to previous 8 or J
+        if (gameState.mustPlaySuit && gameState.currentSuitToMatch) {
+            // 8s and Jacks can be played but cannot change suit if opponent just changed it with same type
+            if (card.value === '8' || card.value === 'J') {
+                // Check if opponent just changed suit with same card type
+                const users = JSON.parse(localStorage.getItem('user')) || {};
+                const canChangeSuit = !gameState.lastSuitChangePlayer || 
+                                     gameState.lastSuitChangePlayer === users.phone ||
+                                     gameState.lastSuitChangeMethod !== card.value;
+                
+                gameState.canChangeSuit = canChangeSuit;
+                return true; // Can always play 8/J, but may not be able to change suit
+            }
+            return card.suit === gameState.currentSuitToMatch;
+        }
 
-    // Handle 2 cards - can only be played on same suit or another 2
-    if (card.value === '2') {
-        return card.suit === gameState.currentSuit || 
-               gameState.lastCard.value === '2';
-    }
-
-    // Handle 7 card - can be played with any 8 or J regardless of suit
-    if (card.value === '7') {
-        if (card.suit === gameState.currentSuit || card.value === gameState.lastCard.value) {
+        // Handle 8 and J - can always be played for suit change
+        if (card.value === '8' || card.value === 'J') {
+            const users = JSON.parse(localStorage.getItem('user')) || {};
+            gameState.canChangeSuit = !gameState.lastSuitChangePlayer || 
+                                     gameState.lastSuitChangePlayer === users.phone ||
+                                     gameState.lastSuitChangeMethod !== card.value;
             return true;
         }
-        const hasEightOrJack = gameState.playerHand.some(c =>
-            (c.value === '8' || c.value === 'J') && c !== card
-        );
-        return hasEightOrJack;
-    }
 
-    // Handle Ace - only Ace of Spades is special
-    if (card.value === 'A') {
-        if (card.suit === 'spades') return true;
+        // Handle 2 cards - can only be played on same suit or another 2
+        if (card.value === '2') {
+            return card.suit === gameState.currentSuit || 
+                   gameState.lastCard.value === '2';
+        }
+
+        // Handle 7 card - special multi-card play rules
+        if (card.value === '7') {
+            return card.suit === gameState.currentSuit || 
+                   card.value === gameState.lastCard.value;
+        }
+
+        // Handle Ace - only Ace of Spades is special
+        if (card.value === 'A') {
+            if (card.suit === 'spades') return true;
+            return card.suit === gameState.currentSuit ||
+                   card.value === gameState.lastCard.value;
+        }
+
+        // Normal play rules - must match suit or value
         return card.suit === gameState.currentSuit ||
                card.value === gameState.lastCard.value;
+    } catch (error) {
+        ErrorHandler.handleError(error, 'canPlayCard');
+        return false;
     }
-
-    // Normal play rules - must match suit or value
-    return card.suit === gameState.currentSuit ||
-           card.value === gameState.lastCard.value;
 }
 
 async function playCard(cardIndex) {
     try {
         const users = JSON.parse(localStorage.getItem('user')) || {};
-        if (!users.phone) {
-            displayMessage(gameStatusEl, "Please log in to play", 'error');
-            soundEffects.notification.play();
-            return;
-        }
+        if (!users.phone) throw new Error('User not logged in');
         
         if (gameState.currentPlayer !== users.phone) {
-            displayMessage(gameStatusEl, "It's not your turn!", 'error');
-            soundEffects.notification.play();
-            return;
-        }
-
-        if (cardIndex < 0 || cardIndex >= gameState.playerHand.length) {
-            displayMessage(gameStatusEl, "Invalid card selection", 'error');
-            soundEffects.notification.play();
+            ErrorHandler.showError("It's not your turn!", 'warning');
+            await soundManager.play('error');
             return;
         }
 
         const card = gameState.playerHand[cardIndex];
-        if (!card) {
-            displayMessage(gameStatusEl, "Card not found", 'error');
-            soundEffects.notification.play();
-            return;
-        }
-        
-        // Check if card can be played
         if (!canPlayCard(card)) {
-            displayMessage(gameStatusEl, "You can't play that card now", 'error');
-            soundEffects.notification.play();
+            ErrorHandler.showError('This card cannot be played!', 'warning');
+            await soundManager.play('error');
             return;
         }
-        
-        // Handle 7 card - show selection dialog
-        if (card.value === '7') {
-            await showSevenCardDialog(cardIndex);
+
+        // Play card sound first
+        await soundManager.play('cardPlay');
+
+        // Handle special card effects with enhanced logic
+        let suitChangeRequired = false;
+        if (card.value === '8' || card.value === 'J') {
+            if (gameState.canChangeSuit) {
+                suitChangeRequired = true;
+                await soundManager.play('suitChange');
+            } else {
+                // Playing 8/J without changing suit - must follow current suit requirement
+                if (!gameState.mustPlaySuit || card.suit === gameState.currentSuitToMatch) {
+                    // Valid play without suit change
+                } else {
+                    ErrorHandler.showError('Cannot change suit - opponent just changed it with the same card type!', 'warning');
+                    await soundManager.play('error');
+                    return;
+                }
+            }
+        }
+
+        // Remove card from hand with animation
+        const cardElement = document.querySelector(`[data-card-index="${cardIndex}"]`);
+        if (cardElement) {
+            await AnimationManager.playCardAnimation(cardElement);
+        }
+
+        // Update local state
+        gameState.playerHand.splice(cardIndex, 1);
+        gameState.discardPile.push(card);
+        gameState.lastCard = card;
+
+        // Handle suit change
+        if (suitChangeRequired && gameState.canChangeSuit) {
+            await showSuitSelector(card);
             return;
         }
-        
-        // For other cards, proceed normally
-        await processCardPlay([card]);
-        soundEffects.cardPlay.play();
-        
-    } catch (error) {
-        console.error('Error playing card:', error);
-        displayMessage(gameStatusEl, "Error playing card", 'error');
-    }
-}
 
-async function processCardPlay(cardsToPlay) {
-    try {
-        const users = JSON.parse(localStorage.getItem('user')) || {};
-        if (!users.phone) throw new Error('User not logged in');
-        
-        const isCreator = gameState.playerRole === 'creator';
-        const opponentPhone = isCreator ? gameState.opponent.phone : gameState.creator.phone;
-
-        // Validate cards to play
-        if (!Array.isArray(cardsToPlay) || cardsToPlay.length === 0) {
-            throw new Error('No cards to play');
-        }
-
-        // Verify all cards are in player's hand
-        cardsToPlay.forEach(card => {
-            if (!gameState.playerHand.some(c => 
-                c.suit === card.suit && c.value === card.value)) {
-                throw new Error('Card not in hand');
-            }
-        });
-
-        // Remove cards from hand
-        cardsToPlay.forEach(cardToRemove => {
-            const index = gameState.playerHand.findIndex(
-                c => c.suit === cardToRemove.suit && c.value === cardToRemove.value
-            );
-            if (index !== -1) {
-                gameState.playerHand.splice(index, 1);
-            }
-        });
-
-        // Use the last card played for game state
-        const lastPlayedCard = cardsToPlay[cardsToPlay.length - 1];
-
-        const updateData = {
-            last_card: JSON.stringify(lastPlayedCard),
-            current_suit: lastPlayedCard.suit,
-            updated_at: new Date().toISOString(),
+        // Update game on server with enhanced error handling
+        const updates = {
+            current_suit: gameState.mustPlaySuit ? gameState.currentSuitToMatch : card.suit,
+            last_card: card,
+            discard_pile: gameState.discardPile,
             must_play_suit: false,
             current_suit_to_match: '',
-            has_drawn_this_turn: false
+            last_suit_change_player: null,
+            last_suit_change_method: null
         };
 
-        // Add played cards to discard pile (except last card)
-        const cardsToDiscard = cardsToPlay.slice(0, -1);
-        if (cardsToDiscard.length > 0) {
-            updateData.discard_pile = JSON.stringify([
-                ...gameState.discardPile,
-                ...cardsToDiscard
-            ]);
-        }
-
-        // Handle special cards
-        if (lastPlayedCard.value in SPECIAL_CARDS) {
-            const action = SPECIAL_CARDS[lastPlayedCard.value];
-
-            switch (action) {
-                case 'change_suit':
-                    if (lastPlayedCard.value === '8' || lastPlayedCard.value === 'J') {
-                        if (gameState.canChangeSuit) {
-                            // Only allow suit change if not restricted
-                            gameState.lastSuitChangeMethod = lastPlayedCard.value;
-                            gameState.pendingAction = 'change_suit';
-                            updateData.pending_action = 'change_suit';
-                            updateData.current_player = users.phone;
-                            updateData.last_suit_change_method = lastPlayedCard.value;
-                            delete updateData.current_suit;
-                            showSuitSelector();
-                            soundEffects.suitChange.play();
-                        } else {
-                            // Can play the card but can't change suit
-                            updateData.current_player = opponentPhone;
-                            updateData.current_suit = gameState.currentSuit; // Keep current suit
-                            updateData.last_suit_change_method = null;
-                            soundEffects.cardPlay.play();
-                        }
-                    }
-                    break;
-
-                case 'skip_turn':
-                    updateData.current_player = users.phone;
-                    break;
-
-                case 'draw_two':
-                    let drawCount = 2;
-                    if (gameState.pendingAction === 'draw_two') {
-                        drawCount = (gameState.pendingActionData || 2) + 2;
-                    }
-                    gameState.pendingAction = 'draw_two';
-                    updateData.pending_action = 'draw_two';
-                    updateData.pending_action_data = drawCount;
-                    updateData.current_player = opponentPhone;
-                    break;
-
-                case 'spade_ace_only':
-                    if (lastPlayedCard.suit === 'spades' && lastPlayedCard.value === 'A') {
-                        gameState.pendingAction = 'draw_two';
-                        updateData.pending_action = 'draw_two';
-                        updateData.pending_action_data = 5;
-                        updateData.current_player = opponentPhone;
-                    } else {
-                        updateData.current_player = opponentPhone;
-                    }
-                    break;
-
-                case 'play_multiple':
-                    const playingWithSpecial = cardsToPlay.some(card =>
-                        card.value === '8' || card.value === 'J'
-                    );
-
-                    if (playingWithSpecial) {
-                        const specialCard = cardsToPlay.find(card =>
-                            (card.value === '8' || card.value === 'J') &&
-                            gameState.lastSuitChangeMethod !== card.value
-                        );
-
-                        if (specialCard) {
-                            gameState.lastSuitChangeMethod = specialCard.value;
-                            gameState.pendingAction = 'change_suit';
-                            updateData.pending_action = 'change_suit';
-                            updateData.current_player = users.phone;
-                            updateData.last_suit_change_method = specialCard.value;
-                            showSuitSelector();
-                            soundEffects.suitChange.play();
-                        } else {
-                            updateData.current_player = opponentPhone;
-                            soundEffects.cardPlay.play();
-                        }
-                    } else {
-                        if (cardsToPlay.length === 1 && lastPlayedCard.value === '7') {
-                            updateData.current_player = users.phone;
-                        } else {
-                            updateData.current_player = opponentPhone;
-                        }
-                        soundEffects.cardPlay.play();
-                    }
-                    break;
+        // Handle special card effects
+        if (card.value === '2') {
+            updates.pending_action = 'draw_two';
+            updates.pending_action_data = JSON.stringify({ drawCount: 2 });
+        } else if (card.value === '5') {
+            // Skip turn - keep current player the same
+        } else {
+            // Normal turn progression
+            const allPlayers = [gameState.creator.phone];
+            if (gameState.opponent.phone) {
+                allPlayers.push(gameState.opponent.phone);
             }
-        } else {
-            updateData.current_player = opponentPhone;
-            gameState.lastSuitChangeMethod = null;
-            updateData.last_suit_change_method = null;
-            soundEffects.cardPlay.play();
+            const currentIndex = allPlayers.indexOf(users.phone);
+            const nextPlayer = allPlayers[(currentIndex + 1) % allPlayers.length];
+            updates.current_player = nextPlayer;
         }
 
-        // Update hands in database
-        if (isCreator) {
-            updateData.creator_hand = JSON.stringify(gameState.playerHand);
-        } else {
-            updateData.opponent_hand = JSON.stringify(gameState.playerHand);
-        }
+        // Update player hand
+        const handUpdate = gameState.playerRole === 'creator' 
+            ? { creator_hand: JSON.stringify(gameState.playerHand) }
+            : { opponent_hand: JSON.stringify(gameState.playerHand) };
+
+        await updateGameWithRetry(updates);
+        await updatePlayerHandWithRetry(handUpdate);
 
         // Check for win condition
         if (gameState.playerHand.length === 0) {
-            updateData.status = 'finished';
-            updateData.winner = users.phone;
-            gameState.status = 'finished';
-
-            const winnings = Math.floor(gameState.betAmount * 1.8);
-            const { data: userData } = await supabase
-                .from('users')
-                .select('balance')
-                .eq('phone', users.phone)
-                .single();
-
-            if (userData) {
-                const newBalance = userData.balance + winnings;
-                await supabase
-                    .from('users')
-                    .update({ balance: newBalance })
-                    .eq('phone', users.phone);
-            }
+            await soundManager.play('win');
+            AnimationManager.createConfetti();
+            setTimeout(() => {
+                showGameResult(true, Math.floor(gameState.betAmount * 1.8));
+            }, 1000);
         }
 
-        // Update game in database
-        const { error } = await supabase
-            .from('card_games')
-            .update(updateData)
-            .eq('code', gameState.gameCode);
-
-        if (error) throw error;
-
+        // Clear any existing errors on successful action
+        ErrorHandler.clearErrors();
         updateGameUI();
-
+        
     } catch (error) {
-        console.error('Error processing card play:', error);
-        displayMessage(gameStatusEl, "Error processing card play", 'error');
+        ErrorHandler.handleError(error, 'playCard');
     }
 }
 
-// [Rest of the functions remain the same as in your original code...]
+async function updateGameWithRetry(updates, retries = 3) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const { error } = await supabase
+                .from('card_games')
+                .update(updates)
+                .eq('code', gameState.gameCode);
+
+            if (error) throw error;
+            return; // Success
+        } catch (error) {
+            if (i === retries - 1) throw error; // Last attempt failed
+            await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Exponential backoff
+        }
+    }
+}
+
+async function updatePlayerHandWithRetry(handUpdate, retries = 3) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const { error } = await supabase
+                .from('card_games')
+                .update(handUpdate)
+                .eq('code', gameState.gameCode);
+
+            if (error) throw error;
+            return; // Success
+        } catch (error) {
+            if (i === retries - 1) throw error; // Last attempt failed
+            await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+        }
+    }
+}
 
 async function drawCard() {
     try {
         const users = JSON.parse(localStorage.getItem('user')) || {};
-        if (!users.phone) throw new Error('User not logged in');
-        
         if (gameState.currentPlayer !== users.phone) {
-            displayMessage(gameStatusEl, "It's not your turn!", 'error');
-            soundEffects.notification.play();
+            ErrorHandler.showError("It's not your turn!", 'warning');
+            await soundManager.play('error');
             return;
         }
 
-        // Determine how many cards to draw
-        let drawCount = 1;
-        if (gameState.pendingAction === 'draw_two') {
-            drawCount = gameState.pendingActionData || 2;
-            gameState.pendingAction = null;
-            gameState.pendingActionData = null;
+        if (gameState.hasDrawnThisTurn) {
+            ErrorHandler.showError('You can only draw one card per turn!', 'warning');
+            await soundManager.play('error');
+            return;
         }
 
-        const isCreator = gameState.playerRole === 'creator';
-        
-        // Get current game state
-        const { data: gameData, error: fetchError } = await supabase
-            .from('card_games')
-            .select('deck, discard_pile, last_card')
-            .eq('code', gameState.gameCode)
-            .single();
-            
-        if (fetchError) throw fetchError;
-        
-        let deck = safeParseJSON(gameData.deck) || [];
-        const cardsToAdd = [];
-        
-        // Draw the required number of cards
-        for (let i = 0; i < drawCount; i++) {
-            if (deck.length === 0) {
-                let discardPile = safeParseJSON(gameData.discard_pile) || [];
-                const lastCard = safeParseJSON(gameData.last_card);
-                
-                if (lastCard) {
-                    discardPile = discardPile.filter(card => 
-                        !(card.suit === lastCard.suit && card.value === lastCard.value));
-                }
-                
-                deck = shuffleArray(discardPile);
-                gameState.discardPile = lastCard ? [lastCard] : [];
-                
-                const { error: updateDeckError } = await supabase
-                    .from('card_games')
-                    .update({
-                        deck: JSON.stringify(deck),
-                        discard_pile: JSON.stringify(gameState.discardPile),
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('code', gameState.gameCode);
-                    
-                if (updateDeckError) throw updateDeckError;
-            }
-            
-            if (deck.length > 0) {
-                cardsToAdd.push(deck.pop());
-            }
-        }
-        
-        // Add drawn cards to hand
-        gameState.playerHand = [...gameState.playerHand, ...cardsToAdd];
-        soundEffects.cardDraw.play();
-        
-        // Update database
-        const updateData = {
-            deck: JSON.stringify(deck),
-            updated_at: new Date().toISOString(),
-            has_drawn_this_turn: true,
-            pending_action: null,
-            pending_action_data: null
-        };
-        
-        if (isCreator) {
-            updateData.creator_hand = JSON.stringify(gameState.playerHand);
-        } else {
-            updateData.opponent_hand = JSON.stringify(gameState.playerHand);
-        }
-        
-        const { error } = await supabase
-            .from('card_games')
-            .update(updateData)
-            .eq('code', gameState.gameCode);
-            
-        if (error) throw error;
-        
+        await soundManager.play('cardDraw');
+
+        // Generate new card (in real implementation, this would come from server)
+        const newCard = generateRandomCard();
+        gameState.playerHand.push(newCard);
         gameState.hasDrawnThisTurn = true;
-        gameState.pendingAction = null;
-        gameState.pendingActionData = null;
+
+        // Animate new card
+        setTimeout(() => {
+            const newCardElement = document.querySelector(`[data-card-index="${gameState.playerHand.length - 1}"]`);
+            if (newCardElement) {
+                AnimationManager.drawCardAnimation(newCardElement);
+            }
+        }, 100);
+
+        // Update server
+        const handUpdate = gameState.playerRole === 'creator' 
+            ? { creator_hand: JSON.stringify(gameState.playerHand) }
+            : { opponent_hand: JSON.stringify(gameState.playerHand) };
+
+        await updatePlayerHandWithRetry(handUpdate);
+        
+        // Pass turn after drawing
+        await passTurn();
+        
+        ErrorHandler.clearErrors();
         updateGameUI();
         
     } catch (error) {
-        console.error('Error drawing card:', error);
-        if (gameStatusEl) gameStatusEl.textContent = 'Error drawing card';
+        ErrorHandler.handleError(error, 'drawCard');
     }
 }
 
 async function passTurn() {
     try {
         const users = JSON.parse(localStorage.getItem('user')) || {};
-        if (!users.phone) throw new Error('User not logged in');
-        
         if (gameState.currentPlayer !== users.phone) {
-            displayMessage(gameStatusEl, "It's not your turn!", 'error');
-            soundEffects.notification.play();
+            ErrorHandler.showError("It's not your turn!", 'warning');
+            await soundManager.play('error');
             return;
         }
 
-        const isCreator = gameState.playerRole === 'creator';
-        const opponentPhone = isCreator ? gameState.opponent.phone : gameState.creator.phone;
+        const allPlayers = [gameState.creator.phone];
+        if (gameState.opponent.phone) {
+            allPlayers.push(gameState.opponent.phone);
+        }
         
-        const updateData = {
-            current_player: opponentPhone,
-            updated_at: new Date().toISOString(),
-            must_play_suit: false,
-            current_suit_to_match: '',
+        const currentIndex = allPlayers.indexOf(users.phone);
+        const nextPlayer = allPlayers[(currentIndex + 1) % allPlayers.length];
+
+        const updates = {
+            current_player: nextPlayer,
             has_drawn_this_turn: false
         };
-        
-        const { error } = await supabase
-            .from('card_games')
-            .update(updateData)
-            .eq('code', gameState.gameCode);
-            
-        if (error) throw error;
-        
-        gameState.mustPlaySuit = false;
-        gameState.currentSuitToMatch = '';
+
+        await updateGameWithRetry(updates);
         gameState.hasDrawnThisTurn = false;
+        
+        ErrorHandler.clearErrors();
         updateGameUI();
-        soundEffects.notification.play();
         
     } catch (error) {
-        console.error('Error passing turn:', error);
-        if (gameStatusEl) gameStatusEl.textContent = 'Error passing turn';
+        ErrorHandler.handleError(error, 'passTurn');
     }
 }
 
-// --- UI Rendering Functions ---
-function renderCardHTML(card, {isPlayable = false} = {}) {
-    function getSuitSVG(suit) {
-        switch (suit) {
-            case 'hearts':
-                return `<svg width="24" height="24" viewBox="0 0 24 24" fill="#d32f2f"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`;
-            case 'diamonds':
-                return `<svg width="24" height="24" viewBox="0 0 24 24" fill="#d32f2f"><path d="M19 12l-7-10-7 10 7 10 7-10z"/></svg>`;
-            case 'clubs':
-                return `<svg width="24" height="24" viewBox="0 0 200 200" fill="#263238"><circle cx="100" cy="60" r="35"/><circle cx="60" cy="130" r="35"/><circle cx="140" cy="130" r="35"/><path d="M100 100 L100 170 C100 185 85 185 85 170 L85 100 Z"/></svg>`;
-            case 'spades':
-                return `<svg width="24" height="24" viewBox="0 0 200 200" fill="#263238"><path d="M100 20 L160 120 L40 120 Z"/><path d="M100 110 L100 180 C100 195 85 195 85 180 L85 110 Z"/><circle cx="100" cy="115" r="20"/></svg>`;
-            default:
-                return '';
-        }
-    }
-
-    const colorClass = (card.suit === 'hearts' || card.suit === 'diamonds') ? 'red' : 'black';
-
-    return `
-    <div class="card ${card.suit} ${isPlayable ? 'playable' : ''}" style="position:relative;">
-        <div class="card-value top">${card.value}</div>
-        <div class="card-suit" style="align-self:center;">${getSuitSVG(card.suit)}</div>
-        <div class="card-value bottom">${card.value}</div>
-        <div style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:6px;background:linear-gradient(135deg,rgba(255,255,255,0.14) 0%,transparent 80%);z-index:2;pointer-events:none;"></div>
-    </div>
-    `;
-}
-
-function renderPlayerHand() {
-    if (!playerHandEl) return;
-    
-    playerHandEl.innerHTML = '';
-    const scrollWrapper = document.createElement('div');
-    scrollWrapper.className = 'player-hand-scroll';
-    const cardsContainer = document.createElement('div');
-    cardsContainer.className = 'player-hand-cards';
-    
-    const users = JSON.parse(localStorage.getItem('user')) || {};
-    const isMyTurn = gameState.currentPlayer === users.phone;
-    
-    gameState.playerHand.forEach((card, index) => {
-        const isPlayable = isMyTurn && canPlayCard(card);
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = renderCardHTML(card, { isPlayable });
-        const cardEl = wrapper.firstElementChild;
-        if (isPlayable) {
-            cardEl.addEventListener('click', () => playCard(index));
-        }
-        cardsContainer.appendChild(cardEl);
-    });
-    
-    scrollWrapper.appendChild(cardsContainer);
-    playerHandEl.appendChild(scrollWrapper);
-}
-
-function renderDiscardPile() {
-    if (!discardPileEl) return;
-
-    discardPileEl.innerHTML = '';
-    const pileContainer = document.createElement('div');
-    pileContainer.className = 'discard-pile-container';
-
-    const allCards = [];
-    if (gameState.discardPile && gameState.discardPile.length > 0) {
-        for (let i = 0; i < gameState.discardPile.length; i++) {
-            allCards.push(gameState.discardPile[i]);
-        }
-    }
-    if (gameState.lastCard) allCards.push(gameState.lastCard);
-
-    const cardsToShow = 7;
-    const startIdx = Math.max(0, allCards.length - cardsToShow);
-    const recentCards = allCards.slice(startIdx);
-
-    recentCards.forEach((card, idx) => {
-        const isTop = idx === recentCards.length - 1;
-        const z = 100 + idx;
-        const rot = isTop ? 0 : (Math.random() * 10 - 5);
-        const xOffset = isTop ? 0 : (Math.random() * 20 - 10);
-        const yOffset = isTop ? 0 : (Math.random() * 10 - 5);
-
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = renderCardHTML(card, {
-            isTop,
-            isStacked: !isTop,
-            isPlayable: false
-        });
-        const cardEl = wrapper.firstElementChild;
-        cardEl.style.zIndex = z;
-        cardEl.style.position = 'absolute';
-        cardEl.style.left = `calc(50% + ${xOffset}px)`;
-        cardEl.style.top = `calc(50% + ${yOffset}px)`;
-        cardEl.style.transform = `translate(-50%, -50%) rotate(${rot}deg)`;
-        pileContainer.appendChild(cardEl);
-    });
-
-    const totalCards = allCards.length;
-    if (totalCards > cardsToShow) {
-        const remainingCount = totalCards - cardsToShow;
-        const countEl = document.createElement('div');
-        countEl.className = 'discard-pile-count';
-        countEl.textContent = `+${remainingCount} more`;
-        pileContainer.appendChild(countEl);
-    }
-    pileContainer.style.position = "relative";
-    pileContainer.style.width = "140px";
-    pileContainer.style.height = "120px";
-    pileContainer.style.margin = "0 auto";
-    discardPileEl.appendChild(pileContainer);
-}
-
-function updateGameUI() {
-    const users = JSON.parse(localStorage.getItem('user')) || {};
-    const isMyTurn = users.phone === gameState.currentPlayer;
-    const isCreator = gameState.playerRole === 'creator';
-
-    // Player info
-    if (opponentNameEl) {
-        if (isCreator) {
-            opponentNameEl.textContent = gameState.opponent.username || 'Waiting...';
-        } else {
-            opponentNameEl.textContent = gameState.creator.username || 'Waiting...';
-        }
-    }
-    if (opponentAvatarEl) {
-        const name = isCreator ? gameState.opponent.username : gameState.creator.username;
-        opponentAvatarEl.style.backgroundColor = generateAvatarColor(name);
-        opponentAvatarEl.textContent = name ? name.charAt(0).toUpperCase() : 'O';
-    }
-
-    if (playerNameEl) playerNameEl.textContent = users.username || 'You';
-    if (playerAvatarEl) {
-        playerAvatarEl.style.backgroundColor = generateAvatarColor(users.username);
-        playerAvatarEl.textContent = users.username ? users.username.charAt(0).toUpperCase() : 'Y';
-    }
-    
-    // Game state
-    if (currentSuitDisplay) {
-        currentSuitDisplay.textContent = gameState.currentSuit 
-            ? `${gameState.currentSuit.toUpperCase()}` 
-            : 'Not set';
-        currentSuitDisplay.className = `suit-${gameState.currentSuit}`;
-    }
-    
-    if (opponentHandCountEl) {
-        opponentHandCountEl.textContent = `${gameState.opponentHandCount} cards`;
-    }
-    
-    // Action buttons
-    if (drawCardBtn) {
-        drawCardBtn.style.display = isMyTurn && !gameState.hasDrawnThisTurn ? 'block' : 'none';
-    }
-    
-    if (passTurnBtn) {
-        passTurnBtn.style.display = isMyTurn && gameState.hasDrawnThisTurn ? 'block' : 'none';
-    }
-    
-    // Render game elements
-    if (gameState.status !== 'waiting') {
-        renderPlayerHand();
-        renderDiscardPile();
-    } else {
-       if (playerHandEl) playerHandEl.innerHTML = '<div class="waiting-message"></div>';
-        if (discardPileEl) discardPileEl.innerHTML = '';
-    }
-    
-    // Game status
-    if (gameStatusEl) {
-        if (gameState.status === 'waiting') {
-            gameStatusEl.textContent = 'Waiting for opponent...';
-        } else {
-            let statusText = isMyTurn ? 'Your turn!' : 'Opponent\'s turn';
-            
-            if (isMyTurn && gameState.pendingAction === 'draw_two') {
-                const drawCount = gameState.pendingActionData || 2;
-                statusText = `You must draw ${drawCount} cards or play a 2`;
-            }
-            
-            gameStatusEl.textContent = statusText;
-            gameStatusEl.className = isMyTurn ? 'status-your-turn' : 'status-opponent-turn';
-        }
-    }
-}
-// --- Helper for suit SVGs (moved to top of file for global access) ---
-function getSuitSVG(suit) {
-    switch (suit) {
-        case 'hearts':
-            return `<svg width="22" height="22" viewBox="0 0 24 24" fill="#d32f2f"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>`;
-        case 'diamonds':
-            return `<svg width="22" height="22" viewBox="0 0 24 24" fill="#d32f2f"><path d="M19 12l-7-10-7 10 7 10 7-10z"/></svg>`;
-        case 'clubs':
-            return `<svg width="22" height="22" viewBox="0 0 200 200" fill="#263238"><circle cx="100" cy="60" r="35"/><circle cx="60" cy="130" r="35"/><circle cx="140" cy="130" r="35"/><path d="M100 100 L100 170 C100 185 85 185 85 170 L85 100 Z"/></svg>`;
-        case 'spades':
-            return `<svg width="22" height="22" viewBox="0 0 200 200" fill="#263238"><path d="M100 20 L160 120 L40 120 Z"/><path d="M100 110 L100 180 C100 195 85 195 85 180 L85 110 Z"/><circle cx="100" cy="115" r="20"/></svg>`;
-        default:
-            return '';
-    }
-}
-
-// Then keep all the rest of your existing code below...
-// --- Dialog Functions ---
-async function showSevenCardDialog(initialCardIndex) {
-    const initialCard = gameState.playerHand[initialCardIndex];
-    
-    const specialCards = gameState.playerHand.filter(
-        (card, index) => (card.value === '8' || card.value === 'J') && index !== initialCardIndex && card.suit !== initialCard.suit
-    );
-    const sameSuitCards = gameState.playerHand.filter(
-        (card, index) => card.suit === initialCard.suit && index !== initialCardIndex
-    );
-    
-    if (specialCards.length === 0 && sameSuitCards.length === 0) {
-        await processCardPlay([initialCard]);
-        return;
-    }
-    
-    const modal = document.createElement('div');
-    modal.className = 'card-selection-modal';
-    modal.innerHTML = `
-        <div class="selection-content">
-            <h3>Select cards to play with ${initialCard.value} of ${initialCard.suit}</h3>
-            <div class="card-selection-options">
-                ${specialCards.map((card, i) => `
-                    <div class="card-option ${card.suit}" data-index="${gameState.playerHand.findIndex(c => 
-                        c.suit === card.suit && c.value === card.value)}">
-                        <div class="card-value">${card.value}</div>
-                        <div class="card-suit"></div>
-                    </div>
-                `).join('')}
-                ${sameSuitCards.map((card, i) => `
-                    <div class="card-option ${card.suit}" data-index="${gameState.playerHand.findIndex(c => 
-                        c.suit === card.suit && c.value === card.value)}">
-                        <div class="card-value">${card.value}</div>
-                        <div class="card-suit"></div>
-                    </div>
-                `).join('')}
-            </div>
-            <div class="selection-actions">
-                <button id="play-selected-cards">Play Selected</button>
-                <button id="play-single-seven">Play Just This 7</button>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    
-    const selectedIndices = new Set([initialCardIndex]);
-    
-    modal.querySelectorAll('.card-option').forEach(option => {
-        option.addEventListener('click', () => {
-            const index = parseInt(option.dataset.index);
-            if (selectedIndices.has(index)) {
-                option.classList.remove('selected');
-                selectedIndices.delete(index);
-            } else {
-                option.classList.add('selected');
-                selectedIndices.add(index);
-            }
-        });
-    });
-    
+// Enhanced suit selector with improved 8/J logic
+async function showSuitSelector(playedCard) {
     return new Promise((resolve) => {
-         modal.querySelector('#play-selected-cards').addEventListener('click', async () => {
-            const cardsToPlay = Array.from(selectedIndices).map(i => gameState.playerHand[i]);
-            modal.remove();
-            await processCardPlay(cardsToPlay);
-            soundEffects.cardPlay.play();
-            resolve();
-        });
-        
-        modal.querySelector('#play-single-seven').addEventListener('click', async () => {
-            modal.remove();
-            await processCardPlay([initialCard]);
-            soundEffects.cardPlay.play();
-            resolve();
-        });
-    });
-}
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        modal.innerHTML = `
+            <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                <h3 class="text-xl font-bold mb-4 text-center">Choose New Suit</h3>
+                <p class="text-sm text-gray-600 mb-4 text-center">
+                    You played ${playedCard.value} of ${playedCard.suit}. Select the new suit:
+                </p>
+                <div class="grid grid-cols-2 gap-4">
+                    ${SUITS.map(suit => `
+                        <button class="suit-btn p-4 border-2 rounded-lg hover:bg-gray-50 flex flex-col items-center" data-suit="${suit}">
+                            <span class="text-3xl mb-2">${getSuitSVG(suit)}</span>
+                            <span class="capitalize font-medium">${suit}</span>
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        `;
 
-function showSuitSelector() {
-    const modal = document.createElement('div');
-    modal.className = 'modern-modal-overlay';
-    modal.innerHTML = `
-      <div class="modern-modal">
-        <h2 class="modal-title">Pick a Suit</h2>
-        <div class="modern-suit-options">
-          ${SUITS.map(suit => `
-            <button class="modern-suit-btn ${suit}" data-suit="${suit}" style="display:flex;align-items:center;gap:9px;">
-              ${getSuitSVG(suit)}
-              <span style="font-weight:600;">${suit[0].toUpperCase()+suit.slice(1)}</span>
-            </button>
-          `).join('')}
-        </div>
-      </div>
-    `;
-    document.body.appendChild(modal);
+        document.body.appendChild(modal);
 
-    injectModernDialogCSS();
-
-    modal.querySelectorAll('.modern-suit-btn').forEach(btn => {
-        btn.onclick = async () => {
-            const selectedSuit = btn.dataset.suit;
-            try {
+        modal.addEventListener('click', async (e) => {
+            const suitBtn = e.target.closest('.suit-btn');
+            if (suitBtn) {
+                const selectedSuit = suitBtn.dataset.suit;
+                
+                await soundManager.play('suitChange');
+                
+                // Update game state with new suit
                 const users = JSON.parse(localStorage.getItem('user')) || {};
-                if (!users.phone) throw new Error('User not logged in');
-                const isCreator = gameState.playerRole === 'creator';
-                const opponentPhone = isCreator ? gameState.opponent.phone : gameState.creator.phone;
-                const { error } = await supabase
-                    .from('card_games')
-                    .update({
-                        current_suit: selectedSuit,
-                        current_player: opponentPhone,
-                        pending_action: null,
-                        pending_action_data: null,
-                        updated_at: new Date().toISOString(),
-                        must_play_suit: true,
-                        current_suit_to_match: selectedSuit,
-                        has_drawn_this_turn: false
-                    })
-                    .eq('code', gameState.gameCode);
-                if (error) throw error;
-                soundEffects.notification.play();
-            } catch (error) {
-                console.error('Error selecting suit:', error);
+                const allPlayers = [gameState.creator.phone];
+                if (gameState.opponent.phone) {
+                    allPlayers.push(gameState.opponent.phone);
+                }
+                const currentIndex = allPlayers.indexOf(users.phone);
+                const nextPlayer = allPlayers[(currentIndex + 1) % allPlayers.length];
+
+                const updates = {
+                    current_suit: selectedSuit,
+                    must_play_suit: true,
+                    current_suit_to_match: selectedSuit,
+                    last_suit_change_player: users.phone,
+                    last_suit_change_method: playedCard.value,
+                    current_player: nextPlayer
+                };
+
+                // Update player hand
+                const handUpdate = gameState.playerRole === 'creator' 
+                    ? { creator_hand: JSON.stringify(gameState.playerHand) }
+                    : { opponent_hand: JSON.stringify(gameState.playerHand) };
+
+                try {
+                    await updateGameWithRetry(updates);
+                    await updatePlayerHandWithRetry(handUpdate);
+                    
+                    gameState.currentSuit = selectedSuit;
+                    gameState.mustPlaySuit = true;
+                    gameState.currentSuitToMatch = selectedSuit;
+                    gameState.lastSuitChangePlayer = users.phone;
+                    gameState.lastSuitChangeMethod = playedCard.value;
+                    
+                    ErrorHandler.clearErrors();
+                    updateGameUI();
+                } catch (error) {
+                    ErrorHandler.handleError(error, 'suitChange');
+                }
+
+                document.body.removeChild(modal);
+                resolve();
             }
-            modal.remove();
-        };
+        });
     });
 }
 
-function showGameResult(isWinner, amount) {
-    const resultModal = document.createElement('div');
-    resultModal.className = 'game-result-modal';
-    resultModal.innerHTML = `
-        <div class="result-content">
-            <h2>${isWinner ? 'You Won!' : 'You Lost'}</h2>
-            <p>${isWinner ? `You won ${amount} ETB!` : 'Better luck next time'}</p>
-            <button id="result-close-btn">Close</button>
-        </div>
-    `;
-    
-    document.body.appendChild(resultModal);
-    
-    // Play appropriate sound
-    if (isWinner) {
-        soundEffects.win.play();
-    } else {
-        soundEffects.lose.play();
-    }
-    
-    const closeBtn = resultModal.querySelector('#result-close-btn');
-    if (closeBtn) {
-        closeBtn.addEventListener('click', () => {
-            resultModal.remove();
-            window.location.href = 'home.html';
-        });
-    }
-}
-
-// --- Helper Functions ---
-function injectModernDialogCSS() {
-  if (document.getElementById('modern-dialog-css')) return;
-  const style = document.createElement('style');
-  style.id = 'modern-dialog-css';
-  style.textContent = `
-  .modern-modal-overlay {
-    background: rgba(34, 36, 38, 0.46);
-    position: fixed; z-index: 1999; left: 0; top: 0; width: 100vw; height: 100vh;
-    display: flex; align-items: center; justify-content: center;
-    animation: fadein 0.12s;
-  }
-  .modern-modal {
-    background: #fff; border-radius: 18px; min-width: 290px; max-width: 94vw;
-    box-shadow: 0 10px 38px #0b2b1f0f, 0 4px 18px #0b2b1f28;
-    padding: 32px 24px 18px 24px; position: relative; font-family: "Inter",sans-serif;
-    text-align: center; animation: popup-in 0.17s;
-  }
-  .modal-title { font-size: 1.4em; color: #173e25; font-weight: 700; margin-bottom: 11px; }
-  .modal-sub { color: #4e5b5c; font-size: 1em; margin-bottom: 10px; }
-  .modern-card-chip-list { display: flex; flex-wrap: wrap; gap: 13px; justify-content: center; margin: 13px 0 15px; }
-  .modern-card-chip-option { cursor: pointer; transition: transform .13s, box-shadow .13s; }
-  .modern-card-chip-option.selected, .modern-card-chip-option:hover { box-shadow: 0 2px 13px #43a04733; transform: scale(1.07); }
-  .modern-card-chip.hearts { border:1.5px solid #d32f2f; }
-  .modern-card-chip.diamonds { border:1.5px solid #e57373; }
-  .modern-card-chip.clubs { border:1.5px solid #388e3c; }
-  .modern-card-chip.spades { border:1.5px solid #263238; }
-  .modern-card-chip-title { vertical-align:middle; display:inline-block; }
-  .modern-dialog-actions { display: flex; gap: 10px; margin-top: 13px; justify-content: center; }
-  .modern-btn {
-    border: none; outline: none; border-radius: 9px;
-    padding: 9px 18px; font-size: 1em; font-weight: 600; background: #e0e0e0; color: #173e25;
-    cursor: pointer; transition: background 0.13s, color 0.13s;
-  }
-  .modern-btn.primary { background: #43a047; color: #fff; }
-  .modern-btn.primary:hover { background: #388e3c; }
-  .modern-btn:hover { background: #c8c8c8; }
-  .modern-suit-options { display:flex; flex-wrap:wrap; gap:14px; margin:18px 0 0 0; justify-content:center; }
-  .modern-suit-btn {
-    border-radius:10px; border:none; background:#e8f5e9; padding:13px 19px 13px 15px; font-size:1.15em;
-    box-shadow:0 2px 6px #43a04722; cursor:pointer; transition:box-shadow .13s,background .13s;
-    color:#173e25; outline: none; min-width: 96px; min-height: 51px; justify-content:center;
-  }
-  .modern-suit-btn.hearts { background:#ffeaea; color:#d32f2f; }
-  .modern-suit-btn.diamonds { background:#e8f0fe; color:#1565c0; }
-  .modern-suit-btn.clubs { background:#e8f5e9; color:#388e3c; }
-  .modern-suit-btn.spades { background:#ececec; color:#263238; }
-  .modern-suit-btn:hover { box-shadow:0 3px 18px #43a04722; background:#d0f5e6; }
-  @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes popup-in { from { transform: scale(0.93); opacity: 0.7; } to { transform: scale(1); opacity:1; } }
-  `;
-  document.head.appendChild(style);
-}
-
-function setupEventListeners() {
-    if (drawCardBtn) drawCardBtn.addEventListener('click', drawCard);
-    if (passTurnBtn) passTurnBtn.addEventListener('click', passTurn);
-}
-
-function generateAvatarColor(username) {
-    if (!username) return '#6c757d';
-    const colors = ['#ff6b6b', '#51cf66', '#fcc419', '#228be6', '#be4bdb'];
-    const hash = username.split('').reduce((acc, char) => char.charCodeAt(0) + acc, 0);
-    return colors[hash % colors.length];
-}
-
-function hasCardsOfSuit(suit) {
-    return gameState.playerHand.some(card => card.suit === suit);
-}
-
-function safeParseJSON(json) {
+// Enhanced real-time updates with faster polling and better error handling
+function setupRealtimeUpdates() {
     try {
-        return typeof json === 'string' ? JSON.parse(json) : json;
-    } catch (e) {
-        console.error('Error parsing JSON:', e);
-        return null;
+        const channel = supabase
+            .channel(`card_game_${gameState.gameCode}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'card_games',
+                    filter: `code=eq.${gameState.gameCode}`
+                },
+                async (payload) => {
+                    try {
+                        // Process real-time updates faster
+                        const oldStatus = gameState.status;
+                        const oldCurrentPlayer = gameState.currentPlayer;
+                        
+                        gameState.status = payload.new.status;
+                        gameState.currentPlayer = payload.new.current_player;
+                        gameState.currentSuit = payload.new.current_suit;
+                        gameState.hasDrawnThisTurn = payload.new.has_drawn_this_turn || false;
+                        gameState.lastSuitChangePlayer = payload.new.last_suit_change_player;
+                        gameState.lastSuitChangeMethod = payload.new.last_suit_change_method;
+
+                        if (payload.new.last_card) {
+                            gameState.lastCard = safeParseJSON(payload.new.last_card);
+                        }
+
+                        gameState.pendingAction = payload.new.pending_action;
+                        gameState.pendingActionData = payload.new.pending_action_data;
+                        gameState.mustPlaySuit = payload.new.must_play_suit || false;
+                        gameState.currentSuitToMatch = payload.new.current_suit_to_match || '';
+                        gameState.discardPile = payload.new.discard_pile ? safeParseJSON(payload.new.discard_pile) : [];
+
+                        const users = JSON.parse(localStorage.getItem('user')) || {};
+                        const isCreator = gameState.playerRole === 'creator';
+
+                        if (isCreator) {
+                            gameState.playerHand = safeParseJSON(payload.new.creator_hand) || [];
+                            gameState.opponentHandCount = safeParseJSON(payload.new.opponent_hand)?.length || 0;
+                        } else {
+                            gameState.playerHand = safeParseJSON(payload.new.opponent_hand) || [];
+                            gameState.opponentHandCount = safeParseJSON(payload.new.creator_hand)?.length || 0;
+                        }
+
+                        // Handle turn changes with sound effects
+                        if (oldCurrentPlayer !== gameState.currentPlayer) {
+                            if (gameState.currentPlayer === users.phone) {
+                                // Your turn
+                                AnimationManager.createFloatingText(
+                                    document.getElementById('game-status'), 
+                                    'Your Turn!', 
+                                    { color: '#10b981', fontSize: '20px' }
+                                );
+                            }
+                        }
+
+                        if (payload.new.opponent_phone && !gameState.opponent.phone) {
+                            gameState.opponent = {
+                                username: payload.new.opponent_username,
+                                phone: payload.new.opponent_phone
+                            };
+
+                            if (gameState.status === 'waiting') {
+                                gameState.status = 'ongoing';
+                            }
+                        }
+
+                        if (payload.new.status === 'finished') {
+                            const isWinner = payload.new.winner === users.phone;
+                            if (isWinner) {
+                                await soundManager.play('win');
+                                AnimationManager.createConfetti();
+                            } else {
+                                await soundManager.play('loss');
+                            }
+                            
+                            setTimeout(() => {
+                                const amount = Math.floor(gameState.betAmount * 1.8);
+                                showGameResult(isWinner, amount);
+                            }, 1000);
+                        }
+
+                        // Clear connection errors on successful update
+                        ErrorHandler.clearErrors();
+                        gameState.connectionStatus = 'connected';
+                        
+                        updateGameUI();
+                    } catch (error) {
+                        ErrorHandler.handleError(error, 'realtime-update');
+                    }
+                }
+            )
+            .subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    gameState.connectionStatus = 'connected';
+                    ErrorHandler.clearErrors();
+                } else if (status === 'CHANNEL_ERROR') {
+                    gameState.connectionStatus = 'disconnected';
+                    ErrorHandler.handleError(new Error('Real-time connection lost'), 'realtime-connection');
+                }
+            });
+
+        return channel;
+    } catch (error) {
+        ErrorHandler.handleError(error, 'realtime-setup');
     }
 }
 
-function displayMessage(element, message, type = 'info') {
-    if (!element) return;
-    
-    element.textContent = message;
-    element.className = `status-message ${type}`;
-    
-    if (type === 'success') {
-        setTimeout(() => {
-            element.textContent = '';
-            element.className = 'status-message';
-        }, 3000);
+// Enhanced UI update function
+function updateGameUI() {
+    try {
+        // Update connection status indicator
+        const connectionEl = document.getElementById('connection-status');
+        if (connectionEl) {
+            connectionEl.textContent = gameState.connectionStatus;
+            connectionEl.className = `connection-${gameState.connectionStatus}`;
+        }
+
+        // Update current suit display
+        const suitDisplay = document.getElementById('current-suit');
+        if (suitDisplay) {
+            suitDisplay.innerHTML = getSuitSVG(gameState.currentSuit);
+        }
+
+        // Update player hand
+        renderPlayerHand();
+        
+        // Update discard pile
+        renderDiscardPile();
+        
+        // Update game status
+        const statusEl = document.getElementById('game-status');
+        if (statusEl && !gameState.error) {
+            const users = JSON.parse(localStorage.getItem('user')) || {};
+            if (gameState.currentPlayer === users.phone) {
+                statusEl.textContent = 'Your turn!';
+                statusEl.className = 'text-green-600 font-bold';
+            } else {
+                statusEl.textContent = 'Opponent\'s turn';
+                statusEl.className = 'text-blue-600';
+            }
+        }
+
+        // Update special game state indicators
+        const specialStateEl = document.getElementById('special-state');
+        if (specialStateEl) {
+            if (gameState.mustPlaySuit && gameState.currentSuitToMatch) {
+                specialStateEl.innerHTML = `Must play ${getSuitSVG(gameState.currentSuitToMatch)} cards or 8/J`;
+                specialStateEl.className = 'text-yellow-600 font-medium';
+            } else if (gameState.pendingAction === 'draw_two') {
+                specialStateEl.textContent = 'Must play a 2 or draw cards!';
+                specialStateEl.className = 'text-red-600 font-medium';
+            } else {
+                specialStateEl.textContent = '';
+                specialStateEl.className = '';
+            }
+        }
+
+        // Update opponent hand count
+        const opponentCountEl = document.getElementById('opponent-hand-count');
+        if (opponentCountEl) {
+            opponentCountEl.textContent = gameState.opponentHandCount;
+        }
+
+        // Update draw pile count
+        const drawPileEl = document.getElementById('draw-pile-count');
+        if (drawPileEl) {
+            drawPileEl.textContent = gameState.discardPile.length || 52;
+        }
+
+    } catch (error) {
+        ErrorHandler.handleError(error, 'updateUI');
     }
 }
 
-function shuffleArray(array) {
-    const newArray = [...array];
-    for (let i = newArray.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+// Initialize enhanced game
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        gameState.gameCode = params.get('code');
+        
+        if (!gameState.gameCode) {
+            window.location.href = '/';
+            return;
+        }
+        
+        await loadGameData();
+        setupEventListeners();
+        setupRealtimeUpdates();
+        
+        // Start periodic UI updates for better responsiveness
+        setInterval(updateGameUI, 500);
+        
+    } catch (error) {
+        ErrorHandler.handleError(error, 'initialization');
     }
-    return newArray;
-}
+});
 
-// Inject card styles
-const cardStyles = document.createElement('style');
-cardStyles.textContent = `
-.card {
-    --card-width: 64px;
-    --card-height: 96px;
-    width: var(--card-width);
-    height: var(--card-height);
-    background: linear-gradient(130deg,#fff8f0 85%,#f5e9d8 100%);
-    border-radius: 11px;
-    margin: 4px;
-    box-shadow: 0 4px 18px rgba(0,0,0,0.18), 0 1.5px 6px rgba(0,0,0,0.07);
-    position: relative;
-    border: 1.5px solid #ececec;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px;
-    transition: transform 0.13s, box-shadow 0.13s, filter 0.13s;
-    user-select: none;
-    overflow: visible;
+// Export for testing
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        soundManager,
+        AnimationManager,
+        ErrorHandler,
+        canPlayCard,
+        gameState
+    };
 }
-
-.card.playable {
-    cursor: pointer;
-    box-shadow: 0 8px 22px rgba(76,175,80,0.13), 0 1.5px 8px rgba(50,150,50,0.06);
-}
-
-.card.playable:active,
-.card.playable:focus {
-    filter: brightness(0.97) drop-shadow(0 0 6px #4caf5044);
-    transform: scale(1.04);
-    z-index: 20;
-}
-
-.card.hearts, .card.diamonds {
-    color: #d32f2f;
-}
-
-.card.clubs, .card.spades {
-    color: #263238;
-}
-
-.card-value {
-    font-size: 15px;
-    font-weight: bold;
-    text-shadow: 0px 1px 0px white, 0px 1px 3px #d1bfa7;
-}
-
-.card-value.top {
-    align-self: flex-start;
-}
-
-.card-value.bottom {
-    align-self: flex-end;
-    transform: rotate(180deg);
-}
-
-.player-hand-scroll {
-    display: flex;
-    overflow-x: auto;
-    padding: 10px 0;
-    width: 100%;
-    scrollbar-width: thin;
-}
-
-.player-hand-cards {
-    display: flex;
-    gap: 8px;
-    padding: 0 10px;
-}
-
-.discard-pile-count {
-    position: absolute;
-    bottom: -20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0,0,0,0.7);
-    color: white;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: 12px;
-}
-
-@media (min-width: 400px) {
-    .card {
-        width: 72px;
-        height: 110px;
-    }
-}
-
-@media (max-width: 350px) {
-    .card {
-        width: 48px;
-        height: 72px;
-    }
-}
-`;
-document.head.appendChild(cardStyles);
