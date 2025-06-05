@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Card Game</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
@@ -10,18 +10,26 @@
             --primary-color: #2e7d32;
             --primary-dark: #1b5e20;
             --primary-light: #4caf50;
-            --background-color: #f5f5f5;
+            --accent-color: #81c784;
+            --background-color: #f5f5f6;
             --surface-color: #ffffff;
             --text-primary: #212121;
             --text-secondary: #757575;
-            --error-color: #d32f2f;
-            --success-color: #388e3c;
-            --warning-color: #ffa000;
-            --info-color: #1976d2;
-            --card-white: #fffdfa;
-            --card-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            --error-color: #f44336;
+            --success-color: #4caf50;
+            --warning-color: #ff9800;
+            --info-color: #2196f3;
+            
+            --heart-color: #e53935;
+            --diamond-color: #e53935;
+            --club-color: #212121;
+            --spade-color: #212121;
+            
+            --card-white: #fff;
+            --card-shadow: 0 4px 6px rgba(0,0,0,0.1);
             --card-radius: 12px;
-            --card-border: 1px solid rgba(0,0,0,0.08);
+            --card-border: 1px solid rgba(0,0,0,0.1);
+            
             --header-height: 56px;
             --footer-height: 80px;
             --animation-duration: 0.3s;
@@ -31,7 +39,7 @@
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
             -webkit-tap-highlight-color: transparent;
         }
 
@@ -42,19 +50,19 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            touch-action: manipulation;
         }
 
-        /* Game Container Layout */
         .game-container {
-            width: 100%;
-            height: 100%;
+            width: 100vw;
+            height: 100vh;
             display: flex;
             flex-direction: column;
             position: relative;
             overflow: hidden;
         }
 
-        /* Header Styles */
+        /* Header */
         .game-header {
             display: flex;
             justify-content: space-between;
@@ -85,10 +93,11 @@
         }
 
         .header-title {
-            font-weight: 600;
             font-size: 18px;
-            text-align: center;
+            font-weight: 500;
             flex-grow: 1;
+            text-align: center;
+            margin: 0 8px;
         }
 
         #game-code-display {
@@ -96,12 +105,8 @@
             padding: 6px 12px;
             border-radius: 16px;
             font-weight: 500;
-            color: white;
             font-family: 'Courier New', monospace;
             font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
         }
 
         /* Main Game Area */
@@ -110,227 +115,183 @@
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            padding: 12px;
-            gap: 12px;
+            padding: 8px;
+            position: relative;
         }
 
         /* Opponent Area */
         .opponent-area {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            align-items: center;
+            margin-bottom: 8px;
+            position: relative;
+            z-index: 2;
         }
 
-        .opponent-info {
+        .opponent-cards {
             display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 16px;
-            background: var(--surface-color);
-            border-radius: var(--card-radius);
-            box-shadow: var(--card-shadow);
-            animation: slideInDown 0.4s ease-out;
-        }
-
-        #opponent-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
             justify-content: center;
-            color: white;
-            font-weight: bold;
+            margin-top: 8px;
+        }
+
+        .opponent-card {
+            width: 32px;
+            height: 48px;
             background: var(--primary-dark);
-            font-size: 18px;
-            border: 2px solid #e8f5e9;
+            border-radius: 4px;
+            margin: 0 -8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            border: 2px solid white;
+            transition: transform 0.2s;
         }
 
-        .opponent-details {
-            flex-grow: 1;
-        }
+        .opponent-card:nth-child(1) { transform: rotate(-5deg); z-index: 3; }
+        .opponent-card:nth-child(2) { transform: rotate(-2deg); z-index: 4; }
+        .opponent-card:nth-child(3) { transform: rotate(0deg); z-index: 5; }
+        .opponent-card:nth-child(4) { transform: rotate(2deg); z-index: 4; }
+        .opponent-card:nth-child(5) { transform: rotate(5deg); z-index: 3; }
 
-        #opponent-name {
-            font-weight: 500;
-            font-size: 15px;
-            margin-bottom: 2px;
-        }
-
-        .opponent-status {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            color: var(--text-secondary);
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background-color: var(--success-color);
-        }
-
-        #opponent-hand-count {
-            background: var(--primary-light);
-            color: white;
-            padding: 4px 10px;
-            border-radius: 16px;
-            font-weight: bold;
-            min-width: 30px;
-            text-align: center;
-            font-size: 14px;
-        }
-
-        /* Game Board Area */
-        .game-board {
+        /* Game Center Area */
+        .game-center {
             flex: 1;
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            position: relative;
-        }
-
-        /* Discard Pile */
-        .discard-pile-container {
-            position: relative;
-            height: 120px;
-            display: flex;
             justify-content: center;
             align-items: center;
+            position: relative;
             margin: 8px 0;
+            z-index: 1;
+        }
+
+        .draw-pile {
+            position: absolute;
+            left: 25%;
+            transform: translateX(-50%);
+            z-index: 5;
         }
 
         .discard-pile {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .discard-pile-count {
             position: absolute;
-            bottom: -8px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--primary-color);
-            color: white;
-            padding: 4px 12px;
-            border-radius: 16px;
-            font-size: 12px;
-            font-weight: 600;
-            z-index: 30;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        /* Current Suit Indicator */
-        .current-suit-indicator {
-            position: absolute;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--surface-color);
-            padding: 8px 16px;
-            border-radius: 20px;
-            box-shadow: var(--card-shadow);
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            right: 25%;
+            transform: translateX(50%);
             z-index: 10;
-            animation: pulse 2s infinite;
-        }
-
-        .current-suit-label {
-            font-size: 12px;
-            color: var(--text-secondary);
-        }
-
-        #current-suit {
-            font-size: 14px;
-            font-weight: bold;
-        }
-
-        .suit-hearts { color: #d32f2f; }
-        .suit-diamonds { color: #d32f2f; }
-        .suit-clubs { color: #263238; }
-        .suit-spades { color: #263238; }
-
-        /* Game Status */
-        .game-status {
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--primary-color);
-            color: white;
-            padding: 8px 24px;
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 14px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-            z-index: 10;
-            white-space: nowrap;
         }
 
         /* Player Area */
         .player-area {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            margin-top: auto;
+            position: relative;
+            z-index: 2;
         }
 
-        .player-info {
+        /* Cards */
+        .card {
+            width: 60px;
+            height: 90px;
+            background: var(--card-white);
+            border-radius: var(--card-radius);
             display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 16px;
-            background: var(--surface-color);
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 8px;
+            box-shadow: var(--card-shadow);
+            position: relative;
+            cursor: default;
+            transition: all 0.2s ease;
+            border: var(--card-border);
+            font-weight: 600;
+            user-select: none;
+            overflow: hidden;
+            background: linear-gradient(135deg, #fff 90%, #f5f5f5 100%);
+            will-change: transform;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: var(--card-radius);
+            border: 1px solid rgba(0,0,0,0.1);
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .card::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.3) 0%, transparent 60%);
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .card.hearts, .card.diamonds { color: var(--heart-color); }
+        .card.clubs, .card.spades { color: var(--club-color); }
+
+        .card-value {
+            font-size: 14px;
+            font-weight: bold;
+            position: relative;
+            z-index: 3;
+            line-height: 1;
+        }
+
+        .card-value.top { align-self: flex-start; }
+        .card-value.bottom { align-self: flex-end; transform: rotate(180deg); }
+
+        .card-suit {
+            align-self: center;
+            position: relative;
+            z-index: 3;
+            font-size: 24px;
+            line-height: 1;
+            margin: 4px 0;
+        }
+
+        .card-back {
+            width: 60px;
+            height: 90px;
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary-color));
             border-radius: var(--card-radius);
             box-shadow: var(--card-shadow);
-        }
-
-        #player-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
+            position: relative;
+            border: 2px solid var(--primary-dark);
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
-            font-weight: bold;
-            background: var(--primary-dark);
-            font-size: 18px;
-            border: 2px solid #e8f5e9;
+            overflow: hidden;
         }
 
-        .player-details {
-            flex-grow: 1;
+        .card-back::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: repeating-linear-gradient(
+                45deg,
+                rgba(255,255,255,0.1),
+                rgba(255,255,255,0.1) 10px,
+                transparent 10px,
+                transparent 20px
+            );
         }
 
-        #player-name {
-            font-weight: 500;
-            font-size: 15px;
-            margin-bottom: 2px;
-        }
-
-        .player-status {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            color: var(--text-secondary);
+        .card-back::after {
+            content: '';
+            display: block;
+            width: 40px;
+            height: 40px;
+            background-color: rgba(255,255,255,0.15);
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.2);
         }
 
         /* Player Hand */
         .player-hand-container {
             position: relative;
-            background: var(--surface-color);
-            border-radius: var(--card-radius);
-            box-shadow: var(--card-shadow);
-            padding: 12px 0;
-            min-height: 120px;
+            margin-top: 8px;
         }
 
         .player-hand-scroll {
@@ -338,7 +299,7 @@
             overflow-x: auto;
             overflow-y: hidden;
             -webkit-overflow-scrolling: touch;
-            padding: 0 8px;
+            padding: 16px 8px;
             scrollbar-width: none;
         }
 
@@ -350,148 +311,17 @@
             display: flex;
             gap: 8px;
             padding: 0 8px;
-            min-width: min-content;
+            transition: transform 0.3s ease;
         }
 
-        /* Card Styles */
-        .card {
-            width: 60px;
-            height: 90px;
-            background: var(--card-white);
-            border-radius: var(--card-radius);
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 8px 6px;
-            box-shadow: var(--card-shadow);
-            position: relative;
-            cursor: default;
-            transition: all 0.2s ease;
-            border: var(--card-border);
-            font-weight: 600;
-            user-select: none;
-            background: linear-gradient(135deg, #fff8f0 90%, #f6efe5 100%);
-            flex-shrink: 0;
-        }
-
-        .card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            border-radius: var(--card-radius);
-            border: 1px solid rgba(0,0,0,0.08);
-            pointer-events: none;
-            z-index: 2;
-        }
-
-        .card::after {
-            content: '';
-            position: absolute;
-            top: 7px; left: 10px; right: 10px; bottom: 7px;
-            border-radius: 7px;
-            background: linear-gradient(120deg, rgba(255,255,255,0.16) 20%, transparent 85%);
-            z-index: 1;
-            pointer-events: none;
-        }
-
-        .card.hearts, .card.diamonds { color: #d32f2f; }
-        .card.clubs, .card.spades { color: #263238; }
-
-        .card-value {
-            font-size: 14px;
-            font-weight: bold;
-            position: relative;
-            z-index: 3;
-            text-shadow: 0px 1px 0px white, 0px 1px 3px #d1bfa7;
-        }
-
-        .card-value.top { align-self: flex-start; }
-        .card-value.bottom { align-self: flex-end; transform: rotate(180deg); }
-
-        .card-suit {
-            align-self: center;
-            position: relative;
-            z-index: 3;
-            margin: 0 0 2px 0;
-            width: 24px;
-            height: 24px;
-        }
-
-        .card-suit::after {
-            content: '';
-            display: block;
-            width: 24px;
-            height: 24px;
-            background-size: contain;
-            background-repeat: no-repeat;
-            background-position: center;
-            filter: drop-shadow(0px 0px 1.5px rgba(0,0,0,0.07));
-        }
-
-        .card.hearts .card-suit::after {
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d32f2f'%3E%3Cpath d='M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'/%3E%3C/svg%3E");
-        }
-
-        .card.diamonds .card-suit::after {
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d32f2f'%3E%3Cpath d='M19 12l-7-10-7 10 7 10 7-10z'/%3E%3C/svg%3E");
-        }
-
-        .card.clubs .card-suit::after {
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200' fill='%23263238'%3E%3Ccircle cx='100' cy='60' r='35'/%3E%3Ccircle cx='60' cy='130' r='35'/%3E%3Ccircle cx='140' cy='130' r='35'/%3E%3Cpath d='M100 100 L100 170 C100 185 85 185 85 170 L85 100 Z'/%3E%3C/svg%3E");
-        }
-
-        .card.spades .card-suit::after {
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200' fill='%23263238'%3E%3Cpath d='M100 20 L160 120 L40 120 Z'/%3E%3Cpath d='M100 110 L100 180 C100 195 85 195 85 180 L85 110 Z'/%3E%3Ccircle cx='100' cy='115' r='20'/%3E%3C/svg%3E");
-            transform: rotate(180deg);
-        }
-
-        /* Playable Card Effects */
         .card.playable {
             cursor: pointer;
             transform: translateY(-10px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-        }
-
-        .card.playable:hover {
-            transform: translateY(-15px) scale(1.05);
-            box-shadow: 0 12px 24px rgba(0,0,0,0.2);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
         }
 
         .card.playable:active {
             transform: translateY(-8px) scale(0.98);
-            filter: brightness(0.97);
-        }
-
-        /* Card Back Styles */
-        .card-back {
-            width: 60px;
-            height: 90px;
-            background: repeating-linear-gradient(
-                45deg,
-                var(--primary-dark),
-                var(--primary-dark) 5px,
-                var(--primary-color) 5px,
-                var(--primary-color) 10px
-            );
-            border-radius: var(--card-radius);
-            box-shadow: var(--card-shadow);
-            position: relative;
-            border: 1px solid rgba(0,0,0,0.1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .card-back::after {
-            content: '';
-            display: block;
-            width: 32px;
-            height: 32px;
-            background: url("data:image/svg+xml,%3Csvg width='32' height='32' fill='white' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='24' height='24' rx='5' fill='white' fill-opacity='0.17'/%3E%3C/svg%3E");
-            background-size: contain;
-            background-repeat: no-repeat;
-            opacity: 0.15;
         }
 
         /* Game Controls */
@@ -501,25 +331,24 @@
             align-items: center;
             padding: 12px 16px;
             background: var(--surface-color);
-            box-shadow: 0 -2px 4px rgba(0,0,0,0.05);
-            height: var(--footer-height);
+            box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
             z-index: 100;
         }
 
-        .control-btn {
+        .game-btn {
             flex: 1;
-            max-width: 160px;
-            padding: 12px 16px;
+            max-width: 45%;
+            padding: 12px;
+            border: none;
             border-radius: 8px;
-            font-size: 15px;
-            font-weight: 600;
+            font-size: 16px;
+            font-weight: 500;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
             transition: all 0.2s;
-            border: none;
         }
 
         #draw-card-btn {
@@ -533,13 +362,167 @@
         }
 
         #pass-turn-btn {
-            background: #f5f5f5;
+            background: var(--surface-color);
             color: var(--text-primary);
+            border: 1px solid rgba(0,0,0,0.1);
         }
 
         #pass-turn-btn:active {
-            background: #e0e0e0;
+            background: #f0f0f0;
             transform: scale(0.98);
+        }
+
+        /* Game Status */
+        .game-status {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 24px;
+            font-weight: 500;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .game-status.active {
+            opacity: 1;
+        }
+
+        /* Current Suit Indicator */
+        .current-suit {
+            position: absolute;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--surface-color);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 500;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 20;
+        }
+
+        .current-suit-icon {
+            font-size: 20px;
+        }
+
+        .suit-hearts { color: var(--heart-color); }
+        .suit-diamonds { color: var(--diamond-color); }
+        .suit-clubs { color: var(--club-color); }
+        .suit-spades { color: var(--spade-color); }
+
+        /* Player Info */
+        .player-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: var(--surface-color);
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 8px;
+        }
+
+        #player-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        #player-name {
+            font-weight: 500;
+            flex-grow: 1;
+        }
+
+        #player-hand-count {
+            background: var(--primary-color);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        /* Opponent Info */
+        .opponent-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: var(--surface-color);
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 8px;
+        }
+
+        #opponent-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--text-secondary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        #opponent-name {
+            font-weight: 500;
+            flex-grow: 1;
+        }
+
+        #opponent-hand-count {
+            background: var(--text-secondary);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        /* Animations */
+        @keyframes cardDeal {
+            0% { opacity: 0; transform: translateY(40px) scale(0.8); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @keyframes cardPlay {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-100px); }
+            100% { transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .card-deal-animation {
+            animation: cardDeal 0.4s ease-out forwards;
+        }
+
+        .card-play-animation {
+            animation: cardPlay 0.6s ease-in-out;
+        }
+
+        .pulse-animation {
+            animation: pulse 1.5s infinite;
         }
 
         /* Suit Selector Modal */
@@ -556,12 +539,12 @@
             z-index: 1000;
             opacity: 0;
             pointer-events: none;
-            transition: opacity var(--animation-duration) ease;
+            transition: opacity 0.3s;
         }
 
         .suit-selector-modal.active {
             opacity: 1;
-            pointer-events: auto;
+            pointer-events: all;
         }
 
         .suit-selector {
@@ -570,9 +553,9 @@
             border-radius: 16px;
             width: 90%;
             max-width: 300px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
             transform: translateY(20px);
-            transition: transform var(--animation-duration) ease;
+            transition: transform 0.3s;
         }
 
         .suit-selector-modal.active .suit-selector {
@@ -582,14 +565,13 @@
         .suit-selector h3 {
             margin-bottom: 20px;
             text-align: center;
-            color: var(--primary-color);
+            color: var(--text-primary);
             font-size: 18px;
-            font-weight: 600;
         }
 
         .suit-options {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: 1fr 1fr;
             gap: 12px;
         }
 
@@ -600,85 +582,40 @@
             cursor: pointer;
             font-weight: bold;
             text-align: center;
-            font-size: 15px;
-            transition: transform 0.2s, box-shadow 0.2s;
+            font-size: 16px;
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 8px;
+            transition: transform 0.2s, box-shadow 0.2s;
         }
 
         .suit-option:active {
             transform: scale(0.96);
         }
 
-        .suit-option.hearts { background: #ffebee; color: #d32f2f; }
-        .suit-option.diamonds { background: #e3f2fd; color: #1976d2; }
-        .suit-option.clubs { background: #e8f5e9; color: #388e3c; }
-        .suit-option.spades { background: #efebe9; color: #5d4037; }
+        .suit-option.hearts { 
+            background: #ffebee;
+            color: var(--heart-color);
+        }
+
+        .suit-option.diamonds { 
+            background: #fce4ec;
+            color: var(--diamond-color);
+        }
+
+        .suit-option.clubs { 
+            background: #e8f5e9;
+            color: var(--club-color);
+        }
+
+        .suit-option.spades { 
+            background: #e0e0e0;
+            color: var(--spade-color);
+        }
 
         .suit-option-icon {
-            width: 24px;
-            height: 24px;
-            background-size: contain;
-            background-repeat: no-repeat;
-            background-position: center;
-        }
-
-        /* Animations */
-        @keyframes slideInDown {
-            from {
-                transform: translateY(-20px);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-
-        @keyframes pulse {
-            0% {
-                box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.4);
-            }
-            70% {
-                box-shadow: 0 0 0 10px rgba(46, 125, 50, 0);
-            }
-            100% {
-                box-shadow: 0 0 0 0 rgba(46, 125, 50, 0);
-            }
-        }
-
-        @keyframes cardDeal {
-            0% {
-                transform: translateY(100px) rotate(-5deg);
-                opacity: 0;
-            }
-            100% {
-                transform: translateY(0) rotate(0);
-                opacity: 1;
-            }
-        }
-
-        @keyframes cardPlay {
-            0% {
-                transform: translateY(0) scale(1);
-            }
-            50% {
-                transform: translateY(-40px) scale(1.1);
-            }
-            100% {
-                transform: translateY(0) scale(1);
-            }
-        }
-
-        /* Card Animations */
-        .card-animated {
-            animation: cardDeal 0.4s ease-out forwards;
-        }
-
-        .card-played {
-            animation: cardPlay 0.6s ease-in-out;
+            font-size: 24px;
         }
 
         /* Responsive Adjustments */
@@ -689,10 +626,25 @@
             }
         }
 
+        @media (min-width: 500px) {
+            .card, .card-back {
+                width: 80px;
+                height: 120px;
+            }
+            
+            .card-value {
+                font-size: 16px;
+            }
+            
+            .card-suit {
+                font-size: 28px;
+            }
+        }
+
         @media (max-width: 350px) {
             .card, .card-back {
-                width: 52px;
-                height: 78px;
+                width: 50px;
+                height: 75px;
             }
             
             .card-value {
@@ -700,126 +652,106 @@
             }
             
             .card-suit {
-                width: 20px;
-                height: 20px;
-            }
-            
-            .card-suit::after {
-                width: 20px;
-                height: 20px;
+                font-size: 20px;
             }
         }
     </style>
 </head>
 <body>
     <div class="game-container">
-        <!-- Game Header -->
         <div class="game-header">
             <button id="back-btn">
                 <i class="material-icons">arrow_back</i>
             </button>
             <div class="header-title">Card Game</div>
-            <div id="game-code-display">
-                <i class="material-icons" style="font-size: 16px;">code</i>
-                <span>GAME-CODE</span>
-            </div>
+            <div id="game-code-display">GAME-CODE</div>
         </div>
 
-        <!-- Main Game Area -->
         <div class="game-main">
             <!-- Opponent Area -->
+            <div class="opponent-info">
+                <div id="opponent-avatar">O</div>
+                <div id="opponent-name">Opponent</div>
+                <div id="opponent-hand-count">5</div>
+            </div>
+
             <div class="opponent-area">
-                <div class="opponent-info">
-                    <div id="opponent-avatar">O</div>
-                    <div class="opponent-details">
-                        <div id="opponent-name">Opponent</div>
-                        <div class="opponent-status">
-                            <div class="status-dot"></div>
-                            <span>Playing</span>
-                        </div>
-                    </div>
-                    <div id="opponent-hand-count">5</div>
+                <div class="opponent-cards">
+                    <div class="opponent-card"></div>
+                    <div class="opponent-card"></div>
+                    <div class="opponent-card"></div>
+                    <div class="opponent-card"></div>
+                    <div class="opponent-card"></div>
                 </div>
             </div>
 
-            <!-- Game Board -->
-            <div class="game-board">
-                <!-- Current Suit Indicator -->
-                <div class="current-suit-indicator">
-                    <span class="current-suit-label">Current Suit:</span>
-                    <span id="current-suit" class="suit-hearts">Hearts</span>
+            <!-- Game Center Area -->
+            <div class="game-center">
+                <div class="current-suit">
+                    <span class="current-suit-icon suit-hearts">♥</span>
+                    <span>Hearts</span>
                 </div>
 
-                <!-- Discard Pile -->
-                <div class="discard-pile-container">
-                    <div id="discard-pile" class="discard-pile">
-                        <!-- Cards will be added here dynamically -->
-                    </div>
-                    <div class="discard-pile-count">12 cards</div>
+                <div class="draw-pile">
+                    <div class="card-back pulse-animation"></div>
                 </div>
 
-                <!-- Game Status -->
-                <div id="game-status" class="game-status">Your Turn</div>
+                <div class="discard-pile" id="discard-pile">
+                    <!-- Cards will be placed here dynamically -->
+                </div>
+
+                <div class="game-status" id="game-status">
+                    Your Turn
+                </div>
             </div>
 
             <!-- Player Area -->
-            <div class="player-area">
-                <div class="player-info">
-                    <div id="player-avatar">Y</div>
-                    <div class="player-details">
-                        <div id="player-name">You</div>
-                        <div class="player-status">
-                            <div class="status-dot" style="background-color: var(--success-color);"></div>
-                            <span>Your turn</span>
-                        </div>
-                    </div>
-                </div>
+            <div class="player-info">
+                <div id="player-avatar">Y</div>
+                <div id="player-name">You</div>
+                <div id="player-hand-count">5</div>
+            </div>
 
-                <!-- Player Hand -->
-                <div class="player-hand-container">
-                    <div class="player-hand-scroll">
-                        <div id="player-hand" class="player-hand-cards">
-                            <!-- Cards will be added here dynamically -->
-                        </div>
+            <div class="player-hand-container">
+                <div class="player-hand-scroll">
+                    <div class="player-hand-cards" id="player-hand">
+                        <!-- Player cards will be placed here dynamically -->
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Game Controls -->
         <div class="game-controls">
-            <button id="draw-card-btn" class="control-btn">
-                <i class="material-icons" style="font-size: 20px;">add</i>
-                Draw Card
+            <button id="draw-card-btn" class="game-btn">
+                <i class="material-icons">add</i> Draw
             </button>
-            <button id="pass-turn-btn" class="control-btn">
-                <i class="material-icons" style="font-size: 20px;">skip_next</i>
-                Pass Turn
+            <button id="pass-turn-btn" class="game-btn">
+                <i class="material-icons">skip_next</i> Pass
             </button>
         </div>
+    </div>
 
-        <!-- Suit Selector Modal (Hidden by default) -->
-        <div id="suit-selector-modal" class="suit-selector-modal">
-            <div class="suit-selector">
-                <h3>Select a Suit</h3>
-                <div class="suit-options">
-                    <button class="suit-option hearts" data-suit="hearts">
-                        <div class="suit-option-icon" style="background-image: url('data:image/svg+xml,%3Csvg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"%23d32f2f\"%3E%3Cpath d=\"M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z\'/%3E%3C/svg%3E');"></div>
-                        Hearts
-                    </button>
-                    <button class="suit-option diamonds" data-suit="diamonds">
-                        <div class="suit-option-icon" style="background-image: url('data:image/svg+xml,%3Csvg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"%23d32f2f\"%3E%3Cpath d=\"M19 12l-7-10-7 10 7 10 7-10z\'/%3E%3C/svg%3E');"></div>
-                        Diamonds
-                    </button>
-                    <button class="suit-option clubs" data-suit="clubs">
-                        <div class="suit-option-icon" style="background-image: url('data:image/svg+xml,%3Csvg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" fill=\"%23263238\"%3E%3Ccircle cx=\"100\" cy=\"60\" r=\"35\"/%3E%3Ccircle cx=\"60\" cy=\"130\" r=\"35\"/%3E%3Ccircle cx=\"140\" cy=\"130\" r=\"35\"/%3E%3Cpath d=\"M100 100 L100 170 C100 185 85 185 85 170 L85 100 Z\"/%3E%3C/svg%3E');"></div>
-                        Clubs
-                    </button>
-                    <button class="suit-option spades" data-suit="spades">
-                        <div class="suit-option-icon" style="background-image: url('data:image/svg+xml,%3Csvg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\" fill=\"%23263238\"%3E%3Cpath d=\"M100 20 L160 120 L40 120 Z\"/%3E%3Cpath d=\"M100 110 L100 180 C100 195 85 195 85 180 L85 110 Z\"/%3E%3Ccircle cx=\"100\" cy=\"115\" r=\"20\"/%3E%3C/svg%3E');"></div>
-                        Spades
-                    </button>
-                </div>
+    <!-- Suit Selector Modal -->
+    <div class="suit-selector-modal" id="suit-selector-modal">
+        <div class="suit-selector">
+            <h3>Select a Suit</h3>
+            <div class="suit-options">
+                <button class="suit-option hearts" data-suit="hearts">
+                    <span class="suit-option-icon">♥</span>
+                    <span>Hearts</span>
+                </button>
+                <button class="suit-option diamonds" data-suit="diamonds">
+                    <span class="suit-option-icon">♦</span>
+                    <span>Diamonds</span>
+                </button>
+                <button class="suit-option clubs" data-suit="clubs">
+                    <span class="suit-option-icon">♣</span>
+                    <span>Clubs</span>
+                </button>
+                <button class="suit-option spades" data-suit="spades">
+                    <span class="suit-option-icon">♠</span>
+                    <span>Spades</span>
+                </button>
             </div>
         </div>
     </div>
