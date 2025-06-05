@@ -550,6 +550,196 @@ class ErrorHandler {
 
 // --- Enhanced Game Functions ---
 
+async function loadGameData() {
+    try {
+        const { data: gameData, error } = await supabase
+            .from('card_games')
+            .select('*')
+            .eq('code', gameState.gameCode)
+            .single();
+
+        if (error) throw error;
+        if (!gameData) throw new Error('Game not found');
+
+        const users = JSON.parse(localStorage.getItem('user')) || {};
+        gameState.playerRole = gameData.creator_phone === users.phone ? 'creator' : 'opponent';
+
+        // Update game state
+        gameState.status = gameData.status;
+        gameState.currentPlayer = gameData.current_player;
+        gameState.currentSuit = gameData.current_suit;
+        gameState.lastCard = gameData.last_card ? safeParseJSON(gameData.last_card) : null;
+        gameState.betAmount = gameData.bet || 0;
+        gameState.mustPlaySuit = gameData.must_play_suit || false;
+        gameState.currentSuitToMatch = gameData.current_suit_to_match || '';
+        gameState.hasDrawnThisTurn = gameData.has_drawn_this_turn || false;
+        gameState.discardPile = gameData.discard_pile ? safeParseJSON(gameData.discard_pile) : [];
+        gameState.lastSuitChangePlayer = gameData.last_suit_change_player;
+        gameState.lastSuitChangeMethod = gameData.last_suit_change_method;
+
+        // Set player hands
+        if (gameState.playerRole === 'creator') {
+            gameState.playerHand = safeParseJSON(gameData.creator_hand) || [];
+            gameState.opponentHandCount = safeParseJSON(gameData.opponent_hand)?.length || 0;
+        } else {
+            gameState.playerHand = safeParseJSON(gameData.opponent_hand) || [];
+            gameState.opponentHandCount = safeParseJSON(gameData.creator_hand)?.length || 0;
+        }
+
+        // Set player info
+        gameState.creator = {
+            username: gameData.creator_username,
+            phone: gameData.creator_phone
+        };
+
+        if (gameData.opponent_phone) {
+            gameState.opponent = {
+                username: gameData.opponent_username,
+                phone: gameData.opponent_phone
+            };
+        }
+
+        // Check for pending actions
+        if (gameData.pending_action) {
+            gameState.pendingAction = gameData.pending_action;
+            gameState.pendingActionData = gameData.pending_action_data;
+        }
+
+        ErrorHandler.clearErrors();
+        updateGameUI();
+
+    } catch (error) {
+        ErrorHandler.handleError(error, 'loadGameData');
+        setTimeout(() => window.location.href = '/', 3000);
+    }
+}
+
+function setupEventListeners() {
+    const backBtn = document.getElementById('back-btn');
+    const drawCardBtn = document.getElementById('draw-card-btn');
+    const passTurnBtn = document.getElementById('pass-turn-btn');
+
+    if (backBtn) {
+        backBtn.addEventListener('click', () => window.location.href = '/');
+    }
+
+    if (drawCardBtn) {
+        drawCardBtn.addEventListener('click', drawCard);
+    }
+
+    if (passTurnBtn) {
+        passTurnBtn.addEventListener('click', passTurn);
+    }
+}
+
+function getSuitSVG(suit) {
+    const suitSymbols = {
+        hearts: '♥',
+        diamonds: '♦',
+        clubs: '♣',
+        spades: '♠'
+    };
+    
+    const color = suit === 'hearts' || suit === 'diamonds' ? '#ef4444' : '#1f2937';
+    
+    return `<span style="color: ${color}; font-size: 16px; font-weight: bold;">${suitSymbols[suit]}</span>`;
+}
+
+function renderPlayerHand() {
+    const playerHandEl = document.getElementById('player-hand');
+    if (!playerHandEl) return;
+
+    if (gameState.playerHand.length === 0) {
+        playerHandEl.innerHTML = '<div class="text-center text-gray-500">No cards in hand</div>';
+        return;
+    }
+
+    const handHTML = gameState.playerHand.map((card, index) => {
+        const isPlayable = canPlayCard(card);
+        return `
+            <div class="card ${isPlayable ? 'playable' : 'not-playable'}" 
+                 data-card-index="${index}"
+                 onclick="${isPlayable ? `playCard(${index})` : ''}">
+                <div class="card-content">
+                    <div class="card-corner-top">
+                        <span class="card-value">${card.value}</span>
+                        ${getSuitSVG(card.suit)}
+                    </div>
+                    <div class="card-center">
+                        ${getSuitSVG(card.suit)}
+                    </div>
+                    <div class="card-corner-bottom">
+                        <span class="card-value">${card.value}</span>
+                        ${getSuitSVG(card.suit)}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    playerHandEl.innerHTML = handHTML;
+}
+
+function renderDiscardPile() {
+    const discardPileEl = document.getElementById('discard-pile');
+    if (!discardPileEl) return;
+
+    if (!gameState.lastCard) {
+        discardPileEl.innerHTML = '<div class="empty-pile">No cards played</div>';
+        return;
+    }
+
+    const card = gameState.lastCard;
+    discardPileEl.innerHTML = `
+        <div class="card">
+            <div class="card-content">
+                <div class="card-corner-top">
+                    <span class="card-value">${card.value}</span>
+                    ${getSuitSVG(card.suit)}
+                </div>
+                <div class="card-center">
+                    ${getSuitSVG(card.suit)}
+                </div>
+                <div class="card-corner-bottom">
+                    <span class="card-value">${card.value}</span>
+                    ${getSuitSVG(card.suit)}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function generateRandomCard() {
+    const suit = SUITS[Math.floor(Math.random() * SUITS.length)];
+    const value = VALUES[Math.floor(Math.random() * VALUES.length)];
+    return { suit, value };
+}
+
+function safeParseJSON(json) {
+    try {
+        return json ? JSON.parse(json) : null;
+    } catch (error) {
+        console.warn('Failed to parse JSON:', error);
+        return null;
+    }
+}
+
+function showGameResult(isWinner, amount) {
+    const resultHTML = `
+        <div class="game-result-overlay">
+            <div class="game-result-modal">
+                <h2>${isWinner ? 'Congratulations!' : 'Game Over'}</h2>
+                <p>${isWinner ? `You won $${amount}!` : 'Better luck next time!'}</p>
+                <button onclick="window.location.href='/'" class="result-button">
+                    Return to Home
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', resultHTML);
+}
+
 // Enhanced suit change logic - Rule: If opponent changes suit with 8/J, you cannot immediately change it back with same card type
 function canPlayCard(card) {
     try {
