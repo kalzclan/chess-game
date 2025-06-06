@@ -36,101 +36,168 @@
             font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
         }
 
-        /* Modal styles */
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            padding: 16px;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s;
-        }
+     /* game-result-modal.css */
+.game-result-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
 
-        .modal.active {
-            opacity: 1;
-            pointer-events: all;
-        }
+.game-result-modal.active {
+    opacity: 1;
+    visibility: visible;
+}
 
-        .modal-content {
-            background-color: var(--card-bg);
-            border-radius: var(--border-radius);
-            padding: 20px;
-            width: 100%;
-            max-width: 100%;
-            text-align: center;
-            box-shadow: var(--shadow);
-            transform: translateY(20px);
-            transition: transform 0.3s;
-            border-top: 4px solid var(--primary-light);
-        }
+.game-result-modal .result-content {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-radius: 16px;
+    padding: 2rem;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    animation: modalFadeIn 0.4s ease-out forwards;
+}
 
-        .modal.active .modal-content {
-            transform: translateY(0);
-        }
+@keyframes modalFadeIn {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
 
-        .modal-content h2 {
-            margin-bottom: 12px;
-            color: var(--primary-dark);
-            font-size: 1.25rem;
-        }
+.game-result-modal h2 {
+    color: #fff;
+    font-size: 1.8rem;
+    margin-bottom: 1rem;
+    font-weight: 700;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
 
-        .modal-content p {
-            margin-bottom: 16px;
-            color: var(--text-light);
-            font-size: 0.9rem;
-        }
+.game-result-modal p {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
+}
 
-        .result-details {
-            margin: 16px 0;
-            padding: 12px;
-            background-color: rgba(129, 199, 132, 0.1);
-            border-radius: var(--border-radius-sm);
-            border-left: 4px solid var(--primary-light);
-        }
+.game-result-modal .transaction-details {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    padding: 1rem;
+    margin: 1.5rem 0;
+    text-align: left;
+}
 
-        .result-amount {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.25rem;
-            font-weight: 700;
-            gap: 8px;
-        }
+.game-result-modal .transaction-details p {
+    margin: 0.5rem 0;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.95rem;
+}
 
-        .result-amount.win {
-            color: var(--success-color);
-        }
+.game-result-modal .transaction-details p:first-child {
+    color: #4cc9f0;
+    font-weight: 600;
+}
 
-        .result-amount.lose {
-            color: var(--danger-color);
-        }
+.game-result-modal button {
+    background: linear-gradient(to right, #4361ee, #3a0ca3);
+    color: white;
+    border: none;
+    padding: 0.8rem 1.5rem;
+    border-radius: 50px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 1rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3);
+    width: 100%;
+    max-width: 200px;
+}
 
-        .primary-btn {
-            padding: 14px;
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: var(--border-radius-sm);
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            width: 100%;
-            font-size: 1rem;
-            margin-top: 12px;
-        }
+.game-result-modal button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(67, 97, 238, 0.4);
+}
 
-        .primary-btn:active {
-            background-color: var(--primary-dark);
-            transform: translateY(2px);
-        }
+.game-result-modal button:active {
+    transform: translateY(0);
+}
+
+/* Win/Lose specific styles */
+.game-result-modal .win-message {
+    color: #4cc9f0;
+    font-weight: 600;
+}
+
+.game-result-modal .lose-message {
+    color: #f72585;
+    font-weight: 600;
+}
+
+/* Confetti effect for wins */
+.confetti {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background-color: #f00;
+    opacity: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+    .game-result-modal .result-content {
+        padding: 1.5rem;
+        width: 95%;
+    }
+    
+    .game-result-modal h2 {
+        font-size: 1.5rem;
+    }
+    
+    .game-result-modal p {
+        font-size: 1rem;
+    }
+}
+
+/* Animation for result text */
+@keyframes textPop {
+    0% {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.game-result-modal h2, 
+.game-result-modal p {
+    animation: textPop 0.6s ease-out forwards;
+}
+
+/* Add some delay for the button */
+.game-result-modal button {
+    animation: textPop 0.6s 0.3s ease-out both;
+}
         body {
             background-color: var(--background-color);
             color: var(--text-color);
