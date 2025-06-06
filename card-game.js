@@ -7,7 +7,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // --- Sound Effects ---
 const soundEffects = {
-    cardPlay: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-playing-card-put-down-1129.mp3'),
+    cardPlay: new Audio('cardplay.mp3'),
     cardDraw: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-card-drawing-1925.mp3'),
     win: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-winning-chimes-2015.mp3'),
     lose: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-retro-arcade-lose-2027.mp3'),
