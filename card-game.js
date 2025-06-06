@@ -67,6 +67,7 @@ let gameState = {
     discardPile: [],
     lastSuitChangeMethod: null,
     canChangeSuit: true,
+        betDeducted: false,
         isSuitChangeBlocked: false // Add this new property
 
 };
@@ -139,7 +140,36 @@ async function loadGameData() {
         const users = JSON.parse(localStorage.getItem('user')) || {};
         gameState.playerRole = gameData.creator_phone === users.phone ? 'creator' : 'opponent';
 
-        // Update game state
+        // Check if opponent just joined and deduct bet if needed
+        if (gameData.opponent_phone && gameData.status === 'ongoing' && !gameState.opponent.phone) {
+            // Deduct bet from both players
+            const creatorPhone = gameData.creator_phone;
+            const opponentPhone = gameData.opponent_phone;
+            const betAmount = gameData.bet;
+
+            // Deduct from creator
+            await recordTransaction({
+                player_phone: creatorPhone,
+                transaction_type: 'bet',
+                amount: -betAmount,
+                description: `Bet for card game ${gameState.gameCode}`,
+                status: 'completed'
+            });
+
+            // Deduct from opponent
+            await recordTransaction({
+                player_phone: opponentPhone,
+                transaction_type: 'bet',
+                amount: -betAmount,
+                description: `Bet for card game ${gameState.gameCode}`,
+                status: 'completed'
+            });
+
+            // Update game state to show bet was deducted
+            gameState.betDeducted = true;
+        }
+
+        // Rest of your existing loadGameData code...
         gameState.status = gameData.status;
         gameState.currentPlayer = gameData.current_player;
         gameState.currentSuit = gameData.current_suit;
@@ -187,7 +217,6 @@ async function loadGameData() {
         setTimeout(() => window.location.href = '/', 3000);
     }
 }
-
 function setupRealtimeUpdates() {
     const channel = supabase
         .channel(`card_game_${gameState.gameCode}`)
@@ -201,6 +230,37 @@ function setupRealtimeUpdates() {
             },
             async (payload) => {
                 try {
+                    const users = JSON.parse(localStorage.getItem('user')) || {};
+                    
+                    // Check if opponent just joined and deduct bet if needed
+                    if (payload.new.opponent_phone && 
+                        payload.new.status === 'ongoing' && 
+                        !gameState.opponent.phone) {
+                        
+                        const betAmount = payload.new.bet;
+                        
+                        // Deduct from creator
+                        await recordTransaction({
+                            player_phone: payload.new.creator_phone,
+                            transaction_type: 'bet',
+                            amount: -betAmount,
+                            description: `Bet for card game ${gameState.gameCode}`,
+                            status: 'completed'
+                        });
+
+                        // Deduct from opponent
+                        await recordTransaction({
+                            player_phone: payload.new.opponent_phone,
+                            transaction_type: 'bet',
+                            amount: -betAmount,
+                            description: `Bet for card game ${gameState.gameCode}`,
+                            status: 'completed'
+                        });
+
+                        gameState.betDeducted = true;
+                    }
+
+                    // Rest of your existing realtime update code...
                     gameState.status = payload.new.status;
                     gameState.currentPlayer = payload.new.current_player;
                     gameState.currentSuit = payload.new.current_suit;
@@ -220,7 +280,6 @@ function setupRealtimeUpdates() {
                     gameState.currentSuitToMatch = payload.new.current_suit_to_match || '';
                     gameState.discardPile = payload.new.discard_pile ? safeParseJSON(payload.new.discard_pile) : [];
 
-                    const users = JSON.parse(localStorage.getItem('user')) || {};
                     const isCreator = gameState.playerRole === 'creator';
 
                     if (isCreator) {
@@ -478,7 +537,7 @@ async function processCardPlay(cardsToPlay) {
             updateData.current_player = opponentPhone;
         }
 
-        // Update hands in database
+            // Update hands in database
         if (isCreator) {
             updateData.creator_hand = JSON.stringify(gameState.playerHand);
         } else {
@@ -491,20 +550,24 @@ async function processCardPlay(cardsToPlay) {
             updateData.winner = users.phone;
             gameState.status = 'finished';
 
+            // Calculate winnings (180% of bet amount - 10% house cut)
             const winnings = Math.floor(gameState.betAmount * 1.8);
-            const { data: userData } = await supabase
-                .from('users')
-                .select('balance')
-                .eq('phone', users.phone)
-                .single();
+            const houseCut = gameState.betAmount * 2 - winnings; // Total is bet*2
 
-            if (userData) {
-                const newBalance = userData.balance + winnings;
-                await supabase
-                    .from('users')
-                    .update({ balance: newBalance })
-                    .eq('phone', users.phone);
-            }
+            // Record transaction for winner
+            await recordTransaction({
+                player_phone: users.phone,
+                transaction_type: 'win',
+                amount: winnings,
+                description: `Won card game ${gameState.gameCode}`,
+                status: 'completed'
+            });
+
+            // Add house cut to house account
+            await updateHouseBalance(houseCut);
+
+            // Show result
+            showGameResult(true, winnings);
         }
 
         // Update game in database
@@ -1258,3 +1321,124 @@ cardStyles.textContent = `
 }
 `;
 document.head.appendChild(cardStyles);
+
+
+// Add this near the top with your other utility functions
+async function recordTransaction(transactionData) {
+    try {
+        // 1. First handle the user balance update
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('balance')
+            .eq('phone', transactionData.player_phone)
+            .single();
+
+        if (userError) throw userError;
+
+        const balance_before = userData?.balance || 0;
+        const balance_after = balance_before + transactionData.amount;
+
+        // 2. Attempt to create transaction record without game_id reference
+        const { error } = await supabase
+            .from('player_transactions')
+            .insert({
+                player_phone: transactionData.player_phone,
+                transaction_type: transactionData.transaction_type,
+                amount: transactionData.amount,
+                balance_before,
+                balance_after,
+                description: transactionData.description,
+                status: transactionData.status,
+                created_at: new Date().toISOString()
+            });
+
+        if (error) throw error;
+
+        // 3. Update user balance
+        const { error: updateError } = await supabase
+            .from('users')
+            .update({ balance: balance_after })
+            .eq('phone', transactionData.player_phone);
+
+        if (updateError) throw updateError;
+
+        console.log('Transaction recorded successfully:', transactionData);
+
+    } catch (error) {
+        console.error('Failed to record transaction:', error);
+        
+        // Fallback: Store transaction data in local storage if Supabase fails
+        try {
+            const failedTransactions = JSON.parse(localStorage.getItem('failedTransactions') || []);
+            failedTransactions.push({
+                ...transactionData,
+                timestamp: new Date().toISOString()
+            });
+            localStorage.setItem('failedTransactions', JSON.stringify(failedTransactions));
+            console.warn('Transaction stored locally for later recovery');
+        } catch (localStorageError) {
+            console.error('Failed to store transaction locally:', localStorageError);
+        }
+        
+        throw error;
+    }
+}
+async function updateHouseBalance(amount) {
+    try {
+        const { data: house, error } = await supabase
+            .from('house_balance')
+            .select('balance')
+            .eq('id', 1)
+            .single();
+  
+        if (error) throw error;
+  
+        const newBalance = (house?.balance || 0) + amount;
+  
+        const { error: updateError } = await supabase
+            .from('house_balance')
+            .update({ balance: newBalance })
+            .eq('id', 1);
+  
+        if (updateError) throw updateError;
+  
+        return newBalance;
+    } catch (error) {
+        console.error('House balance update error:', error);
+        throw error;
+    }
+}
+
+function showGameResult(isWinner, amount) {
+    const resultModal = document.createElement('div');
+    resultModal.className = 'game-result-modal';
+    resultModal.innerHTML = `
+        <div class="result-content">
+            <h2>${isWinner ? 'You Won!' : 'You Lost'}</h2>
+            <p>${isWinner ? `You won ${amount} ETB!` : 'Better luck next time'}</p>
+            <div class="transaction-details">
+                <p>Game: ${gameState.gameCode}</p>
+                <p>Bet: ${gameState.betAmount} ETB</p>
+                ${isWinner ? `<p>Winnings: ${amount} ETB</p>` : `<p>Loss: ${gameState.betAmount} ETB</p>`}
+            </div>
+            <button id="result-close-btn">Close</button>
+        </div>
+    `;
+    
+    document.body.appendChild(resultModal);
+    
+    // Play appropriate sound
+    if (isWinner) {
+        soundEffects.win.play();
+    } else {
+        soundEffects.lose.play();
+    }
+    
+    const closeBtn = resultModal.querySelector('#result-close-btn');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            resultModal.remove();
+            window.location.href = 'home.html';
+        });
+    }
+}
