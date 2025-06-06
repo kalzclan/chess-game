@@ -424,10 +424,16 @@ async function playCard(cardIndex) {
         
         // Handle 7 card - show selection dialog
         if (card.value === '7') {
-
-                        displayMessage(gameStatusEl, lastPlayedCard.suit, 'error');
-
+            if(card.suit === gameState.currentSuit ){
             await showSevenCardDialog(cardIndex);
+
+            }else{
+                const initialCard = gameState.playerHand[cardIndex];
+                await processCardPlay([initialCard]);
+            }
+
+                       // displayMessage(gameStatusEl, lastPlayedCard.suit, 'error');
+
             return;
         }
         
