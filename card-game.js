@@ -347,7 +347,66 @@ function setupRealtimeUpdates() {
     return channel;
 }
 
+function canPlayCard(card) {
+    // If no last card played, any card can be played
+    if (!gameState.lastCard) return true;
 
+    // If there's a pending draw action, only 2s can be played
+    if (gameState.pendingAction === 'draw_two') {
+        return card.value === '2' && 
+               (card.suit === gameState.currentSuit || 
+                card.value === gameState.lastCard.value);
+    }
+
+    // Handle 8 and J - can always be played regardless of suit when blocked
+    if (card.value === '8' || card.value === 'J') {
+        // If suit change is blocked, they can still play the card but can't change suit
+        // The card will be treated as a normal card matching value
+        if (gameState.isSuitChangeBlocked) {
+            return true; // Can always play 8/J, but suit won't change
+        }
+        // If not blocked, can play to change suit
+        return true;
+    }
+    // If must play specific suit due to previous 8 or J
+    if (gameState.mustPlaySuit && gameState.currentSuitToMatch) {
+        // Can still play 8/J as regular cards without changing suit
+        if (card.value === '8' || card.value === 'J') {
+            // Check if this is a regular play (not changing suit)
+            return card.suit === gameState.currentSuitToMatch || 
+                   card.value === gameState.lastCard.value;
+        }
+        return card.suit === gameState.currentSuitToMatch;
+    }
+
+
+    // Handle 2 cards - can only be played on same suit or another 2
+    if (card.value === '2') {
+        return card.suit === gameState.currentSuit || 
+               gameState.lastCard.value === '2';
+    }
+
+    // Handle 7 card - can be played with any 8 or J regardless of suit
+    if (card.value === '7') {
+        if (card.suit === gameState.currentSuit || card.value === gameState.lastCard.value) {
+            return true;
+        }
+        const hasEightOrJack = gameState.playerHand.some(c =>
+            (c.value === '8' || c.value === 'J') && c !== card
+        );
+        return hasEightOrJack;
+    }
+
+    // Handle Ace of Spades special rule
+    if (card.value === 'A' && card.suit === 'spades') {
+        return gameState.lastCard.suit === 'spades' || 
+               gameState.lastCard.value === 'A';
+    }
+
+    // Normal play rules - must match suit or value
+    return card.suit === gameState.currentSuit ||
+           card.value === gameState.lastCard.value;
+}
 
 async function playCard(cardIndex) {
     try {
@@ -379,69 +438,9 @@ async function playCard(cardIndex) {
     }
 }
 
-function canPlayCard(card) {
-    // If no last card played, any card can be played
-    if (!gameState.lastCard) return true;
-
-    // If there's a pending draw action, only 2s can be played
-    if (gameState.pendingAction === 'draw_two') {
-        return card.value === '2' && 
-               (card.suit === gameState.currentSuit || 
-                card.value === gameState.lastCard.value);
-    }
-
-    // Handle Ace of Spades special rule
-    if (card.value === 'A' && card.suit === 'spades') {
-        return gameState.lastCard.suit === 'spades' || 
-               gameState.lastCard.value === 'A';
-    }
-
-    // Handle 7 card special rules
-    if (card.value === '7') {
-        // Can only play multiple 7s of the same suit
-        if (gameState.lastCard.value === '7') {
-            return card.suit === gameState.lastCard.suit;
-        }
-        // Can play on same suit or value
-        return card.suit === gameState.currentSuit || 
-               card.value === gameState.lastCard.value;
-    }
-
-    // Handle 8 and J - can always be played regardless of suit when blocked
-    if (card.value === '8' || card.value === 'J') {
-        // If suit change is blocked, they can still play the card but can't change suit
-        // The card will be treated as a normal card matching value
-        if (gameState.isSuitChangeBlocked) {
-            return true; // Can always play 8/J, but suit won't change
-        }
-        // If not blocked, can play to change suit
-        return true;
-    }
-
-    // If must play specific suit due to previous 8 or J
-    if (gameState.mustPlaySuit && gameState.currentSuitToMatch) {
-        // Can still play 8/J as regular cards without changing suit
-        if (card.value === '8' || card.value === 'J') {
-            // Check if this is a regular play (not changing suit)
-            return card.suit === gameState.currentSuitToMatch || 
-                   card.value === gameState.lastCard.value;
-        }
-        return card.suit === gameState.currentSuitToMatch;
-    }
-
-    // Handle 2 cards - can only be played on same suit or another 2
-    if (card.value === '2') {
-        return card.suit === gameState.currentSuit || 
-               gameState.lastCard.value === '2';
-    }
-
-    // Normal play rules - must match suit or value
-    return card.suit === gameState.currentSuit ||
-           card.value === gameState.lastCard.value;
-}
-
 async function processCardPlay(cardsToPlay) {
-    try {
+
+        try {
         const users = JSON.parse(localStorage.getItem('user')) || {};
         if (!users.phone) throw new Error('User not logged in');
         
@@ -479,19 +478,26 @@ async function processCardPlay(cardsToPlay) {
                 ...cardsToDiscard
             ]);
         }
-
         // Handle special cards and combinations
         if (cardsToPlay.length > 1 && cardsToPlay.some(c => c.value === '7')) {
             // Playing multiple cards with a 7
             const specialCards = cardsToPlay.filter(c => 
-                (c.value === '8' || c.value === 'J' || c.value === '2') && c !== lastPlayedCard
+                (c.value === '8' || c.value === 'J') && c !== lastPlayedCard
             );
 
             if (specialCards.length > 0) {
-                // Playing with 8/J/2 - these lose their special abilities
-                updateData.current_player = opponentPhone;
-            } else if (lastPlayedCard.value === '7' && cardsToPlay.every(c => c.value === '7' && c.suit === cardsToPlay[0].suit)) {
-                // Multiple 7s of same suit played - player gets another turn
+                // Playing with 8/J - handle suit change
+                const specialCard = specialCards[0];
+                gameState.lastSuitChangeMethod = specialCard.value;
+                gameState.pendingAction = 'change_suit';
+                updateData.pending_action = 'change_suit';
+                updateData.current_player = users.phone;
+                updateData.last_suit_change_method = specialCard.value;
+                updateData.is_suit_change_blocked = true;
+                delete updateData.current_suit; // Remove to show suit selector
+                showSuitSelector();
+            } else if (lastPlayedCard.value === '7') {
+                // Multiple 7s played - player gets another turn
                 updateData.current_player = users.phone;
             } else {
                 // Same suit cards with 7 - normal play
@@ -559,7 +565,7 @@ async function processCardPlay(cardsToPlay) {
             updateData.current_player = opponentPhone;
         }
 
-        // Update hands in database
+  // Update hands in database
         if (isCreator) {
             updateData.creator_hand = JSON.stringify(gameState.playerHand);
         } else {
@@ -594,6 +600,7 @@ async function processCardPlay(cardsToPlay) {
         if (gameStatusEl) gameStatusEl.textContent = 'Error playing card';
     }
 }
+
 async function drawCard() {
     try {
         const users = JSON.parse(localStorage.getItem('user')) || {};
