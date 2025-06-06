@@ -36,6 +36,101 @@
             font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
         }
 
+        /* Modal styles */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 16px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .modal.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal-content {
+            background-color: var(--card-bg);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            width: 100%;
+            max-width: 100%;
+            text-align: center;
+            box-shadow: var(--shadow);
+            transform: translateY(20px);
+            transition: transform 0.3s;
+            border-top: 4px solid var(--primary-light);
+        }
+
+        .modal.active .modal-content {
+            transform: translateY(0);
+        }
+
+        .modal-content h2 {
+            margin-bottom: 12px;
+            color: var(--primary-dark);
+            font-size: 1.25rem;
+        }
+
+        .modal-content p {
+            margin-bottom: 16px;
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+
+        .result-details {
+            margin: 16px 0;
+            padding: 12px;
+            background-color: rgba(129, 199, 132, 0.1);
+            border-radius: var(--border-radius-sm);
+            border-left: 4px solid var(--primary-light);
+        }
+
+        .result-amount {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            font-weight: 700;
+            gap: 8px;
+        }
+
+        .result-amount.win {
+            color: var(--success-color);
+        }
+
+        .result-amount.lose {
+            color: var(--danger-color);
+        }
+
+        .primary-btn {
+            padding: 14px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius-sm);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+            font-size: 1rem;
+            margin-top: 12px;
+        }
+
+        .primary-btn:active {
+            background-color: var(--primary-dark);
+            transform: translateY(2px);
+        }
         body {
             background-color: var(--background-color);
             color: var(--text-color);
