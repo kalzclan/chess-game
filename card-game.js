@@ -1090,34 +1090,7 @@ function showSuitSelector() {
     });
 }
 
-function showGameResult(isWinner, amount) {
-    const resultModal = document.createElement('div');
-    resultModal.className = 'game-result-modal';
-    resultModal.innerHTML = `
-        <div class="result-content">
-            <h2>${isWinner ? 'You Won!' : 'You Lost'}</h2>
-            <p>${isWinner ? `You won ${amount} ETB!` : 'Better luck next time'}</p>
-            <button id="result-close-btn">Close</button>
-        </div>
-    `;
-    
-    document.body.appendChild(resultModal);
-    
-    // Play appropriate sound
-    if (isWinner) {
-        soundEffects.win.play();
-    } else {
-        soundEffects.lose.play();
-    }
-    
-    const closeBtn = resultModal.querySelector('#result-close-btn');
-    if (closeBtn) {
-        closeBtn.addEventListener('click', () => {
-            resultModal.remove();
-            window.location.href = 'home.html';
-        });
-    }
-}
+
 
 // --- Helper Functions ---
 function injectModernDialogCSS() {
