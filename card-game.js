@@ -196,6 +196,8 @@ async function loadGameData() {
                     gameState.lastCard.value in SPECIAL_CARDS) {
                     soundEffects.specialCard.play();
                 } else {
+                                    displayMessage("i am kb", 'Error deducting bet. Please refresh.', 'error');
+
                     soundEffects.cardPlay.play();
                 }
             }
