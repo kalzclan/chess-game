@@ -5,13 +5,14 @@ const supabaseUrl = "https://evberyanshxxalxtwnnc.supabase.co";
 const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2YmVyeWFuc2h4eGFseHR3bm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQwODMwOTcsImV4cCI6MjA1OTY1OTA5N30.pEoPiIi78Tvl5URw0Xy_vAxsd-3XqRlC8FTnX9HpgMw";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// --- Sound Effects ---
 const soundEffects = {
     cardPlay: new Audio('cardplay.mp3'),
     cardDraw: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-card-drawing-1925.mp3'),
     win: new Audio('win.mp3'),
     lose: new Audio('fail.mp3'),
-    notification: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-interface-hint-notification-911.mp3')
+    notification: new Audio('nottification.mp3'),
+    opponentPlay: new Audio('cardplay.mp3'),
+    specialCard: new Audio('magic.mp3')
 };
 
 // Set volume for sounds
@@ -185,7 +186,20 @@ async function loadGameData() {
                 phone: gameData.opponent_phone
             };
         }
+        
+        
 
+        if (gameState.lastCard && 
+            previousLastCard !== gameState.lastCard && 
+            gameState.currentPlayer !== users.phone) {
+            
+            // Check if it's a special card
+            if (gameState.lastCard.value in SPECIAL_CARDS) {
+                soundEffects.specialCard.play();
+            } else {
+                soundEffects.opponentPlay.play();
+            }
+        }
         // Check for pending actions
         if (gameData.pending_action) {
             gameState.pendingAction = gameData.pending_action;
@@ -317,6 +331,20 @@ function setupRealtimeUpdates() {
                             gameState.status = 'ongoing';
                         }
                     }
+                     // Play sound if opponent played a card
+                    if (payload.new.last_card && 
+                        JSON.stringify(previousLastCard) !== payload.new.last_card && 
+                        payload.new.current_player !== users.phone) {
+                        
+                        const newCard = safeParseJSON(payload.new.last_card);
+                        
+                        // Check if it's a special card
+                        if (newCard.value in SPECIAL_CARDS) {
+                            soundEffects.specialCard.play();
+                        } else {
+                            soundEffects.opponentPlay.play();
+                        }
+                    }
 
                     if (payload.new.status === 'finished') {
                         const isWinner = payload.new.winner === users.phone;
@@ -439,6 +467,10 @@ async function playCard(cardIndex) {
         
         // For other cards, proceed normally
         await processCardPlay([card]);
+
+
+
+        
         soundEffects.cardPlay.play();
         
     } catch (error) {
@@ -487,6 +519,17 @@ async function processCardPlay(cardsToPlay) {
                 ...cardsToDiscard
             ]);
         }
+
+
+
+// Play special card sound if applicable
+        if (lastPlayedCard.value in SPECIAL_CARDS) {
+            soundEffects.specialCard.play();
+        } else {
+           // soundEffects.cardPlay.play();
+        }
+
+
         // Handle special cards and combinations
         if (cardsToPlay.length > 1 && cardsToPlay.some(c => c.value === '7')) {
             // Playing multiple cards with a 7
