@@ -358,6 +358,16 @@ function canPlayCard(card) {
                 card.value === gameState.lastCard.value);
     }
 
+    // Handle 8 and J - can always be played regardless of suit when blocked
+    if (card.value === '8' || card.value === 'J') {
+        // If suit change is blocked, they can still play the card but can't change suit
+        // The card will be treated as a normal card matching value
+        if (gameState.isSuitChangeBlocked) {
+            return true; // Can always play 8/J, but suit won't change
+        }
+        // If not blocked, can play to change suit
+        return true;
+    }
     // If must play specific suit due to previous 8 or J
     if (gameState.mustPlaySuit && gameState.currentSuitToMatch) {
         // Can still play 8/J as regular cards without changing suit
@@ -369,16 +379,6 @@ function canPlayCard(card) {
         return card.suit === gameState.currentSuitToMatch;
     }
 
-    // Handle 8 and J - can always be played regardless of suit when blocked
-    if (card.value === '8' || card.value === 'J') {
-        // If suit change is blocked, they can still play the card but can't change suit
-        // The card will be treated as a normal card matching value
-        if (gameState.isSuitChangeBlocked) {
-            return true; // Can always play 8/J, but suit won't change
-        }
-        // If not blocked, can play to change suit
-        return true;
-    }
 
     // Handle 2 cards - can only be played on same suit or another 2
     if (card.value === '2') {
