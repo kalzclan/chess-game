@@ -331,6 +331,9 @@ function setupRealtimeUpdates() {
                             gameState.status = 'ongoing';
                         }
                     }
+
+                                        const previousLastCard = gameState.lastCard;
+
                      // Play sound if opponent played a card
                     if (payload.new.last_card && 
                         JSON.stringify(previousLastCard) !== payload.new.last_card && 
