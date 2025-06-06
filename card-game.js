@@ -68,7 +68,9 @@ let gameState = {
     lastSuitChangeMethod: null,
     canChangeSuit: true,
         betDeducted: false,
-        isSuitChangeBlocked: false // Add this new property
+        isSuitChangeBlocked: false, // Add this new property
+            betAmount: 0
+
 
 };
 
@@ -140,33 +142,19 @@ async function loadGameData() {
         const users = JSON.parse(localStorage.getItem('user')) || {};
         gameState.playerRole = gameData.creator_phone === users.phone ? 'creator' : 'opponent';
 
-        // Check if opponent just joined and deduct bet if needed
+        // Check if game is starting (opponent joined and status changed to ongoing)
         if (gameData.opponent_phone && gameData.status === 'ongoing' && !gameState.opponent.phone) {
-            // Deduct bet from both players
-            const creatorPhone = gameData.creator_phone;
-            const opponentPhone = gameData.opponent_phone;
-            const betAmount = gameData.bet;
-
-            // Deduct from creator
-            await recordTransaction({
-                player_phone: creatorPhone,
-                transaction_type: 'bet',
-                amount: -betAmount,
-                description: `Bet for card game ${gameState.gameCode}`,
-                status: 'completed'
-            });
-
-            // Deduct from opponent
-            await recordTransaction({
-                player_phone: opponentPhone,
-                transaction_type: 'bet',
-                amount: -betAmount,
-                description: `Bet for card game ${gameState.gameCode}`,
-                status: 'completed'
-            });
-
-            // Update game state to show bet was deducted
-            gameState.betDeducted = true;
+            // Only deduct bet if we haven't done it before
+            if (!gameState.betDeducted) {
+                await recordTransaction({
+                    player_phone: users.phone,
+                    transaction_type: 'bet',
+                    amount: -gameData.bet,
+                    description: `Bet for card game ${gameState.gameCode}`,
+                    status: 'completed'
+                });
+                gameState.betDeducted = true;
+            }
         }
 
         // Rest of your existing loadGameData code...
@@ -232,31 +220,20 @@ function setupRealtimeUpdates() {
                 try {
                     const users = JSON.parse(localStorage.getItem('user')) || {};
                     
-                    // Check if opponent just joined and deduct bet if needed
+                    // Check if opponent just joined and we need to deduct bet
                     if (payload.new.opponent_phone && 
                         payload.new.status === 'ongoing' && 
-                        !gameState.opponent.phone) {
+                        !gameState.opponent.phone &&
+                        !gameState.betDeducted) {
                         
-                        const betAmount = payload.new.bet;
-                        
-                        // Deduct from creator
                         await recordTransaction({
-                            player_phone: payload.new.creator_phone,
+                            player_phone: users.phone,
                             transaction_type: 'bet',
-                            amount: -betAmount,
+                            amount: -payload.new.bet,
                             description: `Bet for card game ${gameState.gameCode}`,
                             status: 'completed'
                         });
-
-                        // Deduct from opponent
-                        await recordTransaction({
-                            player_phone: payload.new.opponent_phone,
-                            transaction_type: 'bet',
-                            amount: -betAmount,
-                            description: `Bet for card game ${gameState.gameCode}`,
-                            status: 'completed'
-                        });
-
+                        
                         gameState.betDeducted = true;
                     }
 
@@ -304,6 +281,18 @@ function setupRealtimeUpdates() {
                     if (payload.new.status === 'finished') {
                         const isWinner = payload.new.winner === users.phone;
                         const amount = Math.floor(gameState.betAmount * 1.8);
+                        
+                        // Only record win transaction if winner
+                        if (isWinner) {
+                            await recordTransaction({
+                                player_phone: users.phone,
+                                transaction_type: 'win',
+                                amount: amount,
+                                description: `Won card game ${gameState.gameCode}`,
+                                status: 'completed'
+                            });
+                        }
+                        
                         showGameResult(isWinner, amount);
                     }
 
@@ -411,7 +400,8 @@ async function playCard(cardIndex) {
 }
 
 async function processCardPlay(cardsToPlay) {
-    try {
+
+        try {
         const users = JSON.parse(localStorage.getItem('user')) || {};
         if (!users.phone) throw new Error('User not logged in');
         
@@ -449,7 +439,6 @@ async function processCardPlay(cardsToPlay) {
                 ...cardsToDiscard
             ]);
         }
-
         // Handle special cards and combinations
         if (cardsToPlay.length > 1 && cardsToPlay.some(c => c.value === '7')) {
             // Playing multiple cards with a 7
@@ -537,7 +526,7 @@ async function processCardPlay(cardsToPlay) {
             updateData.current_player = opponentPhone;
         }
 
-            // Update hands in database
+  // Update hands in database
         if (isCreator) {
             updateData.creator_hand = JSON.stringify(gameState.playerHand);
         } else {
@@ -553,18 +542,6 @@ async function processCardPlay(cardsToPlay) {
             // Calculate winnings (180% of bet amount - 10% house cut)
             const winnings = Math.floor(gameState.betAmount * 1.8);
             const houseCut = gameState.betAmount * 2 - winnings; // Total is bet*2
-
-            // Record transaction for winner
-            await recordTransaction({
-                player_phone: users.phone,
-                transaction_type: 'win',
-                amount: winnings,
-                description: `Won card game ${gameState.gameCode}`,
-                status: 'completed'
-            });
-
-            // Add house cut to house account
-            await updateHouseBalance(houseCut);
 
             // Show result
             showGameResult(true, winnings);
@@ -584,6 +561,7 @@ async function processCardPlay(cardsToPlay) {
         if (gameStatusEl) gameStatusEl.textContent = 'Error playing card';
     }
 }
+
 async function drawCard() {
     try {
         const users = JSON.parse(localStorage.getItem('user')) || {};
