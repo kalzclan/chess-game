@@ -196,7 +196,7 @@ async function loadGameData() {
                     gameState.lastCard.value in SPECIAL_CARDS) {
                     soundEffects.specialCard.play();
                 } else {
-                    soundEffects.opponentPlay.play();
+                    soundEffects.cardPlay.play();
                 }
             }
         }
@@ -349,7 +349,7 @@ function setupRealtimeUpdates() {
                                 newCard.value in SPECIAL_CARDS) {
                                 soundEffects.specialCard.play();
                             } else {
-                                soundEffects.opponentPlay.play();
+                                soundEffects.cardPlay.play();
                             }
                         }
                     }
