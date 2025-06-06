@@ -129,7 +129,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (backBtn) backBtn.addEventListener('click', () => window.location.href = 'home.html');
 });
 
-// --- Game Functions ---
 async function loadGameData() {
     try {
         const { data: gameData, error } = await supabase
@@ -148,9 +147,8 @@ async function loadGameData() {
         const users = JSON.parse(localStorage.getItem('user')) || {};
         gameState.playerRole = gameData.creator_phone === users.phone ? 'creator' : 'opponent';
 
-        // Check if bet was already deducted (using both localStorage and game state)
-        const betDeductionKey = `betDeducted_${gameState.gameCode}`;
-        gameState.betDeducted = localStorage.getItem(betDeductionKey) === 'true' || gameState.betDeducted;
+        // Store previous last card before updating
+        const previousLastCard = gameState.lastCard;
 
         // Update game state from database
         gameState.status = gameData.status;
@@ -186,20 +184,23 @@ async function loadGameData() {
                 phone: gameData.opponent_phone
             };
         }
-        
-        
 
+        // Play sound if opponent played a card
         if (gameState.lastCard && 
-            previousLastCard !== gameState.lastCard && 
-            gameState.currentPlayer !== users.phone) {
+            JSON.stringify(previousLastCard) !== JSON.stringify(gameState.lastCard)) {
             
-            // Check if it's a special card
-            if (gameState.lastCard.value in SPECIAL_CARDS) {
-                soundEffects.specialCard.play();
-            } else {
-                soundEffects.opponentPlay.play();
+            const isOpponentPlay = gameState.currentPlayer !== users.phone;
+            if (isOpponentPlay) {
+                // Check if it's Ace of Spades or other special card
+                if ((gameState.lastCard.value === 'A' && gameState.lastCard.suit === 'spades') || 
+                    gameState.lastCard.value in SPECIAL_CARDS) {
+                    soundEffects.specialCard.play();
+                } else {
+                    soundEffects.opponentPlay.play();
+                }
             }
         }
+
         // Check for pending actions
         if (gameData.pending_action) {
             gameState.pendingAction = gameData.pending_action;
@@ -218,6 +219,7 @@ async function loadGameData() {
                 });
                 
                 // Mark bet as deducted in both localStorage and game state
+                const betDeductionKey = `betDeducted_${gameState.gameCode}`;
                 localStorage.setItem(betDeductionKey, 'true');
                 gameState.betDeducted = true;
                 
@@ -259,6 +261,7 @@ async function loadGameData() {
         setTimeout(() => window.location.href = '/', 3000);
     }
 }
+
 function setupRealtimeUpdates() {
     const channel = supabase
         .channel(`card_game_${gameState.gameCode}`)
@@ -273,6 +276,7 @@ function setupRealtimeUpdates() {
             async (payload) => {
                 try {
                     const users = JSON.parse(localStorage.getItem('user')) || {};
+                    const previousLastCard = gameState.lastCard;
                     
                     // Check if opponent just joined and we need to deduct bet
                     if (payload.new.opponent_phone && 
@@ -291,7 +295,7 @@ function setupRealtimeUpdates() {
                         gameState.betDeducted = true;
                     }
 
-                    // Rest of your existing realtime update code...
+                    // Update game state
                     gameState.status = payload.new.status;
                     gameState.currentPlayer = payload.new.current_player;
                     gameState.currentSuit = payload.new.current_suit;
@@ -332,20 +336,21 @@ function setupRealtimeUpdates() {
                         }
                     }
 
-                                        const previousLastCard = gameState.lastCard;
-
-                     // Play sound if opponent played a card
+                    // Play sound if opponent played a card
                     if (payload.new.last_card && 
-                        JSON.stringify(previousLastCard) !== payload.new.last_card && 
-                        payload.new.current_player !== users.phone) {
+                        JSON.stringify(previousLastCard) !== payload.new.last_card) {
                         
                         const newCard = safeParseJSON(payload.new.last_card);
+                        const isOpponentPlay = payload.new.current_player !== users.phone;
                         
-                        // Check if it's a special card
-                        if (newCard.value in SPECIAL_CARDS) {
-                            soundEffects.specialCard.play();
-                        } else {
-                            soundEffects.opponentPlay.play();
+                        if (isOpponentPlay) {
+                            // Check if it's Ace of Spades or other special card
+                            if ((newCard.value === 'A' && newCard.suit === 'spades') || 
+                                newCard.value in SPECIAL_CARDS) {
+                                soundEffects.specialCard.play();
+                            } else {
+                                soundEffects.opponentPlay.play();
+                            }
                         }
                     }
 
