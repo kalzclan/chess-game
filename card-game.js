@@ -861,6 +861,41 @@ function updateGameUI() {
     const isMyTurn = users.phone === gameState.currentPlayer;
     const isCreator = gameState.playerRole === 'creator';
 
+    // Block all gameplay if game is finished
+    if (gameState.status === 'finished') {
+        // Disable all cards
+        if (playerHandEl) {
+            const cards = playerHandEl.querySelectorAll('.card');
+            cards.forEach(card => {
+                card.style.pointerEvents = 'none';
+                card.style.opacity = '0.7';
+                card.classList.remove('playable');
+            });
+        }
+        
+        // Disable action buttons
+        if (drawCardBtn) {
+            drawCardBtn.style.pointerEvents = 'none';
+            drawCardBtn.style.opacity = '0.5';
+            drawCardBtn.style.display = 'none';
+        }
+        
+        if (passTurnBtn) {
+            passTurnBtn.style.pointerEvents = 'none';
+            passTurnBtn.style.opacity = '0.5';
+            passTurnBtn.style.display = 'none';
+        }
+        
+        // Update game status display
+        if (gameStatusEl) {
+            gameStatusEl.textContent = 'Game Over';
+            gameStatusEl.className = 'status-game-over';
+        }
+        
+        // Don't render any new cards or updates
+        return;
+    }
+
     // Player info
     if (opponentNameEl) {
         if (isCreator) {
@@ -869,6 +904,7 @@ function updateGameUI() {
             opponentNameEl.textContent = gameState.creator.username || 'Waiting...';
         }
     }
+    
     if (opponentAvatarEl) {
         const name = isCreator ? gameState.opponent.username : gameState.creator.username;
         opponentAvatarEl.style.backgroundColor = generateAvatarColor(name);
@@ -896,10 +932,16 @@ function updateGameUI() {
     // Action buttons
     if (drawCardBtn) {
         drawCardBtn.style.display = isMyTurn && !gameState.hasDrawnThisTurn ? 'block' : 'none';
+        drawCardBtn.disabled = !isMyTurn || gameState.hasDrawnThisTurn;
+        drawCardBtn.style.pointerEvents = isMyTurn && !gameState.hasDrawnThisTurn ? 'auto' : 'none';
+        drawCardBtn.style.opacity = isMyTurn && !gameState.hasDrawnThisTurn ? '1' : '0.5';
     }
     
     if (passTurnBtn) {
         passTurnBtn.style.display = isMyTurn && gameState.hasDrawnThisTurn ? 'block' : 'none';
+        passTurnBtn.disabled = !isMyTurn || !gameState.hasDrawnThisTurn;
+        passTurnBtn.style.pointerEvents = isMyTurn && gameState.hasDrawnThisTurn ? 'auto' : 'none';
+        passTurnBtn.style.opacity = isMyTurn && gameState.hasDrawnThisTurn ? '1' : '0.5';
     }
     
     // Render game elements
@@ -907,7 +949,7 @@ function updateGameUI() {
         renderPlayerHand();
         renderDiscardPile();
     } else {
-       if (playerHandEl) playerHandEl.innerHTML = '<div class="waiting-message"></div>';
+        if (playerHandEl) playerHandEl.innerHTML = '<div class="waiting-message">Waiting for opponent to join...</div>';
         if (discardPileEl) discardPileEl.innerHTML = '';
     }
     
@@ -915,12 +957,17 @@ function updateGameUI() {
     if (gameStatusEl) {
         if (gameState.status === 'waiting') {
             gameStatusEl.textContent = 'Waiting for opponent...';
+            gameStatusEl.className = 'status-waiting';
         } else {
             let statusText = isMyTurn ? 'Your turn!' : 'Opponent\'s turn';
             
             if (isMyTurn && gameState.pendingAction === 'draw_two') {
                 const drawCount = gameState.pendingActionData || 2;
                 statusText = `You must draw ${drawCount} cards or play a 2`;
+            }
+            
+            if (gameState.mustPlaySuit && isMyTurn) {
+                statusText += ` (Must play ${gameState.currentSuitToMatch})`;
             }
             
             gameStatusEl.textContent = statusText;
@@ -1316,6 +1363,123 @@ cardStyles.textContent = `
         height: 72px;
     }
 }
+
+.game-result-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.game-result-modal .result-content {
+    background: linear-gradient(135deg, #f5f7fa 0%, #e4e8eb 100%);
+    padding: 30px;
+    border-radius: 15px;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.game-result-modal h2 {
+    color: #2c3e50;
+    font-size: 28px;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.game-result-modal p {
+    color: #34495e;
+    font-size: 18px;
+    margin-bottom: 20px;
+}
+
+.game-result-modal .transaction-details {
+    background: rgba(255, 255, 255, 0.7);
+    padding: 15px;
+    border-radius: 10px;
+    margin: 20px 0;
+    border-left: 4px solid #3498db;
+}
+
+.game-result-modal .transaction-details p {
+    margin: 8px 0;
+    font-size: 16px;
+    color: #2c3e50;
+}
+
+.game-result-modal button {
+    background: linear-gradient(to right, #3498db, #2980b9);
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 50px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3);
+    margin-top: 10px;
+}
+
+.game-result-modal button:hover {
+    background: linear-gradient(to right, #2980b9, #3498db);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(52, 152, 219, 0.4);
+}
+
+.game-result-modal.win {
+    background-color: rgba(46, 204, 113, 0.2);
+}
+
+.game-result-modal.win .result-content {
+    border-top: 5px solid #2ecc71;
+}
+
+.game-result-modal.win h2 {
+    color: #27ae60;
+}
+
+.game-result-modal.lose {
+    background-color: rgba(231, 76, 60, 0.2);
+}
+
+.game-result-modal.lose .result-content {
+    border-top: 5px solid #e74c3c;
+}
+
+.game-result-modal.lose h2 {
+    color: #c0392b;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes confetti {
+    0% { transform: translateY(0) rotate(0); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+.confetti {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background-color: #f1c40f;
+    opacity: 1;
+    animation: confetti 3s ease-out forwards;
+}
+
+
 `;
 document.head.appendChild(cardStyles);
 
@@ -1407,22 +1571,50 @@ async function updateHouseBalance(amount) {
 }
 
 function showGameResult(isWinner, amount) {
+    // Block further gameplay
+    gameState.status = 'finished';
+    
+    // Remove all card click handlers
+    if (playerHandEl) {
+        const cards = playerHandEl.querySelectorAll('.card');
+        cards.forEach(card => {
+            card.style.pointerEvents = 'none';
+            card.style.opacity = '0.7';
+        });
+    }
+    
+    // Disable action buttons
+    if (drawCardBtn) {
+        drawCardBtn.style.pointerEvents = 'none';
+        drawCardBtn.style.opacity = '0.5';
+    }
+    if (passTurnBtn) {
+        passTurnBtn.style.pointerEvents = 'none';
+        passTurnBtn.style.opacity = '0.5';
+    }
+    
+    // Create modal
     const resultModal = document.createElement('div');
-    resultModal.className = 'game-result-modal';
+    resultModal.className = `game-result-modal ${isWinner ? 'win' : 'lose'}`;
     resultModal.innerHTML = `
         <div class="result-content">
-            <h2>${isWinner ? 'You Won!' : 'You Lost'}</h2>
+            <h2>${isWinner ? '🎉 You Won! 🎉' : '😢 Game Over'}</h2>
             <p>${isWinner ? `You won ${amount} ETB!` : 'Better luck next time'}</p>
             <div class="transaction-details">
-                <p>Game: ${gameState.gameCode}</p>
-                <p>Bet: ${gameState.betAmount} ETB</p>
-                ${isWinner ? `<p>Winnings: ${amount} ETB</p>` : `<p>Loss: ${gameState.betAmount} ETB</p>`}
+                <p><strong>Game Code:</strong> ${gameState.gameCode}</p>
+                <p><strong>Your Bet:</strong> ${gameState.betAmount} ETB</p>
+                ${isWinner ? `<p><strong>Winnings:</strong> ${amount} ETB</p>` : ''}
             </div>
-            <button id="result-close-btn">Close</button>
+            <button id="result-close-btn">Return to Home</button>
         </div>
     `;
     
     document.body.appendChild(resultModal);
+    
+    // Add confetti effect for wins
+    if (isWinner) {
+        createConfettiEffect();
+    }
     
     // Play appropriate sound
     if (isWinner) {
@@ -1431,11 +1623,41 @@ function showGameResult(isWinner, amount) {
         soundEffects.lose.play();
     }
     
+    // Close button handler
     const closeBtn = resultModal.querySelector('#result-close-btn');
     if (closeBtn) {
         closeBtn.addEventListener('click', () => {
             resultModal.remove();
             window.location.href = 'home.html';
         });
+    }
+    
+    // Make modal non-closable by clicking outside
+    resultModal.addEventListener('click', (e) => {
+        if (e.target === resultModal) {
+            e.stopPropagation();
+        }
+    });
+}
+
+function createConfettiEffect() {
+    const colors = ['#f1c40f', '#e74c3c', '#3498db', '#2ecc71', '#9b59b6'];
+    const container = document.body;
+    
+    for (let i = 0; i < 100; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.left = `${Math.random() * 100}vw`;
+        confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        confetti.style.width = `${Math.random() * 10 + 5}px`;
+        confetti.style.height = `${Math.random() * 10 + 5}px`;
+        confetti.style.animationDuration = `${Math.random() * 2 + 2}s`;
+        confetti.style.animationDelay = `${Math.random() * 0.5}s`;
+        container.appendChild(confetti);
+        
+        // Remove confetti after animation
+        setTimeout(() => {
+            confetti.remove();
+        }, 5000);
     }
 }
