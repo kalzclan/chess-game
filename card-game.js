@@ -424,6 +424,9 @@ async function playCard(cardIndex) {
         
         // Handle 7 card - show selection dialog
         if (card.value === '7') {
+
+                        displayMessage(gameStatusEl, lastPlayedCard.suit, 'error');
+
             await showSevenCardDialog(cardIndex);
             return;
         }
@@ -992,23 +995,16 @@ function getSuitSVG(suit) {
 
 // Then keep all the rest of your existing code below...
 // --- Dialog Functions ---
+
+// Update the showSevenCardDialog function to implement new 7 card rules
 async function showSevenCardDialog(initialCardIndex) {
     const initialCard = gameState.playerHand[initialCardIndex];
     
-    // Get all playable cards that can be combined with the 7
+    // NEW RULE: Only allow cards of the same suit to be combined with 7
     const playableCards = gameState.playerHand.filter((card, index) => {
         if (index === initialCardIndex) return false;
-        
-        // Can play with another 7 of any suit
-        if (card.value === '7') return true;
-        
-        // Can play with 8/J of any suit
-        if (card.value === '8' || card.value === 'J') return true;
-        
-        // Can play with cards of same suit
-        if (card.suit === initialCard.suit) return true;
-        
-        return false;
+        // Only allow same suit cards (no other 7s or special cards)
+        return card.suit === initialCard.suit;
     });
 
     if (playableCards.length === 0) {
