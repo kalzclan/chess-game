@@ -69,7 +69,8 @@ let gameState = {
     canChangeSuit: true,
         betDeducted: false,
         isSuitChangeBlocked: false, // Add this new property
-            betAmount: 0
+            betAmount: 0,
+             winRecorded: false
 
 
 };
@@ -137,27 +138,20 @@ async function loadGameData() {
             .single();
 
         if (error) throw error;
-        if (!gameData) throw new Error('Game not found');
+        if (!gameData) {
+            displayMessage(gameStatusEl, 'Game not found or already ended.', 'error');
+            setTimeout(() => window.location.href = '/', 3000);
+            return;
+        }
 
         const users = JSON.parse(localStorage.getItem('user')) || {};
         gameState.playerRole = gameData.creator_phone === users.phone ? 'creator' : 'opponent';
 
-        // Check if game is starting (opponent joined and status changed to ongoing)
-        if (gameData.opponent_phone && gameData.status === 'ongoing' && !gameState.opponent.phone) {
-            // Only deduct bet if we haven't done it before
-            if (!gameState.betDeducted) {
-                await recordTransaction({
-                    player_phone: users.phone,
-                    transaction_type: 'bet',
-                    amount: -gameData.bet,
-                    description: `Bet for card game ${gameState.gameCode}`,
-                    status: 'completed'
-                });
-                gameState.betDeducted = true;
-            }
-        }
+        // Check if bet was already deducted (using both localStorage and game state)
+        const betDeductionKey = `betDeducted_${gameState.gameCode}`;
+        gameState.betDeducted = localStorage.getItem(betDeductionKey) === 'true' || gameState.betDeducted;
 
-        // Rest of your existing loadGameData code...
+        // Update game state from database
         gameState.status = gameData.status;
         gameState.currentPlayer = gameData.current_player;
         gameState.currentSuit = gameData.current_suit;
@@ -168,6 +162,7 @@ async function loadGameData() {
         gameState.hasDrawnThisTurn = gameData.has_drawn_this_turn || false;
         gameState.discardPile = gameData.discard_pile ? safeParseJSON(gameData.discard_pile) : [];
         gameState.lastSuitChangeMethod = gameData.last_suit_change_method;
+        gameState.isSuitChangeBlocked = gameData.is_suit_change_blocked || false;
 
         // Set player hands
         if (gameState.playerRole === 'creator') {
@@ -197,11 +192,56 @@ async function loadGameData() {
             gameState.pendingActionData = gameData.pending_action_data;
         }
 
+        // Handle bet deduction if game is ongoing and opponent exists
+        if (gameData.opponent_phone && gameData.status === 'ongoing' && !gameState.betDeducted) {
+            try {
+                await recordTransaction({
+                    player_phone: users.phone,
+                    transaction_type: 'bet',
+                    amount: -gameData.bet,
+                    description: `Bet for card game ${gameState.gameCode}`,
+                    status: 'completed'
+                });
+                
+                // Mark bet as deducted in both localStorage and game state
+                localStorage.setItem(betDeductionKey, 'true');
+                gameState.betDeducted = true;
+                
+                showNotification(`Bet of ${gameData.bet} ETB deducted`, 'info');
+            } catch (error) {
+                console.error('Error deducting bet:', error);
+                displayMessage(gameStatusEl, 'Error deducting bet. Please refresh.', 'error');
+            }
+        }
+
+        // Handle game results if game is finished
+        if (gameData.status === 'finished') {
+            const isWinner = gameData.winner === users.phone;
+            const amount = Math.floor(gameData.bet * 1.8);
+            
+            // Only show modal if not already shown
+            if (!document.querySelector('.game-result-modal.active')) {
+                showGameResult(isWinner, amount);
+            }
+            
+            // Record win transaction if winner and not already recorded
+            if (isWinner && !gameState.winRecorded) {
+                await recordTransaction({
+                    player_phone: users.phone,
+                    transaction_type: 'win',
+                    amount: amount,
+                    description: `Won card game ${gameState.gameCode}`,
+                    status: 'completed'
+                });
+                gameState.winRecorded = true;
+            }
+        }
+
         updateGameUI();
 
     } catch (error) {
         console.error('Error loading game:', error);
-        if (gameStatusEl) gameStatusEl.textContent = 'Error loading game';
+        displayMessage(gameStatusEl, 'Error loading game data', 'error');
         setTimeout(() => window.location.href = '/', 3000);
     }
 }
