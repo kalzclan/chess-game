@@ -449,61 +449,55 @@ document.querySelectorAll('.promotion-option').forEach(button => {
     }
   });
 });
-
-// Update tryMakeMove to handle promotion properly
 async function tryMakeMove(from, to, promotion) {
+  // 1. Save previous FEN/state in case we need to revert
+  const previousFen = gameState.chess.fen();
+
+  // 2. Make the move locally (optimistically)
+  let move;
+  if (promotion) {
+    move = gameState.chess.move({ from, to, promotion });
+  } else {
+    move = gameState.chess.move({ from, to });
+  }
+  renderBoard();
+
+  // 3. Highlight move and play sound instantly
+  highlightLastMove(from, to);
+  soundManager.play(move?.captured ? 'capture' : 'move');
+
+  // 4. Send move to server
   try {
-      // Get the moving piece
-      const piece = gameState.chess.get(from);
-      const isPromotion = piece?.type === 'p' && 
-                         ((piece.color === 'w' && to[1] === '8') || 
-                          (piece.color === 'b' && to[1] === '1'));
+    const moveData = { gameCode: gameState.gameCode, from, to, player: gameState.playerColor };
+    if (promotion) moveData.promotion = promotion;
 
-      // Only validate locally for non-promotion moves
-      if (!isPromotion) {
-          const move = gameState.chess.move({ from, to });
-          if (!move) return;
-      }
-
-      // Optimistic UI update
-      renderBoard();
-      
-      // Send move to server
-      const moveData = {
-          gameCode: gameState.gameCode,
-          from,
-          to,
-          player: gameState.playerColor
-      };
-
-      if (isPromotion && promotion) {
-          moveData.promotion = promotion;
-      }
-
-      if (gameState.isConnected) {
-          socket.emit('move', moveData);
-      } else {
-          const response = await fetch(`${gameState.apiBaseUrl}/api/move`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(moveData)
-          });
-          
-          if (!response.ok) {
-              throw new Error('Move failed');
-          }
-      }
-      
+    let serverAccepted = false;
+    if (gameState.isConnected) {
+      // Wrap in a promise to wait for server confirmation
+      serverAccepted = await new Promise((resolve, reject) => {
+        socket.emit('move', moveData, (response) => {
+          if (response?.ok) resolve(true);
+          else reject(response?.error || 'Move rejected');
+        });
+        // Optionally, add a timeout
+        setTimeout(() => reject('Server slow, move not confirmed'), 4000);
+      });
+    } else {
+      const response = await fetch(`${gameState.apiBaseUrl}/api/move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(moveData)
+      });
+      serverAccepted = response.ok;
+      if (!serverAccepted) throw new Error('Move failed');
+    }
   } catch (error) {
-      console.error('Move error:', error);
-      if (gameState.currentGame?.fen) {
-          gameState.chess.load(gameState.currentGame.fen);
-          renderBoard();
-      }
-      showError(error.message);
+    // 5. Revert on error
+    gameState.chess.load(previousFen);
+    renderBoard();
+    showError(error.message);
   }
 }
-
 
 
 function displayAlert(message, type = 'info') {
