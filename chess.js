@@ -116,59 +116,60 @@ function renderBoard() {
 }
 
 function handleGameUpdate(update) {
-    if (!update || !update.gameState) return;
-    
-    // Always clear previous move highlights first
-    document.querySelectorAll('.last-move-from, .last-move-to').forEach(el => {
-        el.classList.remove('last-move-from', 'last-move-to');
-    });
-    
-    gameState.currentGame = update.gameState;
-    gameState.chess.load(update.gameState.fen);
-    gameState.turn = update.gameState.turn;
-    
-    // Update player info
-    updatePlayerInfo(update.gameState);
-    
-    if (update.move) {
-        // Highlight the previous move regardless of whose turn it is
-        if (update.move.from) {
-            const { row: fromRow, col: fromCol } = algebraicToRowCol(update.move.from);
-            const fromSquare = document.querySelector(`[data-row="${fromRow}"][data-col="${fromCol}"]`);
-            if (fromSquare) fromSquare.classList.add('last-move-from');
-        }
-        
-        if (update.move.to) {
-            const { row: toRow, col: toCol } = algebraicToRowCol(update.move.to);
-            const toSquare = document.querySelector(`[data-row="${toRow}"][data-col="${toCol}"]`);
-            if (toSquare) toSquare.classList.add('last-move-to');
-        }
-        
-        // Sound is now handled in renderBoard()
-        addMoveToHistory(update.move);
-    }
+  if (!update || !update.gameState) return;
 
-  // Play move/capture/check sound
+  // Always clear previous move highlights first
+  document.querySelectorAll('.last-move-from, .last-move-to').forEach(el => {
+    el.classList.remove('last-move-from', 'last-move-to');
+  });
+
+  gameState.currentGame = update.gameState;
+  gameState.chess.load(update.gameState.fen);
+  gameState.turn = update.gameState.turn;
+
+  // Update player info
+  updatePlayerInfo(update.gameState);
+
   if (update.move) {
-    if (update.move.captured) {
-      soundManager.play('capture');
-    } else if (gameState.chess.in_check()) {
-      soundManager.play('check');
-    } else {
-      soundManager.play('move');
+    // Highlight the previous move regardless of whose turn it is
+    if (update.move.from) {
+      const { row: fromRow, col: fromCol } = algebraicToRowCol(update.move.from);
+      const fromSquare = document.querySelector(`[data-row="${fromRow}"][data-col="${fromCol}"]`);
+      if (fromSquare) fromSquare.classList.add('last-move-from');
     }
+
+    if (update.move.to) {
+      const { row: toRow, col: toCol } = algebraicToRowCol(update.move.to);
+      const toSquare = document.querySelector(`[data-row="${toRow}"][data-col="${toCol}"]`);
+      if (toSquare) toSquare.classList.add('last-move-to');
+    }
+
+    // Only play the sound if this move is from the opponent
+    if (
+      update.move.color &&
+      update.move.color[0] !== gameState.playerColor[0]
+    ) {
+      if (update.move.captured) {
+        soundManager.play('capture');
+      } else if (gameState.chess.in_check()) {
+        soundManager.play('check');
+      } else {
+        soundManager.play('move');
+      }
+    }
+    // Also add to move history if it's not your own move
+    addMoveToHistory(update.move);
   }
 
-
-        // Track captured pieces
-    if (update.move && update.move.captured) {
-        const capturingColor = update.move.color === 'w' ? 'white' : 'black';
-        gameState.capturedPieces[capturingColor].push(update.move.captured);
-        updateCapturedPiecesDisplay();
-    }
-    
-    updateGameState(update.gameState);
+  // Track captured pieces
+  if (update.move && update.move.captured) {
+    const capturingColor = update.move.color === 'w' ? 'white' : 'black';
+    gameState.capturedPieces[capturingColor].push(update.move.captured);
+    updateCapturedPiecesDisplay();
   }
+
+  updateGameState(update.gameState);
+}
   
 // Add this new function to update the display
 function updateCapturedPiecesDisplay() {
@@ -462,7 +463,13 @@ async function tryMakeMove(from, to, promotion) {
     renderBoard();
     addMoveToHistory(move);
     highlightLastMove(from, to);
-    soundManager.play(move.captured ? 'capture' : (gameState.chess.in_check() ? 'check' : 'move'));
+
+    // Play sound only for your own move (here)
+    soundManager.play(
+      move.captured
+        ? 'capture'
+        : (gameState.chess.in_check() ? 'check' : 'move')
+    );
 
     // Optimistically update captured pieces
     if (move.captured) {
