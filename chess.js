@@ -474,7 +474,7 @@ async function tryMakeMove(from, to, promotion) {
     // Optimistically update captured pieces
     if (move.captured) {
       const capturingColor = move.color === 'w' ? 'white' : 'black';
-      gameState.capturedPieces[capturingColor].push(move.captured);
+     // gameState.capturedPieces[capturingColor].push(move.captured);
       updateCapturedPiecesDisplay();
     }
   } catch (err) {
