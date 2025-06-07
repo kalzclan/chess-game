@@ -454,19 +454,17 @@ async function tryMakeMove(from, to, promotion) {
   const previousFen = gameState.chess.fen();
   let move;
 
-  // 1. Try to make the move locally (always, even for promotions)
+  // 1. Make the move locally, even for promotions
   try {
-    move = gameState.chess.move(
-      promotion ? { from, to, promotion } : { from, to }
-    );
+    move = gameState.chess.move(promotion ? { from, to, promotion } : { from, to });
     if (!move) throw new Error('Invalid move');
 
     renderBoard();
-    addMoveToHistory(move); // Add to move history instantly
+    addMoveToHistory(move);
     highlightLastMove(from, to);
     soundManager.play(move.captured ? 'capture' : (gameState.chess.in_check() ? 'check' : 'move'));
 
-    // Optimistically update captured pieces, etc.
+    // Optimistically update captured pieces
     if (move.captured) {
       const capturingColor = move.color === 'w' ? 'white' : 'black';
       gameState.capturedPieces[capturingColor].push(move.captured);
@@ -486,18 +484,11 @@ async function tryMakeMove(from, to, promotion) {
   };
   if (promotion) moveData.promotion = promotion;
 
-  // 3. Send move to server
+  // 3. Send move to server, but DO NOT WAIT for confirmation
   try {
-    let serverAccepted = false;
     if (gameState.isConnected) {
-      // Use callback for confirmation if possible
-      serverAccepted = await new Promise((resolve, reject) => {
-        socket.emit('move', moveData, (response) => {
-          if (response?.ok || response === true) resolve(true);
-          else reject(response?.error || 'Server rejected move');
-        });
-        setTimeout(() => reject('Move not confirmed (timeout)'), 4000); // 4s timeout
-      });
+      socket.emit('move', moveData);
+      // Don't wait for a callback!
     } else {
       const response = await fetch(`${gameState.apiBaseUrl}/api/move`, {
         method: 'POST',
@@ -505,17 +496,14 @@ async function tryMakeMove(from, to, promotion) {
         body: JSON.stringify(moveData),
       });
       if (!response.ok) throw new Error('Server rejected move');
-      serverAccepted = true;
     }
-    // If here, server accepted -- do nothing, UI is already correct!
   } catch (error) {
-    // 4. If server says NO, revert the move and UI
+    // If REST call fails, revert the move
     gameState.chess.load(previousFen);
     renderBoard();
     showError(error.message || 'Move not registered');
   }
 }
-
 // Helper to highlight last move
 function highlightLastMove(from, to) {
   clearHighlights();
