@@ -184,25 +184,21 @@ async function loadGameData() {
                 phone: gameData.opponent_phone
             };
         }
-
-        // Play sound if opponent played a card
-        if (gameState.lastCard && 
-            JSON.stringify(previousLastCard) !== JSON.stringify(gameState.lastCard)) {
-            
-            const isOpponentPlay = gameState.currentPlayer !== users.phone;
-            if (isOpponentPlay) {
-                // Check if it's Ace of Spades or other special card
-                if ((gameState.lastCard.value === 'A' && gameState.lastCard.suit === 'spades') || 
-                    gameState.lastCard.value in SPECIAL_CARDS) {
-                    soundEffects.specialCard.play();
-                } else {
-                                  //  displayMessage("i am kb", 'Error deducting bet. Please refresh.', 'error');
-                console.error('Error deducting bet:', "error");
-
-                    soundEffects.cardPlay.play();
-                }
-            }
+// In the loadGameData function, replace the sound effects part with:
+if (gameState.lastCard && 
+    JSON.stringify(previousLastCard) !== JSON.stringify(gameState.lastCard)) {
+    
+    const isOpponentPlay = gameState.currentPlayer !== users.phone;
+    if (isOpponentPlay) {
+        // Only play special sound for Ace of Spades
+        if (gameState.lastCard.value === 'A' && gameState.lastCard.suit === 'spades') {
+            soundEffects.specialCard.play();
+        } else {
+            soundEffects.opponentPlay.play();
         }
+    }
+}
+
 
         // Check for pending actions
         if (gameData.pending_action) {
@@ -338,24 +334,22 @@ function setupRealtimeUpdates() {
                             gameState.status = 'ongoing';
                         }
                     }
-
-                    // Play sound if opponent played a card
-                    if (payload.new.last_card && 
-                        JSON.stringify(previousLastCard) !== payload.new.last_card) {
-                        
-                        const newCard = safeParseJSON(payload.new.last_card);
-                        const isOpponentPlay = payload.new.current_player !== users.phone;
-                        
-                        if (isOpponentPlay) {
-                            // Check if it's Ace of Spades or other special card
-                            if ((newCard.value === 'A' && newCard.suit === 'spades') || 
-                                newCard.value in SPECIAL_CARDS) {
-                                soundEffects.specialCard.play();
-                            } else {
-                                soundEffects.cardPlay.play();
-                            }
-                        }
-                    }
+// In the realtime updates handler, replace the sound effects part with:
+if (payload.new.last_card && 
+    JSON.stringify(previousLastCard) !== payload.new.last_card) {
+    
+    const newCard = safeParseJSON(payload.new.last_card);
+    const isOpponentPlay = payload.new.current_player !== users.phone;
+    
+    if (isOpponentPlay) {
+        // Only play special sound for Ace of Spades
+        if (newCard.value === 'A' && newCard.suit === 'spades') {
+            soundEffects.specialCard.play();
+        } else {
+            soundEffects.opponentPlay.play();
+        }
+    }
+}
 
                     if (payload.new.status === 'finished') {
                         const isWinner = payload.new.winner === users.phone;
