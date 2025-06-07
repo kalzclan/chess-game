@@ -68,12 +68,11 @@ let gameState = {
     discardPile: [],
     lastSuitChangeMethod: null,
     canChangeSuit: true,
-        betDeducted: false,
-        isSuitChangeBlocked: false, // Add this new property
-            betAmount: 0,
-             winRecorded: false
-
-
+    betDeducted: false,
+    isSuitChangeBlocked: false,
+    betAmount: 0,
+    winRecorded: false,
+    lastCardChangeTimestamp: null // Add this to track when last card changed
 };
 
 // --- Initialize Game ---
@@ -149,6 +148,7 @@ async function loadGameData() {
 
         // Store previous last card before updating
         const previousLastCard = gameState.lastCard;
+        const previousTimestamp = gameState.lastCardChangeTimestamp;
 
         // Update game state from database
         gameState.status = gameData.status;
@@ -162,6 +162,7 @@ async function loadGameData() {
         gameState.discardPile = gameData.discard_pile ? safeParseJSON(gameData.discard_pile) : [];
         gameState.lastSuitChangeMethod = gameData.last_suit_change_method;
         gameState.isSuitChangeBlocked = gameData.is_suit_change_blocked || false;
+        gameState.lastCardChangeTimestamp = gameData.updated_at;
 
         // Set player hands
         if (gameState.playerRole === 'creator') {
@@ -184,21 +185,27 @@ async function loadGameData() {
                 phone: gameData.opponent_phone
             };
         }
-// In the loadGameData function, replace the sound effects part with:
-if (gameState.lastCard && 
-    JSON.stringify(previousLastCard) !== JSON.stringify(gameState.lastCard)) {
-    
-    const isOpponentPlay = gameState.currentPlayer !== users.phone;
-    if (isOpponentPlay) {
-        // Only play special sound for Ace of Spades
-        if (gameState.lastCard.value === 'A' && gameState.lastCard.suit === 'spades') {
-            soundEffects.specialCard.play();
-        } else {
-            soundEffects.opponentPlay.play();
-        }
-    }
-}
 
+        // Check if this is an opponent's card play (only during initial load if we have previous state)
+        if (gameState.lastCard && 
+            previousLastCard && 
+            JSON.stringify(previousLastCard) !== JSON.stringify(gameState.lastCard) &&
+            previousTimestamp !== gameState.lastCardChangeTimestamp) {
+            
+            // This means the card changed since we last checked
+            const wasOpponentTurn = gameData.current_player !== users.phone;
+            
+            if (wasOpponentTurn) {
+                // Play appropriate sound for opponent's move
+                if (gameState.lastCard.value === 'A' && gameState.lastCard.suit === 'spades') {
+                    soundEffects.specialCard.play();
+                } else if (gameState.lastCard.value in SPECIAL_CARDS) {
+                    soundEffects.specialCard.play();
+                } else {
+                    soundEffects.opponentPlay.play();
+                }
+            }
+        }
 
         // Check for pending actions
         if (gameData.pending_action) {
@@ -276,6 +283,7 @@ function setupRealtimeUpdates() {
                 try {
                     const users = JSON.parse(localStorage.getItem('user')) || {};
                     const previousLastCard = gameState.lastCard;
+                    const previousTimestamp = gameState.lastCardChangeTimestamp;
                     
                     // Check if opponent just joined and we need to deduct bet
                     if (payload.new.opponent_phone && 
@@ -301,6 +309,7 @@ function setupRealtimeUpdates() {
                     gameState.hasDrawnThisTurn = payload.new.has_drawn_this_turn || false;
                     gameState.lastSuitChangeMethod = payload.new.last_suit_change_method;
                     gameState.isSuitChangeBlocked = payload.new.is_suit_change_blocked || false;
+                    gameState.lastCardChangeTimestamp = payload.new.updated_at;
 
                     if (payload.new.last_card) {
                         gameState.lastCard = safeParseJSON(payload.new.last_card);
@@ -334,22 +343,35 @@ function setupRealtimeUpdates() {
                             gameState.status = 'ongoing';
                         }
                     }
-// In the realtime updates handler, replace the sound effects part with:
-if (payload.new.last_card && 
-    JSON.stringify(previousLastCard) !== payload.new.last_card) {
-    
-    const newCard = safeParseJSON(payload.new.last_card);
-    const isOpponentPlay = payload.new.current_player !== users.phone;
-    
-    if (isOpponentPlay) {
-        // Only play special sound for Ace of Spades
-        if (newCard.value === 'A' && newCard.suit === 'spades') {
-            soundEffects.specialCard.play();
-        } else {
-            soundEffects.opponentPlay.play();
-        }
-    }
-}
+
+                    // Check for opponent card play - improved logic
+                    if (payload.new.last_card && 
+                        previousTimestamp !== payload.new.updated_at &&
+                        (
+                            !previousLastCard || 
+                            JSON.stringify(previousLastCard) !== payload.new.last_card
+                        )) {
+                        
+                        const newCard = safeParseJSON(payload.new.last_card);
+                        
+                        // Determine if this was an opponent's play
+                        // The current_player in the payload is the NEXT player to play
+                        // So if current_player is us, then the opponent just played
+                        const isOpponentPlay = payload.new.current_player === users.phone;
+                        
+                        if (isOpponentPlay && newCard) {
+                            console.log('Opponent played:', newCard); // Debug log
+                            
+                            // Play appropriate sound for opponent's move
+                            if (newCard.value === 'A' && newCard.suit === 'spades') {
+                                soundEffects.specialCard.play();
+                            } else if (newCard.value in SPECIAL_CARDS) {
+                                soundEffects.specialCard.play();
+                            } else {
+                                soundEffects.opponentPlay.play();
+                            }
+                        }
+                    }
 
                     if (payload.new.status === 'finished') {
                         const isWinner = payload.new.winner === users.phone;
