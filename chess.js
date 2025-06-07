@@ -90,7 +90,7 @@ function renderBoard() {
         } else if (gameState.chess.in_check()) {
             playSound('check');
         } else {
-            playSound('move');
+            //playSound('move');
         }
     }
     
@@ -147,6 +147,19 @@ function handleGameUpdate(update) {
         // Sound is now handled in renderBoard()
         addMoveToHistory(update.move);
     }
+
+  // Play move/capture/check sound
+  if (update.move) {
+    if (update.move.captured) {
+      soundManager.play('capture');
+    } else if (gameState.chess.in_check()) {
+      soundManager.play('check');
+    } else {
+      soundManager.play('move');
+    }
+  }
+
+
         // Track captured pieces
     if (update.move && update.move.captured) {
         const capturingColor = update.move.color === 'w' ? 'white' : 'black';
@@ -213,48 +226,39 @@ function updateCapturedPiecesDisplay() {
   
 }
 // Replace current sound system with this more robust version
+
+// Robust Sound Manager
 const soundManager = {
   sounds: {
     move: { url: 'move-self.mp3', audio: null, loaded: false },
     capture: { url: 'capture.mp3', audio: null, loaded: false },
     check: { url: 'notify.mp3', audio: null, loaded: false },
-    join: { url: 'join.mp3', audio: null, loaded: false }
+    join: { url: 'join.mp3', audio: null, loaded: false },
   },
-  
-  init: function() {
+  init() {
     Object.keys(this.sounds).forEach(key => {
-      this.sounds[key].audio = new Audio(this.sounds[key].url);
-      this.sounds[key].audio.preload = 'auto';
-      this.sounds[key].audio.load();
-      
-      this.sounds[key].audio.addEventListener('canplaythrough', () => {
-        this.sounds[key].loaded = true;
-      });
+      const s = this.sounds[key];
+      s.audio = new Audio(s.url);
+      s.audio.preload = 'auto';
+      s.audio.load();
+      s.audio.addEventListener('canplaythrough', () => { s.loaded = true; });
     });
-    
-    // Add user interaction requirement
     document.addEventListener('click', this.unlockAudio.bind(this), { once: true });
   },
-  
-  unlockAudio: function() {
-    // Play silent sound to unlock audio on mobile
-    const silentSound = new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU...');
-    silentSound.volume = 0;
-    silentSound.play().catch(e => console.log('Audio unlock failed:', e));
+  unlockAudio() {
+    const silent = new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU...');
+    silent.volume = 0; silent.play().catch(() => {});
   },
-  
-  play: function(type) {
+  play(type) {
     if (!this.sounds[type]?.loaded) return;
-    
     try {
       const sound = this.sounds[type].audio.cloneNode();
       sound.currentTime = 0;
-      sound.play().catch(e => console.log('Play failed:', e));
-    } catch (e) {
-      console.log('Audio error:', e);
-    }
+      sound.play().catch(() => {});
+    } catch {}
   }
 };
+
   // Update the showPromotionDialog function
   function showPromotionDialog(color) {
     const dialog = document.getElementById('promotion-dialog');
