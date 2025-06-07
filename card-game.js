@@ -17,7 +17,7 @@ const soundEffects = {
 
 // Set volume for sounds
 Object.values(soundEffects).forEach(sound => {
-    sound.volume = 0.3;
+    sound.volume = 0.2;
 });
 
 // --- DOM Elements ---
