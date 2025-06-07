@@ -6,13 +6,13 @@ const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const soundEffects = {
-    cardPlay: new Audio('cardplay.mp3'),
-    cardDraw: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-card-drawing-1925.mp3'),
+    cardPlay: new Audio('cardplay.mp3'), // keep if you like it
+    cardDraw: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-card-slide-fast-2186.mp3'),
     win: new Audio('win.mp3'),
     lose: new Audio('fail.mp3'),
     notification: new Audio('nottification.mp3'),
     opponentPlay: new Audio('cardplay.mp3'),
-    specialCard: new Audio('magic.mp3')
+    specialCard: new Audio('https://assets.mixkit.co/sfx/preview/mixkit-magical-sparkle-win-1936.mp3')
 };
 
 // Set volume for sounds
