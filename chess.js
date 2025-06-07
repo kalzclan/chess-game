@@ -449,57 +449,87 @@ document.querySelectorAll('.promotion-option').forEach(button => {
     }
   });
 });
+// Optimistic, robust, handles promotion and revert-on-error
 async function tryMakeMove(from, to, promotion) {
-  // 1. Save previous FEN/state in case we need to revert
   const previousFen = gameState.chess.fen();
-
-  // 2. Make the move locally (optimistically)
   let move;
-  if (promotion) {
-    move = gameState.chess.move({ from, to, promotion });
-  } else {
-    move = gameState.chess.move({ from, to });
-  }
-  renderBoard();
 
-  // 3. Highlight move and play sound instantly
-  highlightLastMove(from, to);
-  soundManager.play(move?.captured ? 'capture' : 'move');
-
-  // 4. Send move to server
+  // 1. Try to make the move locally (always, even for promotions)
   try {
-    const moveData = { gameCode: gameState.gameCode, from, to, player: gameState.playerColor };
-    if (promotion) moveData.promotion = promotion;
+    move = gameState.chess.move(
+      promotion ? { from, to, promotion } : { from, to }
+    );
+    if (!move) throw new Error('Invalid move');
 
+    renderBoard();
+    addMoveToHistory(move); // Add to move history instantly
+    highlightLastMove(from, to);
+    soundManager.play(move.captured ? 'capture' : (gameState.chess.in_check() ? 'check' : 'move'));
+
+    // Optimistically update captured pieces, etc.
+    if (move.captured) {
+      const capturingColor = move.color === 'w' ? 'white' : 'black';
+      gameState.capturedPieces[capturingColor].push(move.captured);
+      updateCapturedPiecesDisplay();
+    }
+  } catch (err) {
+    showError('Invalid move');
+    return;
+  }
+
+  // 2. Prepare move data
+  const moveData = {
+    gameCode: gameState.gameCode,
+    from,
+    to,
+    player: gameState.playerColor,
+  };
+  if (promotion) moveData.promotion = promotion;
+
+  // 3. Send move to server
+  try {
     let serverAccepted = false;
     if (gameState.isConnected) {
-      // Wrap in a promise to wait for server confirmation
+      // Use callback for confirmation if possible
       serverAccepted = await new Promise((resolve, reject) => {
         socket.emit('move', moveData, (response) => {
-          if (response?.ok) resolve(true);
-          else reject(response?.error || 'Move rejected');
+          if (response?.ok || response === true) resolve(true);
+          else reject(response?.error || 'Server rejected move');
         });
-        // Optionally, add a timeout
-        setTimeout(() => reject('Server slow, move not confirmed'), 4000);
+        setTimeout(() => reject('Move not confirmed (timeout)'), 4000); // 4s timeout
       });
     } else {
       const response = await fetch(`${gameState.apiBaseUrl}/api/move`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(moveData)
+        body: JSON.stringify(moveData),
       });
-      serverAccepted = response.ok;
-      if (!serverAccepted) throw new Error('Move failed');
+      if (!response.ok) throw new Error('Server rejected move');
+      serverAccepted = true;
     }
+    // If here, server accepted -- do nothing, UI is already correct!
   } catch (error) {
-    // 5. Revert on error
+    // 4. If server says NO, revert the move and UI
     gameState.chess.load(previousFen);
     renderBoard();
-    showError(error.message);
+    showError(error.message || 'Move not registered');
   }
 }
 
-
+// Helper to highlight last move
+function highlightLastMove(from, to) {
+  clearHighlights();
+  if (from) {
+    const { row: fromRow, col: fromCol } = algebraicToRowCol(from);
+    const fromSquare = document.querySelector(`[data-row="${fromRow}"][data-col="${fromCol}"]`);
+    if (fromSquare) fromSquare.classList.add('last-move-from');
+  }
+  if (to) {
+    const { row: toRow, col: toCol } = algebraicToRowCol(to);
+    const toSquare = document.querySelector(`[data-row="${toRow}"][data-col="${toCol}"]`);
+    if (toSquare) toSquare.classList.add('last-move-to');
+  }
+}
 function displayAlert(message, type = 'info') {
   const alertBox = document.createElement('div');
   alertBox.className = `alert ${type}`;
