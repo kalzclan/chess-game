@@ -146,6 +146,7 @@ function dealCards(deck, playerCount) {
 }
 
 // --- Game Creation ---
+// --- Game Creation ---
 function setupBetButtons() {
     createBetButtonsContainer.innerHTML = '';
     
@@ -174,12 +175,19 @@ function setupBetButtons() {
         isPrivateGame = e.target.checked;
     });
 
-    createGameBtn?.addEventListener('click', () => {
+    createGameBtn?.addEventListener('click', async () => {
         if (!selectedBet) {
             displayMessage(createGameStatusEl, 'Please select a bet amount', 'error');
             return;
         }
-        createCardGame(selectedBet);
+
+        // Disable the create game button to prevent multiple clicks
+        createGameBtn.disabled = true;
+
+        await createCardGame(selectedBet);
+
+        // Re-enable the create game button after the game creation is done
+        createGameBtn.disabled = false;
     });
 }
 
