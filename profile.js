@@ -18,6 +18,95 @@ if (!user) {
     
     // Load profile data
     loadProfile();
+    // Set up real-time updates
+    setupRealtimeUpdates();
+}
+
+// Display profile information
+function displayProfileInfo() {
+    const profileInfo = document.getElementById('profile-info');
+    const phoneDisplay = document.getElementById('phone-display');
+    const togglePhoneBtn = document.getElementById('toggle-phone');
+    
+    // Display username
+    profileInfo.innerHTML = `
+        <div class="profile-item">
+            <span class="material-icons">person</span>
+            <span>${currentUser.username}</span>
+        </div>
+        <div class="profile-item">
+            <span class="material-icons">phone</span>
+            <span id="phone-display">${currentUser.phone.replace(/(\d{3})(\d{4})(\d{3})/, '$1****$3')}</span>
+            <button id="toggle-phone" class="btn-icon">
+                <span class="material-icons">visibility</span>
+            </button>
+        </div>
+    `;
+    
+    // Add event listener for toggle phone button
+    document.getElementById('toggle-phone').addEventListener('click', togglePhoneVisibility);
+}
+
+// Toggle phone number visibility
+function togglePhoneVisibility() {
+    const phoneDisplay = document.getElementById('phone-display');
+    const toggleIcon = document.getElementById('toggle-phone').querySelector('.material-icons');
+    
+    if (phoneDisplay.textContent.includes('****')) {
+        phoneDisplay.textContent = currentUser.phone;
+        toggleIcon.textContent = 'visibility_off';
+    } else {
+        phoneDisplay.textContent = currentUser.phone.replace(/(\d{3})(\d{4})(\d{3})/, '$1****$3');
+        toggleIcon.textContent = 'visibility';
+    }
+}
+
+// Set up real-time updates
+function setupRealtimeUpdates() {
+    const transactionsChannel = supabase
+        .channel('transactions_changes')
+        .on(
+            'postgres_changes',
+            {
+                event: '*',
+                schema: 'public',
+                table: 'player_transactions',
+                filter: `player_phone=eq.${currentUser.phone}`
+            },
+            (payload) => {
+                console.log('Transaction change received!', payload);
+                loadProfile(); // Refresh transactions when any change occurs
+            }
+        )
+        .subscribe();
+
+    const balanceChannel = supabase
+        .channel('balance_changes')
+        .on(
+            'postgres_changes',
+            {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'users',
+                filter: `phone=eq.${currentUser.phone}`
+            },
+            (payload) => {
+                console.log('Balance change received!', payload);
+                if (payload.new.balance !== currentUser.balance) {
+                    currentUser.balance = payload.new.balance;
+                    document.getElementById('current-balance').textContent = 
+                        `${payload.new.balance.toFixed(2)} ETB`;
+                    showAlert('info', `Your balance has been updated to ${payload.new.balance.toFixed(2)} ETB`);
+                }
+            }
+        )
+        .subscribe();
+
+    // Store channels for cleanup if needed
+    window.supabaseChannels = {
+        transactions: transactionsChannel,
+        balance: balanceChannel
+    };
 }
 
 async function loadProfile() {
@@ -29,6 +118,9 @@ async function loadProfile() {
                 <p>Loading transactions...</p>
             </div>
         `;
+
+        // Display profile info
+        displayProfileInfo();
 
         // Load balance
         const { data: balanceData } = await supabase
@@ -328,7 +420,7 @@ function showAlert(type, message) {
     const alert = document.createElement('div');
     alert.className = `alert alert-${type}`;
     alert.innerHTML = `
-        <span class="material-icons">${type === 'success' ? 'check_circle' : 'error'}</span>
+        <span class="material-icons">${type === 'success' ? 'check_circle' : type === 'error' ? 'error' : 'info'}</span>
         ${message}
     `;
     
@@ -342,6 +434,11 @@ function showAlert(type, message) {
 
 // Back button functionality
 document.getElementById('back-btn').addEventListener('click', () => {
+    // Unsubscribe from channels when leaving the page
+    if (window.supabaseChannels) {
+        supabase.removeChannel(window.supabaseChannels.transactions);
+        supabase.removeChannel(window.supabaseChannels.balance);
+    }
     window.location.href = 'home.html';
 });
 
