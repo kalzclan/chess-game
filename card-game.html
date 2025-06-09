@@ -224,14 +224,7 @@ body {
     animation: cardGlow 2s ease-in-out infinite alternate;
 }
 
-@keyframes cardGlow {
-    0% {
-        box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.3), var(--card-shadow);
-    }
-    100% {
-        box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.6), var(--card-shadow);
-    }
-}
+
 
 .card.playable:hover {
     transform: translateY(-6px) scale(1.05);
@@ -410,14 +403,7 @@ body {
     animation: highlightPulse 1s ease-in-out infinite alternate;
 }
 
-@keyframes highlightPulse {
-    0% {
-        box-shadow: 0 8px 20px rgba(0,0,0,0.3), 0 0 0 2px #fbbf24;
-    }
-    100% {
-        box-shadow: 0 8px 20px rgba(0,0,0,0.3), 0 0 0 3px #f59e0b;
-    }
-}
+
 
 .discard-pile-container {
     position: relative;
@@ -805,16 +791,7 @@ body {
     to { opacity: 1; } 
 }
 
-@keyframes modalSlideIn { 
-    from { 
-        transform: scale(0.8) translateY(-30px); 
-        opacity: 0; 
-    } 
-    to { 
-        transform: scale(1) translateY(0); 
-        opacity: 1; 
-    } 
-}
+
 
 /* Confetti */
 @keyframes confetti {
