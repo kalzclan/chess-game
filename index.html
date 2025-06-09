@@ -3,204 +3,147 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <title>Habesha Games - Play & Win Money</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <title>Habesha Games</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --primary: #059669;
-      --primary-dark: #047857;
-      --secondary: #10B981;
-      --accent: #F59E0B;
-      --accent-light: #FEF3C7;
-      --bg-primary: #FFFFFF;
-      --bg-secondary: #F8FAFC;
-      --text-primary: #1F2937;
-      --text-secondary: #6B7280;
-      --glass-bg: rgba(255, 255, 255, 0.9);
-      --glass-border: rgba(5, 150, 105, 0.1);
-      --error: #EF4444;
-      --success: #10B981;
-      --shadow: rgba(0, 0, 0, 0.1);
+      --primary-color: #2E7D32;
+      --secondary-color: #4CAF50;
+      --accent-color: #E8F5E9;
+      --text-color: #263238;
+      --btn-hover: #1B5E20;
+      --card-bg: rgba(255, 255, 255, 0.95);
     }
 
     * {
-      margin: 0;
-      padding: 0;
       box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
     }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 50%, #F0F9FF 100%);
+      font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--accent-color);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       min-height: 100vh;
+      color: var(--text-color);
       overflow-x: hidden;
       position: relative;
-      color: var(--text-primary);
-      /* Telegram mini app optimized dimensions */
-      max-width: 100vw;
-      max-height: 100vh;
+      touch-action: manipulation;
     }
 
-    /* Animated Background Elements */
-    .floating-element {
+    /* Background game elements */
+    .game-element {
       position: absolute;
-      opacity: 0.08;
-      animation: float 15s infinite ease-in-out;
+      opacity: 0.15;
+      z-index: 0;
+      animation: float 20s infinite linear;
       pointer-events: none;
-      z-index: 1;
-    }
-
-    .floating-element:nth-child(odd) {
-      animation-direction: reverse;
     }
 
     @keyframes float {
-      0%, 100% { transform: translateY(0px) rotate(0deg); }
-      25% { transform: translateY(-15px) rotate(90deg); }
-      50% { transform: translateY(-30px) rotate(180deg); }
-      75% { transform: translateY(-15px) rotate(270deg); }
+      0% {
+        transform: translate(0, 0) rotate(0deg);
+      }
+      25% {
+        transform: translate(10vw, -5vh) rotate(90deg);
+      }
+      50% {
+        transform: translate(0, -10vh) rotate(180deg);
+      }
+      75% {
+        transform: translate(-10vw, -5vh) rotate(270deg);
+      }
+      100% {
+        transform: translate(0, 0) rotate(360deg);
+      }
     }
 
-    .chess-piece { font-size: 2.5rem; color: var(--primary); }
-    .poker-card { font-size: 2rem; color: var(--accent); }
-    .dice-number { font-size: 1.8rem; color: var(--secondary); }
-
-    /* Main Container - Optimized for Telegram Mini App */
-    .container {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      padding: 1rem;
-      position: relative;
-      z-index: 10;
-      /* Telegram mini app specific */
-      max-width: 100vw;
+    .chess-piece {
+      font-size: 2.5rem;
+      color: var(--primary-color);
     }
 
-    .auth-card {
-      background: var(--glass-bg);
-      backdrop-filter: blur(20px);
-      border: 1px solid var(--glass-border);
-      border-radius: 24px;
-      padding: 2rem;
+    .card {
+      font-size: 2rem;
+      color: var(--primary-color);
+    }
+
+    .dice {
+      font-size: 1.8rem;
+      color: var(--primary-color);
+    }
+
+    header {
+      background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
       width: 100%;
-      max-width: 380px;
-      box-shadow: 0 20px 40px var(--shadow);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .auth-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, var(--primary), transparent);
-      opacity: 0.3;
-    }
-
-    /* Header */
-    .header {
+      padding: 1.5rem 0;
       text-align: center;
-      margin-bottom: 1.5rem;
-    }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.75rem;
-      margin-bottom: 1rem;
-    }
-
-    .logo-icon {
-      width: 44px;
-      height: 44px;
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.4rem;
       color: white;
-      animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.05); }
-    }
-
-    .logo-text {
-      font-size: 1.6rem;
-      font-weight: 700;
-      background: linear-gradient(135deg, var(--primary), var(--accent));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .welcome-text {
-      font-size: 1rem;
-      color: var(--text-secondary);
-      margin-bottom: 0.5rem;
-    }
-
-    .tagline {
-      font-size: 0.8rem;
-      color: var(--accent);
+      font-size: 1.8rem;
       font-weight: 600;
-      animation: glow 3s ease-in-out infinite alternate;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      z-index: 10;
+      position: relative;
     }
 
-    @keyframes glow {
-      from { opacity: 0.8; }
-      to { opacity: 1; text-shadow: 0 0 8px var(--accent); }
+    main {
+      margin-top: 1.5rem;
+      width: 90%;
+      max-width: 100%;
+      z-index: 10;
+      padding-bottom: 2rem;
     }
 
-    /* Auth Toggle */
     .auth-toggle {
       display: flex;
-      background: var(--bg-secondary);
-      border-radius: 16px;
-      padding: 0.25rem;
       margin-bottom: 1.5rem;
-      position: relative;
-      border: 1px solid #E5E7EB;
+      border-radius: 50px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      background: white;
     }
 
-    .toggle-btn {
+    .auth-toggle button {
       flex: 1;
-      padding: 0.7rem 1rem;
+      padding: 0.9rem;
       border: none;
-      background: transparent;
-      color: var(--text-secondary);
-      font-size: 0.85rem;
+      background-color: transparent;
+      color: var(--text-color);
+      font-size: 1rem;
       font-weight: 500;
-      border-radius: 12px;
       cursor: pointer;
       transition: all 0.3s ease;
       position: relative;
-      z-index: 2;
     }
 
-    .toggle-btn.active {
-      color: white;
-      background: var(--primary);
-      box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
+    .auth-toggle button.active {
+      color: var(--primary-color);
     }
 
-    /* Form Styles */
-    .form {
-      display: block;
+    .auth-toggle button.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 50%;
+      height: 3px;
+      background-color: var(--primary-color);
+      border-radius: 3px;
     }
 
-    .form.hidden {
-      display: none;
+    form {
+      background: var(--card-bg);
+      padding: 1.5rem;
+      border-radius: 16px;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+      display: flex;
+      flex-direction: column;
+      border: 1px solid rgba(0, 0, 0, 0.05);
     }
 
     .form-group {
@@ -208,35 +151,22 @@
       margin-bottom: 1.2rem;
     }
 
-    .form-label {
-      display: block;
-      font-size: 0.8rem;
-      font-weight: 500;
-      color: var(--text-secondary);
-      margin-bottom: 0.4rem;
-    }
-
-    .form-input {
+    input {
+      font-size: 1rem;
+      padding: 0.9rem 0.9rem 0.9rem 2.8rem;
       width: 100%;
-      padding: 0.9rem 0.9rem 0.9rem 0.9rem;
-      background: white;
-      border: 1.5px solid #E5E7EB;
+      border: 1px solid #e0e0e0;
       border-radius: 12px;
-      color: var(--text-primary);
-      font-size: 0.9rem;
-      transition: all 0.3s ease;
       outline: none;
+      transition: all 0.2s;
+      background-color: #f5f5f5;
+      -webkit-appearance: none;
     }
 
-    .form-input:focus {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
-      background: #FAFAFA;
-    }
-
-    .form-input::placeholder {
-      color: var(--text-secondary);
-      opacity: 0.7;
+    input:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.2);
+      background-color: white;
     }
 
     .input-icon {
@@ -244,60 +174,53 @@
       left: 1rem;
       top: 50%;
       transform: translateY(-50%);
-      color: var(--text-secondary);
+      color: #757575;
+      font-size: 1.1rem;
+    }
+
+    button[type="submit"] {
+      padding: 1rem;
       font-size: 1rem;
-      transition: color 0.3s ease;
-    }
-
-    .form-input:focus + .input-icon {
-      color: var(--primary);
-    }
-
-    /* Submit Button */
-    .submit-btn {
-      width: 100%;
-      padding: 0.9rem;
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      font-weight: 500;
+      background-color: var(--primary-color);
+      color: white;
       border: none;
       border-radius: 12px;
-      color: white;
-      font-size: 0.9rem;
-      font-weight: 600;
       cursor: pointer;
-      transition: all 0.3s ease;
-      position: relative;
-      overflow: hidden;
-      margin-bottom: 1rem;
-    }
-
-    .submit-btn:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 20px rgba(5, 150, 105, 0.4);
-    }
-
-    .submit-btn:active {
-      transform: translateY(0);
-    }
-
-    .submit-btn:disabled {
-      opacity: 0.7;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .btn-content {
+      transition: all 0.2s;
+      margin-top: 0.5rem;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
     }
 
+    button[type="submit"]:active {
+      background-color: var(--btn-hover);
+      transform: scale(0.98);
+    }
+
+    .error {
+      margin-top: 0.8rem;
+      color: #D32F2F;
+      font-size: 0.85rem;
+      text-align: center;
+      padding: 0.7rem;
+      background-color: #FFEBEE;
+      border-radius: 8px;
+      border: 1px solid #EF9A9A;
+    }
+
+    .hidden {
+      display: none;
+    }
+
     .loader {
-      width: 18px;
-      height: 18px;
       border: 2px solid rgba(255, 255, 255, 0.3);
       border-top: 2px solid white;
       border-radius: 50%;
+      width: 18px;
+      height: 18px;
       animation: spin 1s linear infinite;
     }
 
@@ -306,517 +229,325 @@
       100% { transform: rotate(360deg); }
     }
 
-    .hidden {
-      display: none;
-    }
-
-    /* Error Message */
-    .error-message {
-      background: rgba(239, 68, 68, 0.1);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-      color: #DC2626;
-      padding: 0.7rem;
-      border-radius: 8px;
-      font-size: 0.8rem;
-      text-align: center;
-      margin-top: 1rem;
-      animation: shake 0.5s ease-in-out;
-    }
-
-    @keyframes shake {
-      0%, 100% { transform: translateX(0); }
-      25% { transform: translateX(-5px); }
-      75% { transform: translateX(5px); }
-    }
-
-    /* Money Animation */
-    .money-symbols {
-      position: absolute;
-      top: -40px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      gap: 0.8rem;
-      opacity: 0;
-      animation: moneyFall 3s ease-in-out infinite;
-    }
-
-    @keyframes moneyFall {
-      0% { opacity: 0; transform: translateX(-50%) translateY(-40px); }
-      50% { opacity: 1; transform: translateX(-50%) translateY(0px); }
-      100% { opacity: 0; transform: translateX(-50%) translateY(40px); }
-    }
-
-    .money-symbol {
-      font-size: 1.3rem;
-      color: var(--accent);
-    }
-
-    /* Features Section */
-    .features {
-      margin-top: 1rem;
-      padding-top: 1rem;
-      border-top: 1px solid #E5E7EB;
-    }
-
-    .features-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.8rem;
-      font-size: 0.75rem;
-      color: var(--text-secondary);
-    }
-
-    .feature-item {
+    .logo {
       display: flex;
       align-items: center;
-      gap: 0.4rem;
+      justify-content: center;
+      gap: 0.8rem;
     }
 
-    .feature-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
+    .logo-icon {
+      font-size: 1.6rem;
     }
 
-    .dot-green { background: #10B981; }
-    .dot-blue { background: #3B82F6; }
-    .dot-yellow { background: #F59E0B; }
-    .dot-purple { background: #8B5CF6; }
-
-    /* Bottom CTA */
-    .bottom-cta {
-      text-align: center;
-      margin-top: 1rem;
-      color: var(--text-secondary);
-      font-size: 0.75rem;
-    }
-
-    /* Telegram Mini App Specific Optimizations */
-    @media (max-height: 600px) {
-      .container {
-        padding: 0.5rem;
+    /* Responsive adjustments for very small screens */
+    @media (max-width: 360px) {
+      header {
+        padding: 1.2rem 0;
+        font-size: 1.5rem;
       }
       
-      .auth-card {
-        padding: 1.5rem;
-        margin: 0.5rem;
-      }
-      
-      .logo-text {
-        font-size: 1.4rem;
-      }
-      
-      .form-group {
-        margin-bottom: 1rem;
-      }
-    }
-
-    @media (max-width: 400px) {
-      .auth-card {
-        padding: 1.5rem;
-        border-radius: 20px;
-      }
-
-      .logo-text {
-        font-size: 1.4rem;
-      }
-
-      .welcome-text {
+      .auth-toggle button {
+        padding: 0.8rem;
         font-size: 0.9rem;
       }
-
-      .form-input {
-        padding: 0.8rem 0.8rem 0.8rem 2.5rem;
-        font-size: 0.85rem;
+      
+      form {
+        padding: 1.2rem;
       }
-
-      .input-icon {
-        left: 0.8rem;
+      
+      input {
+        padding: 0.8rem 0.8rem 0.8rem 2.5rem;
+        font-size: 0.95rem;
       }
     }
-
-    /* Game Elements Positioning */
-    .chess-1 { top: 8%; left: 5%; animation-delay: 0s; }
-    .chess-2 { top: 15%; right: 8%; animation-delay: 2s; }
-    .chess-3 { bottom: 12%; left: 10%; animation-delay: 4s; }
-    .poker-1 { top: 25%; left: 12%; animation-delay: 1s; }
-    .poker-2 { bottom: 20%; right: 5%; animation-delay: 3s; }
-    .poker-3 { top: 12%; right: 15%; animation-delay: 5s; }
-    .dice-1 { bottom: 8%; left: 15%; animation-delay: 1.5s; }
-    .dice-2 { top: 20%; left: 6%; animation-delay: 3.5s; }
-    .dice-3 { bottom: 25%; right: 12%; animation-delay: 5.5s; }
   </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-  <!-- Floating Game Elements -->
-  <div class="floating-element chess-piece chess-1">♛</div>
-  <div class="floating-element chess-piece chess-2">♜</div>
-  <div class="floating-element chess-piece chess-3">♞</div>
-  <div class="floating-element poker-card poker-1">♠</div>
-  <div class="floating-element poker-card poker-2">♥</div>
-  <div class="floating-element poker-card poker-3">♦</div>
-  <div class="floating-element dice-number dice-1">⚀</div>
-  <div class="floating-element dice-number dice-2">⚃</div>
-  <div class="floating-element dice-number dice-3">⚅</div>
+  <!-- Background game elements -->
+  <div class="game-element chess-piece" style="top: 15%; left: 5%; animation-delay: 0s;"><i class="fas fa-chess-queen"></i></div>
+  <div class="game-element card" style="top: 25%; right: 5%; animation-delay: 3s;"><i class="fas fa-spade"></i></div>
+  <div class="game-element chess-piece" style="bottom: 20%; left: 8%; animation-delay: 6s;"><i class="fas fa-chess-knight"></i></div>
+  <div class="game-element dice" style="bottom: 15%; right: 10%; animation-delay: 9s;"><i class="fas fa-dice"></i></div>
+  <div class="game-element card" style="top: 18%; right: 15%; animation-delay: 12s;"><i class="fas fa-club"></i></div>
+  <div class="game-element chess-piece" style="bottom: 25%; right: 5%; animation-delay: 15s;"><i class="fas fa-chess-rook"></i></div>
+  <div class="game-element dice" style="top: 22%; left: 10%; animation-delay: 18s;"><i class="fas fa-dice-five"></i></div>
 
-  <div class="container">
-    <div class="auth-card">
-      <!-- Money Animation -->
-      <div class="money-symbols">
-        <span class="money-symbol">💰</span>
-        <span class="money-symbol">💎</span>
-        <span class="money-symbol">🏆</span>
-      </div>
+  <header>
+    <div class="logo">
+      <i class="fas fa-gamepad logo-icon"></i>
+      <span>Habesha Games</span>
+    </div>
+  </header>
 
-      <!-- Header -->
-      <div class="header">
-        <div class="logo">
-          <div class="logo-icon">🎮</div>
-          <div class="logo-text">Habesha Games</div>
-        </div>
-        <div class="welcome-text">Welcome! Ready to Play?</div>
-        <div class="tagline">✨ Win Money While Gaming ✨</div>
-      </div>
-
-      <!-- Auth Toggle -->
-      <div class="auth-toggle">
-        <button class="toggle-btn active" id="loginToggle">Login</button>
-        <button class="toggle-btn" id="registerToggle">Register</button>
-      </div>
-
-      <!-- Login Form -->
-      <form class="form" id="loginForm">
-        <div class="form-group">
-          <label class="form-label">Phone Number</label>
-          <input type="tel" class="form-input" id="loginPhone" placeholder="Enter your phone number" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Password</label>
-          <input type="password" class="form-input" id="loginPassword" placeholder="Enter your password" required>
-        </div>
-        <button type="submit" class="submit-btn" id="loginBtn">
-          <div class="btn-content">
-            <span id="loginText">Login & Start Winning</span>
-            <div class="loader hidden" id="loginLoader"></div>
-          </div>
-        </button>
-        <div class="error-message hidden" id="loginError"></div>
-      </form>
-
-      <!-- Register Form -->
-      <form class="form hidden" id="registerForm">
-        <div class="form-group">
-          <label class="form-label">Full Name</label>
-          <input type="text" class="form-input" id="registerName" placeholder="Enter your full name" required>
-          
-        </div>
-        <div class="form-group">
-          <label class="form-label">Phone Number</label>
-          <input type="tel" class="form-input" id="registerPhone" placeholder="Enter your phone number" required>
-          
-        </div>
-        <div class="form-group">
-          <label class="form-label">Password</label>
-          <input type="password" class="form-input" id="registerPassword" placeholder="Create a password" required>
-          
-        </div>
-        <div class="form-group">
-          <label class="form-label">Confirm Password</label>
-          <input type="password" class="form-input" id="confirmPassword" placeholder="Confirm your password" required>
-          
-        </div>
-        <button type="submit" class="submit-btn" id="registerBtn">
-          <div class="btn-content">
-            <span id="registerText">Join & Win Money</span>
-            <div class="loader hidden" id="registerLoader"></div>
-          </div>
-        </button>
-        <div class="error-message hidden" id="registerError"></div>
-      </form>
-
-      <!-- Features -->
-      <div class="features">
-        <div class="features-grid">
-          <div class="feature-item">
-            <div class="feature-dot dot-green"></div>
-            <span>Instant Withdrawals</span>
-          </div>
-          <div class="feature-item">
-            <div class="feature-dot dot-blue"></div>
-            <span>24/7 Support</span>
-          </div>
-          <div class="feature-item">
-            <div class="feature-dot dot-yellow"></div>
-            <span>Fair Play Guaranteed</span>
-          </div>
-          <div class="feature-item">
-            <div class="feature-dot dot-purple"></div>
-            <span>Secure Platform</span>
-          </div>
-        </div>
-      </div>
+  <main>
+    <div class="auth-toggle">
+      <button id="loginBtn" class="active">Login</button>
+      <button id="registerBtn">Register</button>
     </div>
 
-    <!-- Bottom CTA -->
-    <div class="bottom-cta">
-      🎮 Join thousands of players • 💰 Win real money daily
-    </div>
-  </div>
+    <form id="loginForm">
+      <div class="form-group">
+        <i class="fas fa-phone input-icon"></i>
+        <input type="tel" id="loginPhone" placeholder="Phone number" required inputmode="tel"/>
+      </div>
+      <div class="form-group">
+        <i class="fas fa-lock input-icon"></i>
+        <input type="password" id="loginPassword" placeholder="Password" required />
+      </div>
+      <button type="submit" id="loginSubmit">
+        <span id="loginText">Login</span>
+        <div id="loginLoader" class="loader hidden"></div>
+      </button>
+      <div class="error" id="loginError"></div>
+    </form>
 
-  <script>
-    // DOM Elements
-    const loginToggle = document.getElementById('loginToggle');
-    const registerToggle = document.getElementById('registerToggle');
-    const loginForm = document.getElementById('loginForm');
-    const registerForm = document.getElementById('registerForm');
-    const loginBtn = document.getElementById('loginBtn');
-    const registerBtn = document.getElementById('registerBtn');
-    const loginText = document.getElementById('loginText');
-    const registerText = document.getElementById('registerText');
-    const loginLoader = document.getElementById('loginLoader');
-    const registerLoader = document.getElementById('registerLoader');
-    const loginError = document.getElementById('loginError');
-    const registerError = document.getElementById('registerError');
+    <form id="registerForm" class="hidden">
+      <div class="form-group">
+        <i class="fas fa-user input-icon"></i>
+        <input type="text" id="username" placeholder="Your name" required />
+      </div>
+      <div class="form-group">
+        <i class="fas fa-phone input-icon"></i>
+        <input type="tel" id="phone" placeholder="Phone number" required inputmode="tel"/>
+      </div>
+      <div class="form-group">
+        <i class="fas fa-lock input-icon"></i>
+        <input type="password" id="password" placeholder="Password" required />
+      </div>
+      <div class="form-group">
+        <i class="fas fa-lock input-icon"></i>
+        <input type="password" id="confirmPassword" placeholder="Confirm Password" required />
+      </div>
+      <button type="submit" id="registerSubmit">
+        <span id="registerText">Register</span>
+        <div id="registerLoader" class="loader hidden"></div>
+      </button>
+      <div class="error" id="registerError"></div>
+    </form>
+  </main>
 
-    // Toggle between forms
-    loginToggle.addEventListener('click', () => {
-      loginToggle.classList.add('active');
-      registerToggle.classList.remove('active');
-      loginForm.classList.remove('hidden');
-      registerForm.classList.add('hidden');
-      clearErrors();
-    });
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+    const supabaseUrl = "https://evberyanshxxalxtwnnc.supabase.co";
+    const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2YmVyeWFuc2h4eGFseHR3bm5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQwODMwOTcsImV4cCI6MjA1OTY1OTA5N30.pEoPiIi78Tvl5URw0Xy_vAxsd-3XqRlC8FTnX9HpgMw";
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    registerToggle.addEventListener('click', () => {
-      registerToggle.classList.add('active');
-      loginToggle.classList.remove('active');
-      registerForm.classList.remove('hidden');
-      loginForm.classList.add('hidden');
-      clearErrors();
-    });
-
-    // Phone number formatting
+    // Function to format phone number
     function formatPhoneNumber(phone) {
+      // Remove all non-digit characters
       const cleaned = phone.replace(/\D/g, '');
       
+      // Check if it's a 10-digit number starting with 0 (like 0961401822)
       if (cleaned.length === 10 && cleaned.startsWith('0')) {
         return `+251${cleaned.substring(1)}`;
       }
       
+      // Check if it's a 9-digit number (like 961401822)
       if (cleaned.length === 9 && !cleaned.startsWith('0')) {
         return `+251${cleaned}`;
       }
       
+      // If it's already in international format, return as is
       return cleaned.startsWith('+') ? cleaned : `+${cleaned}`;
     }
 
-    // Show loading state
-    function showLoading(isLogin) {
-      if (isLogin) {
-        loginText.classList.add('hidden');
-        loginLoader.classList.remove('hidden');
-        loginBtn.disabled = true;
-      } else {
-        registerText.classList.add('hidden');
-        registerLoader.classList.remove('hidden');
-        registerBtn.disabled = true;
-      }
-    }
-
-    // Hide loading state
-    function hideLoading(isLogin) {
-      if (isLogin) {
-        loginText.classList.remove('hidden');
-        loginLoader.classList.add('hidden');
-        loginBtn.disabled = false;
-      } else {
-        registerText.classList.remove('hidden');
-        registerLoader.classList.add('hidden');
-        registerBtn.disabled = false;
-      }
-    }
-
-    // Show error message
-    function showError(message, isLogin) {
-      const errorElement = isLogin ? loginError : registerError;
-      errorElement.textContent = message;
-      errorElement.classList.remove('hidden');
-      
-      // Auto-hide error after 5 seconds
-      setTimeout(() => {
-        errorElement.classList.add('hidden');
-      }, 5000);
-    }
-
-    // Clear all errors
-    function clearErrors() {
-      loginError.classList.add('hidden');
-      registerError.classList.add('hidden');
-    }
-
-    // Simulate API calls (replace with actual Supabase integration)
-    async function simulateLogin(phone, password) {
-      return new Promise((resolve, reject) => {
-        setTimeout(() => {
-          // Simulate success/failure
-          if (phone && password.length >= 6) {
-            resolve({ success: true, user: { phone, name: 'Test User' } });
-          } else {
-            reject(new Error('Invalid phone number or password'));
-          }
-        }, 2000);
-      });
-    }
-
-    async function simulateRegister(name, phone, password) {
-      return new Promise((resolve, reject) => {
-        setTimeout(() => {
-          // Simulate success/failure
-          if (name && phone && password.length >= 6) {
-            resolve({ success: true, user: { name, phone } });
-          } else {
-            reject(new Error('Please fill all fields correctly'));
-          }
-        }, 2000);
-      });
-    }
-
-    // Login form handler
-    loginForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      clearErrors();
-      
-      const phone = document.getElementById('loginPhone').value.trim();
-      const password = document.getElementById('loginPassword').value.trim();
-      
-      if (!phone || !password) {
-        showError('Please fill in all fields', true);
-        return;
-      }
-
-      const formattedPhone = formatPhoneNumber(phone);
-      showLoading(true);
-
-      try {
-        const result = await simulateLogin(formattedPhone, password);
-        
-        // Store user data (replace with actual storage logic)
-        localStorage.setItem('user', JSON.stringify(result.user));
-        
-        // Success animation
-        loginText.textContent = 'Welcome Back! 🎉';
-        
-        // Redirect after success (replace with actual redirect)
-        setTimeout(() => {
-          alert('Login successful! Redirecting to games...');
-          // window.location.href = 'home.html';
-        }, 1000);
-        
-      } catch (error) {
-        showError(error.message, true);
-      } finally {
-        hideLoading(true);
+    // Check authentication state
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        window.location.href = "home.html";
       }
     });
 
-    // Register form handler
-    registerForm.addEventListener('submit', async (e) => {
+    // Toggle between login and register forms
+    const loginBtn = document.getElementById("loginBtn");
+    const registerBtn = document.getElementById("registerBtn");
+    const loginForm = document.getElementById("loginForm");
+    const registerForm = document.getElementById("registerForm");
+
+    loginBtn.addEventListener("click", () => {
+      loginBtn.classList.add("active");
+      registerBtn.classList.remove("active");
+      loginForm.classList.remove("hidden");
+      registerForm.classList.add("hidden");
+    });
+
+    registerBtn.addEventListener("click", () => {
+      registerBtn.classList.add("active");
+      loginBtn.classList.remove("active");
+      registerForm.classList.remove("hidden");
+      loginForm.classList.add("hidden");
+    });
+
+    // Login form handling
+    const loginFormEl = document.getElementById("loginForm");
+    const loginError = document.getElementById("loginError");
+    const loginSubmit = document.getElementById("loginSubmit");
+    const loginText = document.getElementById("loginText");
+    const loginLoader = document.getElementById("loginLoader");
+
+    loginFormEl.addEventListener("submit", async (e) => {
       e.preventDefault();
-      clearErrors();
+      loginError.textContent = "";
       
-      const name = document.getElementById('registerName').value.trim();
-      const phone = document.getElementById('registerPhone').value.trim();
-      const password = document.getElementById('registerPassword').value.trim();
-      const confirmPassword = document.getElementById('confirmPassword').value.trim();
+      // Show loading state
+      loginText.classList.add("hidden");
+      loginLoader.classList.remove("hidden");
+      loginSubmit.disabled = true;
+
+      const phoneInput = document.getElementById("loginPhone").value.trim();
+      const password = document.getElementById("loginPassword").value.trim();
+
+      if (!phoneInput || !password) {
+        loginError.textContent = "Please enter both phone and password.";
+        resetLoginButton();
+        return;
+      }
+
+      // Format the phone number
+      const phone = formatPhoneNumber(phoneInput);
+
+      try {
+        // Sign in with phone and password
+        const { data, error } = await supabase.auth.signInWithPassword({
+          phone: phone,
+          password: password
+        });
+
+        if (error) throw error;
+
+        // Get user data from your users table
+        const { data: userData, error: userError } = await supabase
+          .from("users")
+          .select("*")
+          .eq("phone", phone)
+          .single();
+
+        if (userError) throw userError;
+
+        // Store user data in localStorage
+        localStorage.setItem("user", JSON.stringify(userData));
+        localStorage.setItem("phone", phone);
+
+        window.location.href = "home.html";
+      } catch (err) {
+        console.error("Login error:", err);
+        loginError.textContent = err.message || "Invalid phone or password.";
+        resetLoginButton();
+      }
+    });
+
+    function resetLoginButton() {
+      loginText.classList.remove("hidden");
+      loginLoader.classList.add("hidden");
+      loginSubmit.disabled = false;
+    }
+
+    // Register form handling
+    const registerFormEl = document.getElementById("registerForm");
+    const registerError = document.getElementById("registerError");
+    const registerSubmit = document.getElementById("registerSubmit");
+    const registerText = document.getElementById("registerText");
+    const registerLoader = document.getElementById("registerLoader");
+
+    registerFormEl.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      registerError.textContent = "";
       
-      if (!name || !phone || !password || !confirmPassword) {
-        showError('Please fill in all fields', false);
+      // Show loading state
+      registerText.classList.add("hidden");
+      registerLoader.classList.remove("hidden");
+      registerSubmit.disabled = true;
+
+      const username = document.getElementById("username").value.trim();
+      const phoneInput = document.getElementById("phone").value.trim();
+      const password = document.getElementById("password").value.trim();
+      const confirmPassword = document.getElementById("confirmPassword").value.trim();
+
+      if (!username || !phoneInput || !password || !confirmPassword) {
+        registerError.textContent = "Please fill all fields.";
+        resetRegisterButton();
         return;
       }
 
       if (password !== confirmPassword) {
-        showError('Passwords do not match', false);
+        registerError.textContent = "Passwords don't match.";
+        resetRegisterButton();
         return;
       }
 
-      if (password.length < 6) {
-        showError('Password must be at least 6 characters', false);
-        return;
-      }
-
-      const formattedPhone = formatPhoneNumber(phone);
-      showLoading(false);
+      // Format the phone number
+      const phone = formatPhoneNumber(phoneInput);
 
       try {
-        const result = await simulateRegister(name, formattedPhone, password);
-        
-        // Store user data (replace with actual storage logic)
-        localStorage.setItem('user', JSON.stringify(result.user));
-        
-        // Success animation
-        registerText.textContent = 'Welcome to Habesha Games! 🎉';
-        
-        // Redirect after success (replace with actual redirect)
-        setTimeout(() => {
-          alert('Registration successful! Welcome bonus added! Redirecting...');
-          // window.location.href = 'home.html';
-        }, 1000);
-        
-      } catch (error) {
-        showError(error.message, false);
-      } finally {
-        hideLoading(false);
+        // First check if user exists in your users table
+        const { data: existingUser, error: lookupError } = await supabase
+          .from("users")
+          .select("*")
+          .eq("phone", phone)
+          .single();
+
+        if (existingUser) {
+          registerError.textContent = "Phone number already registered.";
+          resetRegisterButton();
+          return;
+        }
+
+        // Sign up with Supabase Auth
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          phone: phone,
+          password: password,
+          options: {
+            data: {
+              username: username
+            }
+          }
+        });
+
+        if (authError) throw authError;
+
+        // Create user in your users table
+        const { data: newUser, error: insertError } = await supabase
+          .from("users")
+          .insert([{ 
+            username, 
+            phone, 
+            balance: 0,
+            auth_id: authData.user.id // Store the auth user ID
+          }])
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+
+        // Store user data in localStorage
+        localStorage.setItem("user", JSON.stringify(newUser));
+        localStorage.setItem("phone", phone);
+        // Redirect to home page after successful registration
+        window.location.href = "home.html";
+      } catch (err) {
+        console.error("Registration error:", err);
+        registerError.textContent = err.message || "Something went wrong. Please try again.";
+        resetRegisterButton();
       }
     });
 
-    // Add input focus animations
-    document.querySelectorAll('.form-input').forEach(input => {
-      input.addEventListener('focus', (e) => {
-        e.target.parentElement.style.transform = 'scale(1.02)';
-        e.target.parentElement.style.transition = 'transform 0.2s ease';
-      });
-      
-      input.addEventListener('blur', (e) => {
-        e.target.parentElement.style.transform = 'scale(1)';
-      });
-    });
-
-    // Add money animation trigger on successful actions
-    function triggerMoneyAnimation() {
-      const moneySymbols = document.querySelector('.money-symbols');
-      moneySymbols.style.animation = 'none';
-      setTimeout(() => {
-        moneySymbols.style.animation = 'moneyFall 3s ease-in-out';
-      }, 100);
+    function resetRegisterButton() {
+      registerText.classList.remove("hidden");
+      registerLoader.classList.add("hidden");
+      registerSubmit.disabled = false;
     }
 
-    // Trigger money animation every 10 seconds
-    setInterval(triggerMoneyAnimation, 10000);
-
-    // Add particle effect on button hover
-    document.querySelectorAll('.submit-btn').forEach(btn => {
-      btn.addEventListener('mouseenter', () => {
-        btn.style.boxShadow = '0 6px 20px rgba(5, 150, 105, 0.4), 0 0 15px rgba(245, 158, 11, 0.2)';
-      });
-      
-      btn.addEventListener('mouseleave', () => {
-        btn.style.boxShadow = '';
+    // Better mobile input handling
+    document.querySelectorAll('input').forEach(input => {
+      input.addEventListener('focus', () => {
+        // Ensure the input is visible when keyboard appears
+        setTimeout(() => {
+          input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
       });
     });
-
-    // Telegram Mini App specific optimizations
-    if (window.Telegram && window.Telegram.WebApp) {
-      // Initialize Telegram WebApp
-      window.Telegram.WebApp.ready();
-      
-      // Expand to full height
-      window.Telegram.WebApp.expand();
-      
-      // Set theme colors
-      window.Telegram.WebApp.setHeaderColor('#FFFFFF');
-      window.Telegram.WebApp.setBackgroundColor('#FFFFFF');
-    }
   </script>
 </body>
 </html>
