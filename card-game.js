@@ -20,140 +20,113 @@ Object.values(soundEffects).forEach(sound => {
     sound.volume = 0.2;
 });
 
-const elements = {
-    backBtn: document.getElementById('back-btn'),
-    menuBtn: document.getElementById('menu-btn'),
-    gameCodeDisplay: document.getElementById('game-code-display'),
-    currentSuitDisplay: document.getElementById('current-suit'),
-    playerHandEl: document.getElementById('player-hand'),
-    opponentHandCountEl: document.getElementById('opponent-hand-count'),
-    discardPileEl: document.getElementById('discard-pile'),
-    gameStatusEl: document.getElementById('game-status'),
-    playerNameEl: document.getElementById('player-name'),
-    opponentNameEl: document.getElementById('opponent-name'),
-    playerAvatarEl: document.getElementById('player-avatar'),
-    opponentAvatarEl: document.getElementById('opponent-avatar'),
-    drawCardBtn: document.getElementById('draw-card-btn'),
-    passTurnBtn: document.getElementById('pass-turn-btn'),
-    deckPileEl: document.getElementById('deck-pile'),
-    playerStatusEl: document.querySelector('.player-status'),
-    opponentStatusEl: document.querySelector('.opponent-status'),
-    onlineIndicators: {
-        player: document.querySelector('.player-avatar-wrapper .online-indicator'),
-        opponent: document.querySelector('.opponent-avatar-wrapper .online-indicator')
-    }
-};
+// --- DOM Elements ---
+const backBtn = document.getElementById('back-btn');
+const gameCodeDisplay = document.getElementById('game-code-display');
+const currentSuitDisplay = document.getElementById('current-suit');
+const playerHandEl = document.getElementById('player-hand');
+const opponentHandCountEl = document.getElementById('opponent-hand-count');
+const discardPileEl = document.getElementById('discard-pile');
+const gameStatusEl = document.getElementById('game-status');
+const playerNameEl = document.getElementById('player-name');
+const opponentNameEl = document.getElementById('opponent-name');
+const playerAvatarEl = document.getElementById('player-avatar');
+const opponentAvatarEl = document.getElementById('opponent-avatar');
+const drawCardBtn = document.getElementById('draw-card-btn');
+const passTurnBtn = document.getElementById('pass-turn-btn');
 
 // --- Game Constants ---
-const GAME_CONSTANTS = {
-    SUITS: ['hearts', 'diamonds', 'clubs', 'spades'],
-    VALUES: ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'],
-    SPECIAL_CARDS: {
-        '8': 'change_suit',
-        'J': 'change_suit',
-        '5': 'skip_turn',
-        '7': 'play_multiple',
-        '2': 'draw_two',
-        'A': 'spade_ace_only'
-    }
+const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
+const VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+const SPECIAL_CARDS = {
+    '8': 'change_suit',
+    'J': 'change_suit',
+    '5': 'skip_turn',
+    '7': 'play_multiple',
+    '2': 'draw_two',
+    'A': 'spade_ace_only'
 };
+
 // --- Game State ---
-class GameState {
-    constructor() {
-        this.reset();
-    }
-
-    reset() {
-        this.gameCode = '';
-        this.playerRole = '';
-        this.status = 'waiting';
-        this.currentPlayer = '';
-        this.currentSuit = '';
-        this.lastCard = null;
-        this.playerHand = [];
-        this.opponentHandCount = 0;
-        this.creator = {};
-        this.opponent = {};
-        this.pendingAction = null;
-        this.pendingActionData = null;
-        this.betAmount = 0;
-        this.mustPlaySuit = false;
-        this.currentSuitToMatch = '';
-        this.hasDrawnThisTurn = false;
-        this.discardPile = [];
-        this.lastSuitChangeMethod = null;
-        this.canChangeSuit = true;
-        this.isSuitChangeBlocked = false;
-        this.betDeducted = false;
-        this.winRecorded = false;
-        this.lastCardChangeTimestamp = null;
-    }
-
-    updateFromDatabase(data) {
-        // Update state from database data
-        Object.keys(data).forEach(key => {
-            if (this.hasOwnProperty(key)) {
-                this[key] = data[key];
-            }
-        });
-    }
-}
-
-const gameState = new GameState();
-
-// --- Modern UI Update Functions ---
-const UI = {
-    updatePlayerStatus(status) {
-        if (elements.playerStatusEl) {
-            elements.playerStatusEl.textContent = status;
-            elements.playerStatusEl.className = `player-status ${status.toLowerCase().replace(' ', '-')}`;
-        }
-    },
-
-    updateOpponentStatus(status) {
-        if (elements.opponentStatusEl) {
-            elements.opponentStatusEl.textContent = status;
-            elements.opponentStatusEl.className = `opponent-status ${status.toLowerCase().replace(' ', '-')}`;
-        }
-    },
-
-    updateDeckPile(count) {
-        if (elements.deckPileEl) {
-            const deckCount = elements.deckPileEl.querySelector('.deck-count');
-            if (deckCount) {
-                deckCount.textContent = count;
-            }
-        }
-    },
-
-    showNotification(message, type = 'info') {
-        const notification = document.createElement('div');
-        notification.className = `notification ${type}`;
-        notification.textContent = message;
-        document.body.appendChild(notification);
-        
-        // Modern animation timing
-        setTimeout(() => {
-            notification.classList.add('fade-out');
-            setTimeout(() => notification.remove(), 300);
-        }, 3000);
-    },
-
-    displayMessage(element, message, type = 'info') {
-        if (!element) return;
-        
-        element.textContent = message;
-        element.className = `status-message ${type}`;
-        
-        if (type === 'success') {
-            setTimeout(() => {
-                element.textContent = '';
-                element.className = 'status-message';
-            }, 3000);
-        }
-    }
+let gameState = {
+    gameCode: '',
+    playerRole: '',
+    status: 'waiting',
+    currentPlayer: '',
+    currentSuit: '',
+    lastCard: null,
+    playerHand: [],
+    opponentHandCount: 0,
+    creator: {},
+    opponent: {},
+    pendingAction: null,
+    pendingActionData: null,
+    betAmount: 0,
+    mustPlaySuit: false,
+    currentSuitToMatch: '',
+    hasDrawnThisTurn: false,
+    discardPile: [],
+    lastSuitChangeMethod: null,
+    canChangeSuit: true,
+    betDeducted: false,
+    isSuitChangeBlocked: false,
+    betAmount: 0,
+    winRecorded: false,
+    lastCardChangeTimestamp: null // Add this to track when last card changed
 };
 
+// --- Initialize Game ---
+document.addEventListener('DOMContentLoaded', async () => {
+    // Verify required DOM elements
+    const requiredElements = {
+        backBtn,
+        gameCodeDisplay,
+        currentSuitDisplay,
+        playerHandEl,
+        opponentHandCountEl,
+        discardPileEl,
+        gameStatusEl,
+        playerNameEl,
+        opponentNameEl,
+        playerAvatarEl,
+        opponentAvatarEl,
+        drawCardBtn,
+        passTurnBtn
+    };
+
+    // Check for missing elements
+    const missingElements = Object.entries(requiredElements)
+        .filter(([name, element]) => !element)
+        .map(([name]) => name);
+
+    if (missingElements.length > 0) {
+        console.error('Missing DOM elements:', missingElements.join(', '));
+        if (gameStatusEl) gameStatusEl.textContent = 'Game setup error - missing elements';
+    }
+
+    // Get game code from URL
+    const params = new URLSearchParams(window.location.search);
+    gameState.gameCode = params.get('code');
+    
+    if (!gameState.gameCode) {
+        console.error('No game code provided in URL');
+        window.location.href = '/';
+        return;
+    }
+    
+    if (gameCodeDisplay) gameCodeDisplay.textContent = gameState.gameCode;
+    
+    try {
+        await loadGameData();
+        setupEventListeners();
+        setupRealtimeUpdates();
+    } catch (error) {
+        console.error('Game initialization failed:', error);
+        if (gameStatusEl) gameStatusEl.textContent = 'Game initialization failed';
+    }
+    
+    if (backBtn) backBtn.addEventListener('click', () => window.location.href = 'home.html');
+});
 
 async function loadGameData() {
     try {
@@ -1337,124 +1310,12 @@ function injectModernDialogCSS() {
   `;
   document.head.appendChild(style);
 }
-function showConfirmDialog(title, message, onConfirm) {
-    const modal = document.createElement('div');
-    modal.className = 'modern-modal-overlay';
-    modal.innerHTML = `
-        <div class="modern-modal">
-            <h3 class="modal-title">${title}</h3>
-            <p class="modal-message">${message}</p>
-            <div class="modal-actions">
-                <button class="modern-btn secondary" data-action="cancel">Cancel</button>
-                <button class="modern-btn primary" data-action="confirm">Confirm</button>
-            </div>
-        </div>
-    `;
 
-    document.body.appendChild(modal);
-
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.remove();
-    });
-
-    modal.querySelector('[data-action="cancel"]').onclick = () => modal.remove();
-    modal.querySelector('[data-action="confirm"]').onclick = () => {
-        onConfirm();
-        modal.remove();
-    };
-}
-// --- Modern Event Handlers ---
 function setupEventListeners() {
-    // Menu button handler
-    if (elements.menuBtn) {
-        elements.menuBtn.addEventListener('click', showGameMenu);
-    }
-
-    // Action buttons
-    if (elements.drawCardBtn) {
-        elements.drawCardBtn.addEventListener('click', drawCard);
-    }
-
-    if (elements.passTurnBtn) {
-        elements.passTurnBtn.addEventListener('click', passTurn);
-    }
-
-    // Back button
-    if (elements.backBtn) {
-        elements.backBtn.addEventListener('click', () => {
-            showConfirmDialog(
-                'Leave Game?',
-                'Are you sure you want to leave the game?',
-                () => window.location.href = 'home.html'
-            );
-        });
-    }
+    if (drawCardBtn) drawCardBtn.addEventListener('click', drawCard);
+    if (passTurnBtn) passTurnBtn.addEventListener('click', passTurn);
 }
 
-
-function showGameMenu() {
-    const modal = document.createElement('div');
-    modal.className = 'modern-modal-overlay';
-    modal.innerHTML = `
-        <div class="modern-modal">
-            <h3 class="modal-title">Game Menu</h3>
-            <div class="menu-options">
-                <button class="modern-btn" onclick="window.location.href='home.html'">
-                    <span class="material-icons-round">home</span>
-                    Return to Home
-                </button>
-                <button class="modern-btn" onclick="window.location.reload()">
-                    <span class="material-icons-round">refresh</span>
-                    Refresh Game
-                </button>
-                <button class="modern-btn secondary" onclick="this.closest('.modern-modal-overlay').remove()">
-                    <span class="material-icons-round">close</span>
-                    Close Menu
-                </button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.remove();
-    });
-}
-document.addEventListener('DOMContentLoaded', async () => {
-    try {
-        // Verify required DOM elements
-        const missingElements = Object.entries(elements)
-            .filter(([name, element]) => !element)
-            .map(([name]) => name);
-
-        if (missingElements.length > 0) {
-            console.error('Missing DOM elements:', missingElements.join(', '));
-            UI.showNotification('Game setup error - missing elements', 'error');
-            return;
-        }
-
-        // Get game code from URL
-        const params = new URLSearchParams(window.location.search);
-        gameState.gameCode = params.get('code');
-        
-        if (!gameState.gameCode) {
-            UI.showNotification('No game code provided', 'error');
-            setTimeout(() => window.location.href = '/', 2000);
-            return;
-        }
-        
-        elements.gameCodeDisplay.textContent = gameState.gameCode;
-        
-        await loadGameData();
-        setupEventListeners();
-        setupRealtimeUpdates();
-        
-    } catch (error) {
-        console.error('Game initialization failed:', error);
-        UI.showNotification('Game initialization failed', 'error');
-    }
-});
-export { gameState, UI, elements, GAME_CONSTANTS };
 function generateAvatarColor(username) {
     if (!username) return '#6c757d';
     const colors = ['#ff6b6b', '#51cf66', '#fcc419', '#228be6', '#be4bdb'];
@@ -1900,4 +1761,3 @@ function createConfettiEffect() {
         }, 5000);
     }
 }
-
