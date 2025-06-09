@@ -59,7 +59,7 @@ let gameState = {
     currentSuit: '',
     lastCard: null,
     playerHand: [],
-    opponentHand: [], // Add this to track opponent cards
+    opponentHand: [],
     opponentHandCount: 0,
     creator: {},
     opponent: {},
@@ -76,7 +76,7 @@ let gameState = {
     isSuitChangeBlocked: false,
     winRecorded: false,
     lastCardChangeTimestamp: null,
-    animationQueue: [] // Add animation queue
+    animationQueue: []
 };
 
 // --- Initialize Game ---
@@ -833,29 +833,25 @@ function renderCardHTML(card, {isPlayable = false, isOpponent = false, isBack = 
     if (isBack) {
         return `
         <div class="card-back">
-            <div class="card-back-pattern"></div>
+            <div class="card-back-pattern">
+                <div class="card-back-center">
+                    <i class="material-icons" style="font-size: 16px;">casino</i>
+                </div>
+            </div>
         </div>
         `;
     }
 
-    function getSuitSVG(suit) {
+    function getSuitSymbol(suit) {
         switch (suit) {
             case 'hearts':
-                return `<svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                </svg>`;
+                return '♥';
             case 'diamonds':
-                return `<svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19 12l-7-10-7 10 7 10 7-10z"/>
-                </svg>`;
+                return '♦';
             case 'clubs':
-                return `<svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2M21 9C22.1 9 23 9.9 23 11C23 12.1 22.1 13 21 13C19.9 13 19 12.1 19 11C19 9.9 19.9 9 21 9M3 9C4.1 9 5 9.9 5 11C5 12.1 4.1 13 3 13C1.9 13 1 12.1 1 11C1 9.9 1.9 9 3 9M15.5 6.5C16.6 6.5 17.5 7.4 17.5 8.5C17.5 9.6 16.6 10.5 15.5 10.5C14.4 10.5 13.5 9.6 13.5 8.5C13.5 7.4 14.4 6.5 15.5 6.5M8.5 6.5C9.6 6.5 10.5 7.4 10.5 8.5C10.5 9.6 9.6 10.5 8.5 10.5C7.4 10.5 6.5 9.6 6.5 8.5C6.5 7.4 7.4 6.5 8.5 6.5M12 13.5L10.5 15L12 16.5L13.5 15L12 13.5Z"/>
-                </svg>`;
+                return '♣';
             case 'spades':
-                return `<svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2L13.09 8.26L22 9L17.5 13.74L18.18 22.5L12 19.77L5.82 22.5L6.5 13.74L2 9L10.91 8.26L12 2M12 15.4L16.15 18.18L15.5 14.82L18.5 12.32L15.23 12.1L12 8.1L8.77 12.1L5.5 12.32L8.5 14.82L7.85 18.18L12 15.4Z"/>
-                </svg>`;
+                return '♠';
             default:
                 return '';
         }
@@ -865,7 +861,7 @@ function renderCardHTML(card, {isPlayable = false, isOpponent = false, isBack = 
     <div class="card ${card.suit} ${isPlayable ? 'playable' : ''} ${isOpponent ? 'opponent-card' : ''}" 
          data-suit="${card.suit}" data-value="${card.value}">
         <div class="card-value top">${card.value}</div>
-        <div class="card-suit">${getSuitSVG(card.suit)}</div>
+        <div class="card-suit">${getSuitSymbol(card.suit)}</div>
         <div class="card-value bottom">${card.value}</div>
     </div>
     `;
@@ -900,18 +896,15 @@ function renderOpponentHand() {
     
     opponentHandEl.innerHTML = '';
     
-    // Show opponent cards as card backs with some revealed if game allows
+    // Show opponent cards as card backs
     for (let i = 0; i < gameState.opponentHandCount; i++) {
         const wrapper = document.createElement('div');
-        
-        // In a real game, you might want to show actual cards in certain situations
-        // For now, we'll show card backs
         wrapper.innerHTML = renderCardHTML(null, { isBack: true, isOpponent: true });
         const cardEl = wrapper.firstElementChild;
         
         // Add slight rotation and offset for visual appeal
-        const rotation = (Math.random() - 0.5) * 10;
-        const offsetX = (Math.random() - 0.5) * 20;
+        const rotation = (Math.random() - 0.5) * 8;
+        const offsetX = (Math.random() - 0.5) * 15;
         cardEl.style.transform = `rotate(${rotation}deg) translateX(${offsetX}px)`;
         cardEl.style.zIndex = i;
         
@@ -932,16 +925,16 @@ function renderDiscardPile() {
     }
     if (gameState.lastCard) allCards.push(gameState.lastCard);
 
-    const cardsToShow = 5;
+    const cardsToShow = 3;
     const startIdx = Math.max(0, allCards.length - cardsToShow);
     const recentCards = allCards.slice(startIdx);
 
     recentCards.forEach((card, idx) => {
         const isTop = idx === recentCards.length - 1;
         const z = 100 + idx;
-        const rot = isTop ? 0 : (Math.random() * 15 - 7.5);
-        const xOffset = isTop ? 0 : (Math.random() * 30 - 15);
-        const yOffset = isTop ? 0 : (Math.random() * 15 - 7.5);
+        const rot = isTop ? 0 : (Math.random() * 10 - 5);
+        const xOffset = isTop ? 0 : (Math.random() * 20 - 10);
+        const yOffset = isTop ? 0 : (Math.random() * 10 - 5);
 
         const wrapper = document.createElement('div');
         wrapper.innerHTML = renderCardHTML(card, { isPlayable: false });
@@ -970,8 +963,8 @@ function renderDiscardPile() {
     }
     
     pileContainer.style.position = "relative";
-    pileContainer.style.width = "160px";
-    pileContainer.style.height = "140px";
+    pileContainer.style.width = "100px";
+    pileContainer.style.height = "80px";
     pileContainer.style.margin = "0 auto";
     discardPileEl.appendChild(pileContainer);
 }
@@ -981,11 +974,11 @@ function animateCardPlay(cardIndex) {
     const cardEl = playerHandEl.children[cardIndex];
     if (cardEl) {
         cardEl.style.transition = 'all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-        cardEl.style.transform = 'translateY(-100px) scale(1.2) rotate(10deg)';
+        cardEl.style.transform = 'translateY(-60px) scale(1.2) rotate(10deg)';
         cardEl.style.opacity = '0.8';
         
         setTimeout(() => {
-            cardEl.style.transform = 'translateY(-200px) scale(0.8) rotate(20deg)';
+            cardEl.style.transform = 'translateY(-120px) scale(0.8) rotate(20deg)';
             cardEl.style.opacity = '0';
         }, 300);
     }
@@ -1011,7 +1004,7 @@ function animateCardDraw(cards) {
             // Animate to player hand
             setTimeout(() => {
                 cardEl.style.transition = 'all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-                cardEl.style.transform = 'translate(-50%, 100px) scale(1)';
+                cardEl.style.transform = 'translate(-50%, 80px) scale(1)';
                 cardEl.style.opacity = '1';
                 
                 setTimeout(() => {
@@ -1248,7 +1241,7 @@ async function showSevenCardDialog(initialCardIndex) {
                         <div class="modern-card-chip ${card.suit} ${card.value}" 
                              data-index="${originalIndex}">
                             <div class="modern-card-chip-title">
-                                ${card.value} ${getSuitSVG(card.suit)}
+                                ${card.value} ${getSuitSymbol(card.suit)}
                             </div>
                         </div>
                     `;
@@ -1326,7 +1319,7 @@ function showSuitSelector() {
         <div class="modern-suit-options">
           ${SUITS.map(suit => `
             <button class="modern-suit-btn ${suit}" data-suit="${suit}">
-              ${getSuitSVG(suit)}
+              ${getSuitSymbol(suit)}
               <span>${suit.charAt(0).toUpperCase() + suit.slice(1)}</span>
             </button>
           `).join('')}
@@ -1367,24 +1360,16 @@ function showSuitSelector() {
 }
 
 // --- Helper Functions ---
-function getSuitSVG(suit) {
+function getSuitSymbol(suit) {
     switch (suit) {
         case 'hearts':
-            return `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-            </svg>`;
+            return '♥';
         case 'diamonds':
-            return `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 12l-7-10-7 10 7 10 7-10z"/>
-            </svg>`;
+            return '♦';
         case 'clubs':
-            return `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2M21 9C22.1 9 23 9.9 23 11C23 12.1 22.1 13 21 13C19.9 13 19 12.1 19 11C19 9.9 19.9 9 21 9M3 9C4.1 9 5 9.9 5 11C5 12.1 4.1 13 3 13C1.9 13 1 12.1 1 11C1 9.9 1.9 9 3 9M15.5 6.5C16.6 6.5 17.5 7.4 17.5 8.5C17.5 9.6 16.6 10.5 15.5 10.5C14.4 10.5 13.5 9.6 13.5 8.5C13.5 7.4 14.4 6.5 15.5 6.5M8.5 6.5C9.6 6.5 10.5 7.4 10.5 8.5C10.5 9.6 9.6 10.5 8.5 10.5C7.4 10.5 6.5 9.6 6.5 8.5C6.5 7.4 7.4 6.5 8.5 6.5M12 13.5L10.5 15L12 16.5L13.5 15L12 13.5Z"/>
-            </svg>`;
+            return '♣';
         case 'spades':
-            return `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2L13.09 8.26L22 9L17.5 13.74L18.18 22.5L12 19.77L5.82 22.5L6.5 13.74L2 9L10.91 8.26L12 2M12 15.4L16.15 18.18L15.5 14.82L18.5 12.32L15.23 12.1L12 8.1L8.77 12.1L5.5 12.32L8.5 14.82L7.85 18.18L12 15.4Z"/>
-            </svg>`;
+            return '♠';
         default:
             return '';
     }
@@ -1398,13 +1383,13 @@ function setupEventListeners() {
 function generateAvatarGradient(username) {
     if (!username) return 'linear-gradient(135deg, #6c757d, #495057)';
     const gradients = [
-        'linear-gradient(135deg, #ff6b6b, #ee5a52)',
-        'linear-gradient(135deg, #51cf66, #40c057)', 
-        'linear-gradient(135deg, #fcc419, #fab005)',
-        'linear-gradient(135deg, #228be6, #1c7ed6)',
-        'linear-gradient(135deg, #be4bdb, #ae3ec9)',
-        'linear-gradient(135deg, #fd7e14, #e8590c)',
-        'linear-gradient(135deg, #20c997, #12b886)'
+        'linear-gradient(135deg, #22c55e, #16a34a)',
+        'linear-gradient(135deg, #3b82f6, #1d4ed8)', 
+        'linear-gradient(135deg, #f59e0b, #d97706)',
+        'linear-gradient(135deg, #ef4444, #dc2626)',
+        'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+        'linear-gradient(135deg, #06b6d4, #0891b2)',
+        'linear-gradient(135deg, #10b981, #059669)'
     ];
     const hash = username.split('').reduce((acc, char) => char.charCodeAt(0) + acc, 0);
     return gradients[hash % gradients.length];
@@ -1565,22 +1550,22 @@ function showGameResult(isWinner, amount) {
 }
 
 function createConfettiEffect() {
-    const colors = ['#ff6b6b', '#51cf66', '#fcc419', '#228be6', '#be4bdb', '#fd7e14', '#20c997'];
+    const colors = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#10b981'];
     const container = document.body;
     
-    for (let i = 0; i < 150; i++) {
+    for (let i = 0; i < 100; i++) {
         const confetti = document.createElement('div');
         confetti.className = 'confetti';
         confetti.style.left = `${Math.random() * 100}vw`;
         confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-        confetti.style.width = `${Math.random() * 8 + 6}px`;
-        confetti.style.height = `${Math.random() * 8 + 6}px`;
+        confetti.style.width = `${Math.random() * 6 + 4}px`;
+        confetti.style.height = `${Math.random() * 6 + 4}px`;
         confetti.style.animationDuration = `${Math.random() * 2 + 2.5}s`;
         confetti.style.animationDelay = `${Math.random() * 1}s`;
         container.appendChild(confetti);
         
         setTimeout(() => {
             confetti.remove();
-        }, 6000);
+        }, 5000);
     }
 }
