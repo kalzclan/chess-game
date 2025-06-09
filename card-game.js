@@ -680,6 +680,10 @@ async function processCardPlay(cardsToPlay) {
     }
 }
 
+// Add this near your game state variables
+let isDrawing = false;
+
+// Modify your drawCard function like this:
 async function drawCard() {
     try {
         const users = JSON.parse(localStorage.getItem('user')) || {};
@@ -689,6 +693,20 @@ async function drawCard() {
             displayMessage(gameStatusEl, "It's not your turn!", 'error');
             soundEffects.notification.play();
             return;
+        }
+
+        // Prevent multiple draws
+        if (isDrawing) {
+            displayMessage(gameStatusEl, "Already drawing cards...", 'info');
+            return;
+        }
+
+        // Set loading state
+        isDrawing = true;
+        if (drawCardBtn) {
+            drawCardBtn.disabled = true;
+            drawCardBtn.textContent = 'Drawing...';
+            drawCardBtn.style.cursor = 'wait';
         }
 
         // Determine how many cards to draw
@@ -773,13 +791,22 @@ async function drawCard() {
         gameState.hasDrawnThisTurn = true;
         gameState.pendingAction = null;
         gameState.pendingActionData = null;
-        updateGameUI();
         
     } catch (error) {
         console.error('Error drawing card:', error);
         if (gameStatusEl) gameStatusEl.textContent = 'Error drawing card';
+    } finally {
+        // Reset loading state regardless of success or failure
+        isDrawing = false;
+        if (drawCardBtn) {
+            drawCardBtn.disabled = false;
+            drawCardBtn.textContent = 'Draw Card';
+            drawCardBtn.style.cursor = 'pointer';
+        }
+        updateGameUI();
     }
 }
+
 
 async function passTurn() {
     try {
@@ -1008,13 +1035,15 @@ function updateGameUI() {
     }
     
     // Action buttons
+   // Action buttons
     if (drawCardBtn) {
         drawCardBtn.style.display = isMyTurn && !gameState.hasDrawnThisTurn ? 'block' : 'none';
-        drawCardBtn.disabled = !isMyTurn || gameState.hasDrawnThisTurn;
-        drawCardBtn.style.pointerEvents = isMyTurn && !gameState.hasDrawnThisTurn ? 'auto' : 'none';
-        drawCardBtn.style.opacity = isMyTurn && !gameState.hasDrawnThisTurn ? '1' : '0.5';
+        drawCardBtn.disabled = !isMyTurn || gameState.hasDrawnThisTurn || isDrawing;
+        drawCardBtn.style.pointerEvents = isMyTurn && !gameState.hasDrawnThisTurn && !isDrawing ? 'auto' : 'none';
+        drawCardBtn.style.opacity = isMyTurn && !gameState.hasDrawnThisTurn && !isDrawing ? '1' : '0.5';
+        drawCardBtn.textContent = isDrawing ? 'Drawing...' : 'Draw Card';
+        drawCardBtn.style.cursor = isDrawing ? 'wait' : 'pointer';
     }
-    
     if (passTurnBtn) {
         passTurnBtn.style.display = isMyTurn && gameState.hasDrawnThisTurn ? 'block' : 'none';
         passTurnBtn.disabled = !isMyTurn || !gameState.hasDrawnThisTurn;
@@ -1732,3 +1761,4 @@ function createConfettiEffect() {
         }, 5000);
     }
 }
+
