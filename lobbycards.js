@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
 // --- Supabase Setup ---
@@ -19,6 +18,8 @@ const createGameBtn = document.getElementById('create-game-btn');
 const joinPrivateBtn = document.getElementById('join-private-btn');
 const privateGameCodeInput = document.getElementById('private-game-code');
 const joinPrivateStatus = document.getElementById('join-private-status');
+const rulesContent = document.getElementById('rules-content');
+const languageToggle = document.getElementById('language-toggle');
 
 // --- Game Configuration ---
 const betOptions = [10, 25, 50, 100, 250];
@@ -27,10 +28,49 @@ let user = {};
 let selectedBet = null;
 let isPrivateGame = false;
 let supabaseChannel = null;
+let currentLanguage = 'amharic'; // Default to Amharic
 
 // Card game specific constants
 const CARD_VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
 const CARD_SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
+
+// Rules content in both languages
+const RULES = {
+    english: `
+        <h3>Card Game Rules</h3>
+        <ol>
+            <li>Each player starts with 7 cards.</li>
+            <li>The first player can play any card from their hand.</li>
+            <li>Subsequent players must match either the number or the suit of the previous card.</li>
+            <li>Special cards:
+                <ul>
+                    <li>8/J: Can be played on any card and allows you to change the suit.</li>
+                    <li>2: Must be matched with another 2 or a card of the same suit.</li>
+                    <li>5: Acts as a skip card, making the next player miss their turn.</li>
+                    <li>7: When played alone, acts as a skip card. Can also be used to play all cards of the same suit.</li>
+                </ul>
+            </li>
+            <li>The first player to run out of cards wins the round.</li>
+        </ol>
+    `,
+    amharic: `
+        <h3>የካርታ ህጎች</h3>
+        <ol>
+            <li>እጁ ላይ ያለውን ቀድሞ የጨረሰ ያሸንፋል ለሁለቱም ሰው 7 ካርታ ነው ሲጀመር �ያደለው።</li>
+            <li>ለመጫወት መጀመሪያ ሚጀምረው ሰው የፈለገውን ካርታ በመጣል መጀመር ይችላል።</li>
+            <li>ለመቀጠል ወይ ቁጥሩ መመሳሰል አለበት ወይ ደግሞ ለምሳሌ አበባ(clubs) ከሆነ አበባ(clubs) ብቻ ነው መጣል ሚቻለው።</li>
+            <li>ልዩ ልዩ ካርታወች:
+                <ul>
+                    <li>8/J: ሁለቱንም �ካርታ የፈለግነው ካርታ ላይ መጣል ይቻላል ከዛም በመቀጠል ጫዋታውን ወደፈለጉት suit መቀየር ይቻላል ነገር ግን ይህ ማይሰራው ከእናንተ አንድ ዙር ቀደም ብሎ አዞ ከነበር መቀየር አይቻልም ግን እንደ በማለት መጫወት ይቻላል</li>
+                    <li>2: ሁለተን መጣል ሚቻለው ወይ 2 ላይ ወይ ደግሞ suit ሲመሳሰል ነው ለምሳሌ ጦር ከሆነ ጫዋታው 2 ጦር መጣል ይቻላል</li>
+                    <li>5: እንደ ማዘለያ ነው ጥቅሟ ስለዚህ እናንተን ያስደግማል</li>
+                    <li>7: ብቻዋን ከተጣለች እንደ ማዘለያ ይጠቅማል ነገር ግን ሌሎች ካርታወችን ለማውረድ ያገለግላል ለምሳሌ 7 ልብ ቢኖረኝ ያለኝን ልብ በሙሉ ማውረድ ችላለው</li>
+                </ul>
+            </li>
+            <li>የመጀመሪያ ካርቱን የሚያረክስ ሰው ይወጣል።</li>
+        </ol>
+    `
+};
 
 // --- Utility Functions ---
 const displayMessage = (element, message, type = 'info') => {
@@ -60,6 +100,27 @@ const generateAvatarColor = (username) => {
     const hash = username.split('').reduce((acc, char) => char.charCodeAt(0) + acc, 0);
     return colors[hash % colors.length];
 };
+
+// --- Language Functions ---
+function toggleLanguage() {
+    currentLanguage = currentLanguage === 'english' ? 'amharic' : 'english';
+    updateLanguageUI();
+}
+
+function updateLanguageUI() {
+    // Update rules content
+    if (rulesContent) {
+        rulesContent.innerHTML = RULES[currentLanguage];
+    }
+    
+    // Update toggle button text
+    if (languageToggle) {
+        languageToggle.textContent = currentLanguage === 'english' ? 'በአማርኛ' : 'In English';
+    }
+    
+    // Update other UI elements based on language
+    // Add more translations as needed
+}
 
 // --- User Management ---
 async function loadUserDetails() {
@@ -146,7 +207,6 @@ function dealCards(deck, playerCount) {
 }
 
 // --- Game Creation ---
-// --- Game Creation ---
 function setupBetButtons() {
     createBetButtonsContainer.innerHTML = '';
     
@@ -191,7 +251,6 @@ function setupBetButtons() {
     });
 }
 
-// --- Game Creation ---
 async function createCardGame(bet) {
     if (!validateGameCreation(bet)) return;
 
@@ -346,7 +405,7 @@ function displayAvailableGames(games) {
     if (!games.length) {
         const emptyItem = document.createElement('li');
         emptyItem.className = 'no-games';
-        emptyItem.textContent = 'No games available yet. Create one!';
+        emptyItem.textContent = currentLanguage === 'english' ? 'No games available yet. Create one!' : 'አሁን ምንም ጨዋታ የለም። አዲስ ይፍጠሩ!';
         availableGamesListEl.appendChild(emptyItem);
         return;
     }
@@ -361,7 +420,7 @@ function displayAvailableGames(games) {
                     <div class="creator-avatar" style="background-color: ${generateAvatarColor(game.creator_username)}">
                         ${game.creator_username?.charAt(0) || 'C'}
                     </div>
-                    <span>${game.creator_username || 'Anonymous'}</span>
+                    <span>${game.creator_username || (currentLanguage === 'english' ? 'Anonymous' : 'ስም የለሽ')}</span>
                 </div>
                 <div class="game-details">
                     <div class="game-detail">
@@ -384,7 +443,7 @@ function displayAvailableGames(games) {
             </div>
             <button class="join-btn" data-game-code="${game.code}" data-bet="${game.bet}">
                 <span class="material-icons" style="font-size: 16px;">login</span>
-                Join
+                ${currentLanguage === 'english' ? 'Join' : 'ተቀላቀል'}
             </button>
         `;
 
@@ -420,7 +479,7 @@ const formatTimeAgo = (dateString) => {
     interval = Math.floor(seconds / 60);
     if (interval >= 1) return `${interval}m ago`;
     
-    return 'Just now';
+    return currentLanguage === 'english' ? 'Just now' : 'አሁን';
 };
 
 function updateGamesCount(count) {
@@ -430,12 +489,9 @@ function updateGamesCount(count) {
     }
 }
 
-// --- Game Joining ---
-
-
 function validateJoinGame(gameBet) {
     if (user.balance < gameBet) {
-        displayMessage(createGameStatusEl, 'Insufficient balance', 'error');
+        displayMessage(createGameStatusEl, currentLanguage === 'english' ? 'Insufficient balance' : 'በቂ ቀሪ ሂሳብ የለም', 'error');
         return false;
     }
     return true;
@@ -446,12 +502,12 @@ async function handleJoinPrivateGame() {
     const gameCode = privateGameCodeInput.value.trim();
     
     if (!gameCode) {
-        displayMessage(joinPrivateStatus, 'Please enter a game code', 'error');
+        displayMessage(joinPrivateStatus, currentLanguage === 'english' ? 'Please enter a game code' : 'እባክዎ የጨዋታ ኮድ ያስገቡ', 'error');
         return;
     }
 
     try {
-        displayMessage(joinPrivateStatus, 'Checking game...', 'info');
+        displayMessage(joinPrivateStatus, currentLanguage === 'english' ? 'Checking game...' : 'ጨዋታ እየተፈተሸ...', 'info');
         
         const { data: gameData, error: fetchError } = await supabase
             .from('card_games')
@@ -460,14 +516,14 @@ async function handleJoinPrivateGame() {
             .single();
 
         if (fetchError) throw fetchError;
-        if (!gameData) throw new Error('Game not found');
-        if (!gameData.is_private) throw new Error('This is not a private game');
-        if (gameData.status !== 'waiting') throw new Error('Game is not available');
+        if (!gameData) throw new Error(currentLanguage === 'english' ? 'Game not found' : 'ጨዋታ አልተገኘም');
+        if (!gameData.is_private) throw new Error(currentLanguage === 'english' ? 'This is not a private game' : 'ይህ የግል ጨዋታ አይደለም');
+        if (gameData.status !== 'waiting') throw new Error(currentLanguage === 'english' ? 'Game is not available' : 'ጨዋታው አይገኝም');
         
         await joinCardGame(gameCode, gameData.bet);
     } catch (error) {
         console.error('Error joining private game:', error);
-        displayMessage(joinPrivateStatus, error.message || 'Failed to join private game', 'error');
+        displayMessage(joinPrivateStatus, error.message || (currentLanguage === 'english' ? 'Failed to join private game' : 'የግል ጨዋታ መቀላቀል አልተቻለም'), 'error');
     }
 }
 
@@ -502,6 +558,9 @@ function setupEventListeners() {
             handleJoinPrivateGame();
         }
     });
+    
+    // Language toggle
+    languageToggle?.addEventListener('click', toggleLanguage);
 }
 
 // --- Initialize App ---
@@ -511,12 +570,13 @@ async function init() {
     setupBetButtons();
     await fetchAvailableGames();
     setupRealtimeUpdates();
+    updateLanguageUI(); // Initialize language UI
 }
 
 // Start the application
 init();
 
 // Back button functionality
-document.getElementById('back-btn').addEventListener('click', () => {
+document.getElementById('back-btn')?.addEventListener('click', () => {
     window.location.href = 'home.html';
 });
