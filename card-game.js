@@ -68,7 +68,7 @@ let gameState = {
     discardPile: [],
     lastSuitChangeMethod: null,
     canChangeSuit: true,
-    betDeducted: false,
+    betDeducted : false,
     isSuitChangeBlocked: false,
     betAmount: 0,
     winRecorded: false,
@@ -146,11 +146,27 @@ async function loadGameData() {
         const users = JSON.parse(localStorage.getItem('user')) || {};
         gameState.playerRole = gameData.creator_phone === users.phone ? 'creator' : 'opponent';
 
-        // Store previous last card before updating
-        const previousLastCard = gameState.lastCard;
-        const previousTimestamp = gameState.lastCardChangeTimestamp;
+        // Load game state from database...
 
-        // Update game state from database
+        // Handle bet deduction only if the bet hasn't been deducted yet
+        if (gameData.opponent_phone && gameData.status === 'ongoing' && !gameState.betDeducted) {
+            try {
+                await recordTransaction({
+                    player_phone: users.phone,
+                    transaction_type: 'bet',
+                    amount: -gameData.bet,
+                    description: `Bet for card game ${gameState.gameCode}`,
+                    status: 'completed'
+                });
+                gameState.betDeducted = true; // Set the flag to true after deduction
+                showNotification(`Bet of ${gameData.bet} ETB deducted`, 'info');
+            } catch (error) {
+                console.error('Error deducting bet:', error);
+                displayMessage(gameStatusEl, 'Error deducting bet. Please refresh.', 'error');
+            }
+        }
+
+        // Continue with the rest of your loadGameData logic...
         gameState.status = gameData.status;
         gameState.currentPlayer = gameData.current_player;
         gameState.currentSuit = gameData.current_suit;
@@ -213,29 +229,6 @@ async function loadGameData() {
             gameState.pendingActionData = gameData.pending_action_data;
         }
 
-        // Handle bet deduction if game is ongoing and opponent exists
-        if (gameData.opponent_phone && gameData.status === 'ongoing' && !gameState.betDeducted) {
-            try {
-                await recordTransaction({
-                    player_phone: users.phone,
-                    transaction_type: 'bet',
-                    amount: -gameData.bet,
-                    description: `Bet for card game ${gameState.gameCode}`,
-                    status: 'completed'
-                });
-                
-                // Mark bet as deducted in both localStorage and game state
-                const betDeductionKey = `betDeducted_${gameState.gameCode}`;
-                localStorage.setItem(betDeductionKey, 'true');
-                gameState.betDeducted = true;
-                
-                showNotification(`Bet of ${gameData.bet} ETB deducted`, 'info');
-            } catch (error) {
-                console.error('Error deducting bet:', error);
-                displayMessage(gameStatusEl, 'Error deducting bet. Please refresh.', 'error');
-            }
-        }
-
         // Handle game results if game is finished
         if (gameData.status === 'finished') {
             const isWinner = gameData.winner === users.phone;
@@ -268,7 +261,7 @@ async function loadGameData() {
     }
 }
 
-function setupRealtimeUpdates() {
+async function setupRealtimeUpdates() {
     const channel = supabase
         .channel(`card_game_${gameState.gameCode}`)
         .on(
@@ -284,13 +277,13 @@ function setupRealtimeUpdates() {
                     const users = JSON.parse(localStorage.getItem('user')) || {};
                     const previousLastCard = gameState.lastCard;
                     const previousTimestamp = gameState.lastCardChangeTimestamp;
-                    
+
                     // Check if opponent just joined and we need to deduct bet
                     if (payload.new.opponent_phone && 
                         payload.new.status === 'ongoing' && 
-                        !gameState.opponent.phone &&
+                        !gameState.opponent.phone && 
                         !gameState.betDeducted) {
-                        
+
                         await recordTransaction({
                             player_phone: users.phone,
                             transaction_type: 'bet',
@@ -298,8 +291,7 @@ function setupRealtimeUpdates() {
                             description: `Bet for card game ${gameState.gameCode}`,
                             status: 'completed'
                         });
-                        
-                        gameState.betDeducted = true;
+                        gameState.betDeducted = true; // Set the flag to true after deduction
                     }
 
                     // Update game state
@@ -401,7 +393,6 @@ function setupRealtimeUpdates() {
 
     return channel;
 }
-
 function canPlayCard(card) {
     // If no last card played, any card can be played
     if (!gameState.lastCard) return true;
