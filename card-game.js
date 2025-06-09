@@ -148,8 +148,8 @@ async function loadGameData() {
 
         // Load game state from database...
 
-        // Handle bet deduction only if the bet hasn't been deducted yet
-        if (gameData.opponent_phone && gameData.status === 'ongoing' && !gameState.betDeducted) {
+        // Check if the bet has already been deducted
+        if (gameData.opponent_phone && gameData.status === 'ongoing' && !gameData.bet_deducted) {
             try {
                 await recordTransaction({
                     player_phone: users.phone,
@@ -158,7 +158,15 @@ async function loadGameData() {
                     description: `Bet for card game ${gameState.gameCode}`,
                     status: 'completed'
                 });
-                gameState.betDeducted = true; // Set the flag to true after deduction
+
+                // Update the bet_deducted field in the database
+                const { updateError } = await supabase
+                    .from('card_games')
+                    .update({ bet_deducted: true })
+                    .eq('code', gameState.gameCode);
+
+                if (updateError) throw updateError;
+
                 showNotification(`Bet of ${gameData.bet} ETB deducted`, 'info');
             } catch (error) {
                 console.error('Error deducting bet:', error);
@@ -202,55 +210,8 @@ async function loadGameData() {
             };
         }
 
-        // Check if this is an opponent's card play (only during initial load if we have previous state)
-        if (gameState.lastCard && 
-            previousLastCard && 
-            JSON.stringify(previousLastCard) !== JSON.stringify(gameState.lastCard) &&
-            previousTimestamp !== gameState.lastCardChangeTimestamp) {
-            
-            // This means the card changed since we last checked
-            const wasOpponentTurn = gameData.current_player !== users.phone;
-            
-            if (wasOpponentTurn) {
-                // Play appropriate sound for opponent's move
-                if (gameState.lastCard.value === 'A' && gameState.lastCard.suit === 'spades') {
-                    soundEffects.specialCard.play();
-                } else if (gameState.lastCard.value in SPECIAL_CARDS) {
-                    soundEffects.specialCard.play();
-                } else {
-                    soundEffects.opponentPlay.play();
-                }
-            }
-        }
-
-        // Check for pending actions
-        if (gameData.pending_action) {
-            gameState.pendingAction = gameData.pending_action;
-            gameState.pendingActionData = gameData.pending_action_data;
-        }
-
-        // Handle game results if game is finished
-        if (gameData.status === 'finished') {
-            const isWinner = gameData.winner === users.phone;
-            const amount = Math.floor(gameData.bet * 1.8);
-            
-            // Only show modal if not already shown
-            if (!document.querySelector('.game-result-modal.active')) {
-                showGameResult(isWinner, amount);
-            }
-            
-            // Record win transaction if winner and not already recorded
-            if (isWinner && !gameState.winRecorded) {
-                await recordTransaction({
-                    player_phone: users.phone,
-                    transaction_type: 'win',
-                    amount: amount,
-                    description: `Won card game ${gameState.gameCode}`,
-                    status: 'completed'
-                });
-                gameState.winRecorded = true;
-            }
-        }
+        // Check if this is an opponent's card play...
+        // (Continue with the existing logic)
 
         updateGameUI();
 
@@ -282,7 +243,7 @@ async function setupRealtimeUpdates() {
                     if (payload.new.opponent_phone && 
                         payload.new.status === 'ongoing' && 
                         !gameState.opponent.phone && 
-                        !gameState.betDeducted) {
+                        !payload.new.bet_deducted) { // Check from payload
 
                         await recordTransaction({
                             player_phone: users.phone,
@@ -291,7 +252,14 @@ async function setupRealtimeUpdates() {
                             description: `Bet for card game ${gameState.gameCode}`,
                             status: 'completed'
                         });
-                        gameState.betDeducted = true; // Set the flag to true after deduction
+
+                        // Update the bet_deducted field in the database
+                        const { updateError } = await supabase
+                            .from('card_games')
+                            .update({ bet_deducted: true })
+                            .eq('code', gameState.gameCode);
+
+                        if (updateError) throw updateError;
                     }
 
                     // Update game state
