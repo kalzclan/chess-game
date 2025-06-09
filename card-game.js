@@ -103,7 +103,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Missing DOM elements:', missingElements.join(', '));
         if (gameStatusEl) gameStatusEl.textContent = 'Game setup error - missing elements';
     }
-
+ const isConnected = await checkDatabaseConnection();
+    if (!isConnected) {
+        return; // Stop further execution if the connection fails
+    }
     // Get game code from URL
     const params = new URLSearchParams(window.location.search);
     gameState.gameCode = params.get('code');
@@ -1719,4 +1722,46 @@ function createConfettiEffect() {
             confetti.remove();
         }, 5000);
     }
+}
+async function checkDatabaseConnection() {
+    try {
+        const { data, error } = await supabase
+            .from('card_games')
+            .select('*')
+            .limit(1); // Limit to 1 record for a quick check
+
+        if (error) {
+            console.error('Database connection error:', error);
+            displayConnectionError('You are not connected to the database. Please refresh your page.'); // Call to display error message
+            return false; // Connection failed
+        }
+
+        console.log('Database connection successful:', data);
+        return true; // Connection successful
+    } catch (err) {
+        console.error('Error checking database connection:', err);
+        displayConnectionError('You are not connected to the database. Please refresh your page.'); // Call to display error message
+        return false; // Connection failed
+    }
+}
+
+function displayConnectionError(message) {
+    const errorElement = document.createElement('div');
+    errorElement.className = 'connection-error'; // Add a class for styling
+    errorElement.textContent = message;
+
+    // Optionally, you can style the error message
+    errorElement.style.color = 'red';
+    errorElement.style.fontWeight = 'bold';
+    errorElement.style.position = 'fixed';
+    errorElement.style.top = '10px';
+    errorElement.style.right = '10px';
+    errorElement.style.zIndex = '1000';
+
+    document.body.appendChild(errorElement);
+
+    // Optional: Remove the error message after a few seconds
+    setTimeout(() => {
+        errorElement.remove();
+    }, 5000);
 }
