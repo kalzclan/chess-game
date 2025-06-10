@@ -25,6 +25,8 @@
             --success-color: #43a047;
             --warning-color: #fb8c00;
             --pending-color: #FFA000;
+
+
         }
 
         * {
@@ -42,6 +44,46 @@
             font-size: 14px;
             line-height: 1.5;
         }
+         .profile-info {Add commentMore actions
+            padding: 16px;
+            background-color: var(--card-bg);
+            margin: 12px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+        }
+        
+        .profile-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+        
+        .profile-item:last-child {
+            border-bottom: none;
+        }
+        
+        .profile-item .material-icons {
+            margin-right: 12px;
+            color: var(--primary-color);
+        }
+        
+        .btn-icon {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            margin-left: auto;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+        }
+        
+        .btn-icon:active {
+            background-color: rgba(46, 125, 50, 0.1);
+        }Add commentMore actions
         
         .profile-container {
             width: 100%;
@@ -89,47 +131,6 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-        }
-        
-        .profile-info {
-            padding: 16px;
-            background-color: var(--card-bg);
-            margin: 12px;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-        }
-        
-        .profile-item {
-            display: flex;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid rgba(0,0,0,0.05);
-        }
-        
-        .profile-item:last-child {
-            border-bottom: none;
-        }
-        
-        .profile-item .material-icons {
-            margin-right: 12px;
-            color: var(--primary-color);
-        }
-        
-        .btn-icon {
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 4px;
-            margin-left: auto;
-            color: var(--primary-color);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 4px;
-        }
-        
-        .btn-icon:active {
-            background-color: rgba(46, 125, 50, 0.1);
         }
         
         .balance-card {
@@ -196,18 +197,32 @@
             font-size: 0.9rem;
             box-shadow: var(--shadow);
         }
-        
+        /* Transaction icon colors */Add commentMore actions
+        .icon-deposit { background-color: #E8F5E9; color: var(--primary-color); }
+        .icon-withdrawal { background-color: #FFEBEE; color: var(--danger-color); }
+        .icon-bet { background-color: #FFF3E0; color: var(--warning-color); }
+        .icon-win { background-color: #E8F5E9; color: var(--success-color); }
+        .icon-loss { background-color: #FFEBEE; color: var(--danger-color); }
+        .icon-pending { background-color: #FFF8E1; color: var(--pending-color); }
+        .icon-rejected { background-color: #FFEBEE; color: var(--danger-color); }
         .btn-deposit {
             background-color: var(--primary-color);
             color: white;
         }
-        
+                .pending { color: var(--pending-color); }
+
+Add commentMore actions
+        .material-icons.spinning {
+            animation: spin 1s linear infinite;
+        }
         .btn-deposit:active {
             background-color: var(--primary-dark);
             transform: translateY(2px);
             box-shadow: var(--shadow-hover);
         }
-        
+                .alert-info {
+            background-color: var(--primary-color);
+        }
         .btn-withdraw {
             background-color: white;
             color: var(--danger-color);
@@ -281,15 +296,6 @@
             flex-shrink: 0;
         }
         
-        /* Transaction icon colors */
-        .icon-deposit { background-color: #E8F5E9; color: var(--primary-color); }
-        .icon-withdrawal { background-color: #FFEBEE; color: var(--danger-color); }
-        .icon-bet { background-color: #FFF3E0; color: var(--warning-color); }
-        .icon-win { background-color: #E8F5E9; color: var(--success-color); }
-        .icon-loss { background-color: #FFEBEE; color: var(--danger-color); }
-        .icon-pending { background-color: #FFF8E1; color: var(--pending-color); }
-        .icon-rejected { background-color: #FFEBEE; color: var(--danger-color); }
-        
         .transaction-info {
             flex: 1;
             min-width: 0;
@@ -329,7 +335,6 @@
         
         .positive { color: var(--success-color); }
         .negative { color: var(--danger-color); }
-        .pending { color: var(--pending-color); }
         
         .no-transactions {
             text-align: center;
@@ -522,25 +527,12 @@
             transition: all 0.2s;
             margin-top: 6px;
             box-shadow: var(--shadow);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
         }
 
-        .btn-submit:disabled {
-            opacity: 0.7;
-            cursor: not-allowed;
-        }
-
-        .btn-submit:active:not(:disabled) {
+        .btn-submit:active {
             background-color: var(--primary-dark);
             transform: translateY(2px);
             box-shadow: var(--shadow-hover);
-        }
-
-        .material-icons.spinning {
-            animation: spin 1s linear infinite;
         }
 
         @keyframes fadeIn {
@@ -577,10 +569,6 @@
             background-color: var(--danger-color);
         }
         
-        .alert-info {
-            background-color: var(--primary-color);
-        }
-        
         .fade-out {
             opacity: 0;
             transform: translateX(-50%) translateY(20px);
@@ -612,23 +600,19 @@
         </header>
 
         <div class="profile-content">
-            <div class="profile-info" id="profile-info">
+                        <div class="profile-info" id="profile-info">Add commentMore actions
                 <!-- Profile info will be loaded here by JavaScript -->
             </div>
-
             <div class="balance-card">
                 <div class="balance-info">
                     <span class="balance-label">Current Balance</span>
                     <span class="balance-amount" id="current-balance">0.00 ETB</span>
                 </div>
                 <div class="balance-actions">
-                    <button class="btn-deposit">
-                                            <button class="btn-deposit" onclick="showDepositModal()">
-
-
+                    <button class="btn-deposit" onclick="showDepositModal()">
                         <span class="material-icons">add</span> Deposit
                     </button>
-                    <button class="btn-withdraw">
+                    <button class="btn-withdraw" onclick="showWithdrawModal()">
                         <span class="material-icons">arrow_outward</span> Withdraw
                     </button>
                 </div>
@@ -653,7 +637,7 @@
     <!-- Deposit Modal -->
     <div class="modal" id="deposit-modal">
         <div class="modal-content">
-            <span class="close-modal">&times;</span>
+            <span class="close-modal" onclick="closeModal('deposit-modal')">&times;</span>
             <h3>Deposit Funds</h3>
         
             <div class="form-group">
@@ -664,7 +648,6 @@
             <div class="form-group">
                 <label for="deposit-method">Payment Method</label>
                 <select id="deposit-method" onchange="updateDepositInstructions()">
-                <select id="deposit-method">
                     <option value="telebirr">Telebirr</option>
                     <option value="cbe">CBE Birr</option>
                     <option value="bank">Bank Transfer</option>
@@ -710,6 +693,7 @@
                         Bank: <strong>Commercial Bank of Ethiopia</strong><br>
                         Branch: <strong>Main Branch</strong><br>
                         Account Name: <strong>Habesha Games PLC</strong><br>
+                        
                     </p>
                 </div>
                 
@@ -724,16 +708,14 @@
                 <input type="text" id="transaction-id" placeholder="e.g. T1234567890 (for Telebirr) or CBE123456 (for CBE)">
             </div>
         
-            <button class="btn-submit">
-                <span class="material-icons">check_circle</span> Confirm Deposit
-            </button>
+            <button class="btn-submit">Confirm Deposit</button>
         </div>
     </div>
 
     <!-- Withdraw Modal -->
     <div class="modal" id="withdraw-modal">
         <div class="modal-content">
-            <span class="close-modal">&times;</span>
+            <span class="close-modal" onclick="closeModal('withdraw-modal')">&times;</span>
             <h3>Withdraw Funds</h3>
             <div class="form-group">
                 <label for="withdraw-amount">Amount (ETB)</label>
@@ -751,12 +733,11 @@
                 <label for="account-number">Account Number</label>
                 <input type="text" id="account-number" placeholder="Enter your account number">
             </div>
-            <button class="btn-submit">
-                <span class="material-icons">send</span> Request Withdrawal
-            </button>
+            <button class="btn-submit">Request Withdrawal</button>
         </div>
     </div>
- <script>Add commentMore actions
+
+    <script>
         // Modal functions
         function showDepositModal() {
             document.getElementById('deposit-modal').style.display = 'flex';
@@ -828,8 +809,6 @@
             }
         }
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="profile.js" type="module"></script>
-    
 </body>
 </html>
