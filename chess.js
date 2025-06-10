@@ -477,8 +477,10 @@ async function tryMakeMove(from, to, promotion) {
      // gameState.capturedPieces[capturingColor].push(move.captured);
       updateCapturedPiecesDisplay();
     }
-  } catch (err) {
-    showError('Invalid move');
+  }    catch (err) {
+    // Silently ignore invalid move, just clear selection and highlights
+    gameState.selectedSquare = null;
+    clearHighlights();
     return;
   }
 
