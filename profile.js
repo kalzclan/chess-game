@@ -268,6 +268,9 @@ function showDepositModal() {
     document.getElementById('deposit-amount').value = '';
     document.getElementById('transaction-id').value = '';
     document.getElementById('deposit-modal').style.display = 'flex';
+                updateDepositInstructions();
+
+
 }
 
 function showWithdrawModal() {
@@ -414,7 +417,38 @@ async function processWithdrawal() {
         submitBtn.disabled = false;
     }
 }
+       // Update deposit instructions based on selected methodAdd commentMore actions
+        function updateDepositInstructions() {
+            const method = document.getElementById('deposit-method').value;
+            
+            // Hide all instructions first
+            document.getElementById('telebirr-instructions').style.display = 'none';
+            document.getElementById('cbe-instructions').style.display = 'none';
+            document.getElementById('bank-instructions').style.display = 'none';
+            
+            // Show the selected method's instructions
+            document.getElementById(`${method}-instructions`).style.display = 'block';
+            
+            // Update transaction ID placeholder
+            const transactionIdInput = document.getElementById('transaction-id');
+            if (method === 'telebirr') {
+                transactionIdInput.placeholder = 'e.g. T1234567890';
+            } else if (method === 'cbe') {
+                transactionIdInput.placeholder = 'e.g. CBE123456';
+            } else {
+                transactionIdInput.placeholder = 'e.g. Bank reference number';
+            }
+        }
 
+        // Copy to clipboard function
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showAlert('Account number copied!', 'success');
+            }).catch(err => {
+                showAlert('Failed to copy', 'error');
+                console.error('Failed to copy: ', err);
+            });
+        }
 // Show alert message
 function showAlert(type, message) {
     const alert = document.createElement('div');
