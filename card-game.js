@@ -837,16 +837,16 @@ function renderCardHTML(card, {isPlayable = false} = {}) {
 
 function renderPlayerHand() {
     if (!playerHandEl) return;
-    
+
     playerHandEl.innerHTML = '';
     const scrollWrapper = document.createElement('div');
     scrollWrapper.className = 'player-hand-scroll';
     const cardsContainer = document.createElement('div');
     cardsContainer.className = 'player-hand-cards';
-    
+
     const users = JSON.parse(localStorage.getItem('user')) || {};
     const isMyTurn = gameState.currentPlayer === users.phone;
-    
+
     gameState.playerHand.forEach((card, index) => {
         const isPlayable = isMyTurn && canPlayCard(card);
         const wrapper = document.createElement('div');
@@ -857,7 +857,7 @@ function renderPlayerHand() {
         }
         cardsContainer.appendChild(cardEl);
     });
-    
+
     scrollWrapper.appendChild(cardsContainer);
     playerHandEl.appendChild(scrollWrapper);
 }
