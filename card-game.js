@@ -405,13 +405,8 @@ function canPlayCard(card) {
 
     // Handle 7 card - can be played with any 8 or J regardless of suit
     if (card.value === '7') {
-        if (card.suit === gameState.currentSuit || card.value === gameState.lastCard.value) {
-            return true;
-        }
-        const hasEightOrJack = gameState.playerHand.some(c =>
-            (c.value === '8' || c.value === 'J') && c !== card
-        );
-        return hasEightOrJack;
+         return card.suit === gameState.currentSuit || 
+               gameState.lastCard.value === '7';
     }
 
     // Handle Ace of Spades special rule
@@ -1066,7 +1061,10 @@ function getSuitSVG(suit) {
 // Update the showSevenCardDialog function to implement new 7 card rules
 async function showSevenCardDialog(initialCardIndex) {
     const initialCard = gameState.playerHand[initialCardIndex];
-    
+    // Find all 8s and Js in hand (regardless of suit) that can be played with this 7
+    const specialCards = gameState.playerHand.filter(
+        (card, index) => (card.value === '8' || card.value === 'J') && index !== initialCardIndex&&card.suit !== initialCard.suit
+    );
     // NEW RULE: Only allow cards of the same suit to be combined with 7
     const playableCards = gameState.playerHand.filter((card, index) => {
         if (index === initialCardIndex) return false;
@@ -1074,7 +1072,7 @@ async function showSevenCardDialog(initialCardIndex) {
         return card.suit === initialCard.suit;
     });
 
-    if (playableCards.length === 0) {
+    if (specialCards.length === 0&&playableCards.length === 0) {
         await processCardPlay([initialCard]);
         return;
     }
@@ -1087,6 +1085,20 @@ async function showSevenCardDialog(initialCardIndex) {
             <p class="modal-sub">Click cards to select/deselect them</p>
             
             <div class="modern-card-chip-list">
+  ${specialCards.map((card, i) => {
+                    const originalIndex = gameState.playerHand.findIndex(c => 
+                        c.suit === card.suit && c.value === card.value);
+                    return `
+                        <div class="modern-card-chip ${card.suit} ${card.value}" 
+                             data-index="${originalIndex}">
+                            <div class="modern-card-chip-title">
+                                ${card.value} ${getSuitSVG(card.suit)}
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+
+
                 ${playableCards.map((card, i) => {
                     const originalIndex = gameState.playerHand.findIndex(c => 
                         c.suit === card.suit && c.value === card.value);
