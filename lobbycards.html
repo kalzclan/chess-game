@@ -583,49 +583,22 @@
             border-radius: 4px;
             font-weight: 500;
         }
-        .header-right {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-#language-toggle {
-    background: none;
-    border: none;
-    color: var(--primary-color);
-    cursor: pointer;
-    padding: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    transition: all 0.2s;
-}
-
-#language-toggle:active {
-    background-color: rgba(0, 0, 0, 0.1);
-}
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-           <div class="header-content">
-    <div class="header-left">
-        <button id="back-btn" class="icon-btn" title="Go back">
-            <span class="material-icons">arrow_back</span>
-        </button>
-        <h1>Cards game (CRAZY)</h1>
-    </div>
-    <div class="header-right">
-        <button id="language-toggle" class="icon-btn" title="Switch language">
-            <span class="material-icons">language</span>
-        </button>
-        <button id="info-btn" class="icon-btn" title="How to play">
-            <span class="material-icons">info</span>
-        </button>
-    </div>
-</div>
+            <div class="header-content">
+                <div class="header-left">
+                    <button id="back-btn" class="icon-btn" title="Go back">
+                        <span class="material-icons">arrow_back</span>
+                    </button>
+                    <h1>Cards game (CRAZY)</h1>
+                </div>
+                <button id="info-btn" class="icon-btn" title="How to play">
+                    <span class="material-icons">info</span>
+                </button>
+            </div>
         </header>
 
         <section id="create-game-section">
@@ -702,7 +675,7 @@
         
         
                     <div class="modal-header">
-                <div class="modal-title">How to Play Guess Number Order</div>
+                <div class="modal-title">How to Play Card Games</div>
                 <button class="modal-close" id="modal-close-btn">
                     <span class="material-icons">close</span>
                 </button>
@@ -712,15 +685,14 @@
             <div class="modal-section-title">
         
         <span class="material-icons">rule</span>
-        Game Rules
+        የካርታ ህጎች
     </div>
     <div class="modal-section-content">
         <ul>
-            <li>Each player is dealt a hand of cards from a standard deck.</li>
-            <li>Players take turns dropping (playing) one card onto the discard pile.</li>
-            <li>To play a card, it must match either the suit or the value of the top card on the discard pile <strong>unless it is a special card</strong>.</li>
-            <li>If you cannot play, you must draw a card. If you still cannot play, you may pass your turn.</li>
-            <li>The first player to get rid of all their cards wins the round.</li>
+            <li>እጁ ላይ ያለውን ቀድሞ የጨረሰ ያሸንፋል ለሁለቱም ሰው 7 ካርታ ነው ሲጀመር ሚያደለው።</li>
+            <li>ለመጫወት መጀመሪያ ሚጀምረው ሰው የፈለገውን ካርታ በመጣል መጀመር ይችላል።</li>
+            <li>ለመቀጠል ወይ ቁጥሩ መመሳሰል አለበት ወይ ደግሞ ለምሳሌ አበባ(clubs) ከሆነ አበባ(clubs) ብቻ ነው መጣል ሚቻለው።</li>
+            <li>መጫወት ካልቻሉ መሳብ አለባቹ አሁንም ሚጫወቱት ካርታ ከሌለ pass ማለት አለባቹ።</li>
         </ul>
     </div>
 </div>
@@ -728,49 +700,21 @@
 <div class="modal-section">
     <div class="modal-section-title">
         <span class="material-icons">stars</span>
-        Special Cards & Actions
+        ልዩ ልዩ ካርታወች
     </div>
     <div class="modal-section-content">
         <ul>
-            <li><strong>2:</strong> Next player must draw two cards or stack another 2 to pass the penalty.</li>
-            <li><strong>5:</strong> Acts as a skip card. If played, the same player takes another turn.</li>
-            <li><strong>7:</strong> Can be played with any number of 7s, 8s, or Js together, regardless of suit. If played alone, acts as a skip (extra turn for the player).</li>
-            <li><strong>8 or J:</strong> When played, you may choose a new suit. After a suit change, the next 8 or J dropped cannot change suit unless it is a different value (i.e., can't chain suit changes with the same card value).</li>
-            <li><strong>Ace of Spades:</strong> Forces the next player to draw 5 cards.</li>
+            <li><strong>2:</strong> ቀጣዩ ሰው ወይ 2 ይስባል አልያ 2 መጣል አለበት ከዛሚቀጥለው 4 ይስባል።</li>
+            <li><strong>5:</strong> እንደ ማዘለያ ነው ጥቅሟ ስለዚህ እናንተን ያስደግማል።</li>
+            <li><strong>7:</strong> ብቻዋን ከተጣለች እንደ ማዘለያ ይጠቅማል ነገር ግን ሌሎች ካርታወችን ለማውረድ ያገለግላል ለምሳሌ 7 ልብ ቢኖረኝ ያለኝን ልብ በሙሉ ማውረድ ችላለው።</li>
+            <li><strong>8 / J:</strong> ሁለቱንም ካርታ የፈለግነው ካርታ ላይ መጣል ይቻላል ከዛም በመቀጠል ጫዋታውን ወደፈለጉት suit መቀየር ይቻላል ነገር ግን ይህ ማይሰራው ከእናንተ አንድ ዙር ቀደም ብሎ አዞ ከነበር መቀየር አይቻልም ግን እንደ በማለት መጫወት ይቻላል ።</li>
+            <li><strong>A ጦር:</strong> አንድ ሰው ይህን ከጣለ ቀጣዩ ሰው  ወይ 5 ይስባል አልያ 2 ጦር መጣል ይችላል</li>
         </ul>
     </div>
 </div>
 
-<div class="modal-section">
-    <div class="modal-section-title">
-        <span class="material-icons">feedback</span>
-        Additional Rules & Tips
-    </div>
-    <div class="modal-section-content">
-        <ul>
-            <li>You can always drop an 8 or J even if it does not match the current suit, but you can only change the suit if a different suit-changer (8 or J) was used last.</li>
-            <li>If you play a 7 with other special cards, their effects stack according to the rules above.</li>
-            <li>Cards in the discard pile are visually scattered for fun—only the top card affects play.</li>
-            <li>Have fun and try to outsmart your opponent by using special cards strategically!</li>
-        </ul>
-    </div>
-</div>
 
-<div class="modal-section">
-    <div class="modal-section-title">
-        <span class="material-icons">tips_and_updates</span>
-        Tips & Strategies
-    </div>
-    <div class="modal-section-content">
-        <ul>
-            <li>Keep track of which special cards have been played—you might predict your opponent's moves.</li>
-            <li>Use 8 or J to change suits when it benefits you most—especially if your opponent is low on cards.</li>
-            <li>Stack 2s and 7s carefully to put pressure on your opponent or avoid drawing extra cards.</li>
-            <li>Try to save a skip (5 or solo 7) for a crucial moment when you need an extra turn.</li>
-            <li>Remember: The last player with no cards in hand wins the game!</li>
-        </ul>
-    </div>
-</div>
+
         </div>
     </div>
 
