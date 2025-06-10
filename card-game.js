@@ -128,7 +128,42 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (gameStatusEl) gameStatusEl.textContent = 'Game initialization failed';
     }
     
-    if (backBtn) backBtn.addEventListener('click', () => window.location.href = 'home.html');
+   if (backBtn) {
+    backBtn.addEventListener('click', async () => {
+        // Check if the game is finished
+        if (gameState.status === 'finished') {
+            // If the game is finished, simply redirect to home
+            window.location.href = 'home.html';
+            return;
+        }
+
+        const users = JSON.parse(localStorage.getItem('user')) || {};
+        const isCreator = gameState.playerRole === 'creator';
+        const opponentPhone = isCreator ? gameState.opponent.phone : gameState.creator.phone;
+
+        // Update the game state to declare the opponent as the winner
+        const updateData = {
+            status: 'finished',
+            winner: opponentPhone, // Set the winner as the opponent
+            updated_at: new Date().toISOString()
+        };
+
+        try {
+            const { error } = await supabase
+                .from('card_games')
+                .update(updateData)
+                .eq('code', gameState.gameCode);
+
+            if (error) throw error;
+
+            // Redirect to home page or show a message
+            window.location.href = 'home.html';
+        } catch (error) {
+            console.error('Error declaring winner:', error);
+            displayMessage(gameStatusEl, 'Error declaring winner. Please try again.', 'error');
+        }
+    });
+}
 });
 
 async function loadGameData() {
@@ -837,16 +872,16 @@ function renderCardHTML(card, {isPlayable = false} = {}) {
 
 function renderPlayerHand() {
     if (!playerHandEl) return;
-
+    
     playerHandEl.innerHTML = '';
     const scrollWrapper = document.createElement('div');
     scrollWrapper.className = 'player-hand-scroll';
     const cardsContainer = document.createElement('div');
     cardsContainer.className = 'player-hand-cards';
-
+    
     const users = JSON.parse(localStorage.getItem('user')) || {};
     const isMyTurn = gameState.currentPlayer === users.phone;
-
+    
     gameState.playerHand.forEach((card, index) => {
         const isPlayable = isMyTurn && canPlayCard(card);
         const wrapper = document.createElement('div');
@@ -857,7 +892,7 @@ function renderPlayerHand() {
         }
         cardsContainer.appendChild(cardEl);
     });
-
+    
     scrollWrapper.appendChild(cardsContainer);
     playerHandEl.appendChild(scrollWrapper);
 }
