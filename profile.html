@@ -623,6 +623,9 @@
                 </div>
                 <div class="balance-actions">
                     <button class="btn-deposit">
+                                            <button class="btn-deposit" onclick="showDepositModal()">
+
+
                         <span class="material-icons">add</span> Deposit
                     </button>
                     <button class="btn-withdraw">
@@ -660,6 +663,7 @@
         
             <div class="form-group">
                 <label for="deposit-method">Payment Method</label>
+                <select id="deposit-method" onchange="updateDepositInstructions()">
                 <select id="deposit-method">
                     <option value="telebirr">Telebirr</option>
                     <option value="cbe">CBE Birr</option>
@@ -752,8 +756,80 @@
             </button>
         </div>
     </div>
+ <script>Add commentMore actions
+        // Modal functions
+        function showDepositModal() {
+            document.getElementById('deposit-modal').style.display = 'flex';
+            updateDepositInstructions();
+        }
 
+        function showWithdrawModal() {
+            document.getElementById('withdraw-modal').style.display = 'flex';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // Update deposit instructions based on selected method
+        function updateDepositInstructions() {
+            const method = document.getElementById('deposit-method').value;
+            
+            // Hide all instructions first
+            document.getElementById('telebirr-instructions').style.display = 'none';
+            document.getElementById('cbe-instructions').style.display = 'none';
+            document.getElementById('bank-instructions').style.display = 'none';
+            
+            // Show the selected method's instructions
+            document.getElementById(`${method}-instructions`).style.display = 'block';
+            
+            // Update transaction ID placeholder
+            const transactionIdInput = document.getElementById('transaction-id');
+            if (method === 'telebirr') {
+                transactionIdInput.placeholder = 'e.g. T1234567890';
+            } else if (method === 'cbe') {
+                transactionIdInput.placeholder = 'e.g. CBE123456';
+            } else {
+                transactionIdInput.placeholder = 'e.g. Bank reference number';
+            }
+        }
+
+        // Copy to clipboard function
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showAlert('Account number copied!', 'success');
+            }).catch(err => {
+                showAlert('Failed to copy', 'error');
+                console.error('Failed to copy: ', err);
+            });
+        }
+
+        // Show alert message
+        function showAlert(message, type) {
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.innerHTML = `
+                <span class="material-icons">${type === 'success' ? 'check_circle' : 'error'}</span>
+                ${message}
+            `;
+            
+            document.body.appendChild(alert);
+            
+            setTimeout(() => {
+                alert.classList.add('fade-out');
+                setTimeout(() => alert.remove(), 300);
+            }, 3000);
+        }
+
+        // Close modals when clicking outside
+        window.onclick = function(event) {
+            if (event.target.className === 'modal') {
+                event.target.style.display = 'none';
+            }
+        }
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="profile.js" type="module"></script>
+    
 </body>
 </html>
