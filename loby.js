@@ -214,7 +214,7 @@ async function fetchAvailableGames() {
             `)
             .eq('status', 'waiting')
             .eq('is_private', false)
-            .order('created_at', { ascending: true });
+            .order('created_at', { ascending: false });
 
         if (error) throw error;
 
