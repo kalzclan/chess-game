@@ -1723,31 +1723,7 @@ async function recordTransaction(transactionData) {
         throw error;
     }
 }
-async function updateHouseBalance(amount) {
-    try {
-        const { data: house, error } = await supabase
-            .from('house_balance')
-            .select('balance')
-            .eq('id', 1)
-            .single();
-  
-        if (error) throw error;
-  
-        const newBalance = (house?.balance || 0) + amount;
-  
-        const { error: updateError } = await supabase
-            .from('house_balance')
-            .update({ balance: newBalance })
-            .eq('id', 1);
-  
-        if (updateError) throw updateError;
-  
-        return newBalance;
-    } catch (error) {
-        console.error('House balance update error:', error);
-        throw error;
-    }
-}
+
 
 function showGameResult(isWinner, amount) {
     // Block further gameplay
