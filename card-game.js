@@ -411,8 +411,7 @@ async function setupRealtimeUpdates() {
                     if (payload.new.status === 'finished') {
                         const isWinner = payload.new.winner === users.phone;
                         const amount = Math.floor(gameState.betAmount * 1.8);
-        const houseCut = Math.floor(gameState.betAmount * 0.1);  // 10% to house
-  updateHouseBalance(houseCut);
+
 
                         // Only record win transaction if winner
                         if (isWinner) {
@@ -424,7 +423,8 @@ async function setupRealtimeUpdates() {
                                 status: 'completed'
                             });
 
-
+        const houseCut = Math.floor(gameState.betAmount * 0.2);  // 10% to house
+  updateHouseBalance(houseCut);
 
                         }
 
