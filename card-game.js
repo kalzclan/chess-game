@@ -184,33 +184,59 @@ async function loadGameData() {
         const users = JSON.parse(localStorage.getItem('user')) || {};
         gameState.playerRole = gameData.creator_phone === users.phone ? 'creator' : 'opponent';
 
-        // Load game state from database...
+        // --- NEW BET DEDUCTION LOGIC ---
+        const isCreator = gameState.playerRole === 'creator';
+        const isOpponent = gameState.playerRole === 'opponent';
 
-        // Check if the bet has already been deducted
-        if (gameData.opponent_phone && gameData.status === 'ongoing' && !gameData.bet_deducted) {
-            try {
-                await recordTransaction({
-                    player_phone: users.phone,
-                    transaction_type: 'bet',
-                    amount: -gameData.bet,
-                    description: `Bet for card game ${gameState.gameCode}`,
-                    status: 'completed'
-                });
-
-                // Update the bet_deducted field in the database
-                const { updateError } = await supabase
-                    .from('card_games')
-                    .update({ bet_deducted: true })
-                    .eq('code', gameState.gameCode);
-
-                if (updateError) throw updateError;
-
-                showNotification(`Bet of ${gameData.bet} ETB deducted`, 'info');
-            } catch (error) {
-                console.error('Error deducting bet:', error);
-                displayMessage(gameStatusEl, 'Error deducting bet. Please refresh.', 'error');
+        if (gameData.status === 'ongoing') {
+            // For creator
+            if (
+                isCreator &&
+                gameData.creator_phone &&
+                !gameData.creator_bet_deducted
+            ) {
+                try {
+                    await recordTransaction({
+                        player_phone: gameData.creator_phone,
+                        transaction_type: 'bet',
+                        amount: -gameData.bet,
+                        description: `Bet for card game ${gameState.gameCode}`,
+                        status: 'completed'
+                    });
+                    await supabase.from('card_games')
+                        .update({ creator_bet_deducted: true })
+                        .eq('code', gameState.gameCode);
+                    showNotification(`Your bet of ${gameData.bet} ETB deducted`, 'info');
+                } catch (error) {
+                    console.error('Error deducting bet (creator):', error);
+                    displayMessage(gameStatusEl, 'Error deducting bet. Please refresh.', 'error');
+                }
+            }
+            // For opponent
+            if (
+                isOpponent &&
+                gameData.opponent_phone &&
+                !gameData.opponent_bet_deducted
+            ) {
+                try {
+                    await recordTransaction({
+                        player_phone: gameData.opponent_phone,
+                        transaction_type: 'bet',
+                        amount: -gameData.bet,
+                        description: `Bet for card game ${gameState.gameCode}`,
+                        status: 'completed'
+                    });
+                    await supabase.from('card_games')
+                        .update({ opponent_bet_deducted: true })
+                        .eq('code', gameState.gameCode);
+                    showNotification(`Your bet of ${gameData.bet} ETB deducted`, 'info');
+                } catch (error) {
+                    console.error('Error deducting bet (opponent):', error);
+                    displayMessage(gameStatusEl, 'Error deducting bet. Please refresh.', 'error');
+                }
             }
         }
+        // --- END BET DEDUCTION LOGIC ---
 
         // Continue with the rest of your loadGameData logic...
         gameState.status = gameData.status;
@@ -248,9 +274,6 @@ async function loadGameData() {
             };
         }
 
-        // Check if this is an opponent's card play...
-        // (Continue with the existing logic)
-
         updateGameUI();
 
     } catch (error) {
@@ -277,28 +300,47 @@ async function setupRealtimeUpdates() {
                     const previousLastCard = gameState.lastCard;
                     const previousTimestamp = gameState.lastCardChangeTimestamp;
 
-                    // Check if opponent just joined and we need to deduct bet
-                    if (payload.new.opponent_phone && 
-                        payload.new.status === 'ongoing' && 
-                        !gameState.opponent.phone && 
-                        !payload.new.bet_deducted) { // Check from payload
+                    // --- NEW BET DEDUCTION LOGIC ---
+                    const isCreator = gameState.playerRole === 'creator';
+                    const isOpponent = gameState.playerRole === 'opponent';
 
-                        await recordTransaction({
-                            player_phone: users.phone,
-                            transaction_type: 'bet',
-                            amount: -payload.new.bet,
-                            description: `Bet for card game ${gameState.gameCode}`,
-                            status: 'completed'
-                        });
-
-                        // Update the bet_deducted field in the database
-                        const { updateError } = await supabase
-                            .from('card_games')
-                            .update({ bet_deducted: true })
-                            .eq('code', gameState.gameCode);
-
-                        if (updateError) throw updateError;
+                    if (payload.new.status === 'ongoing') {
+                        // Deduct for creator if not yet done
+                        if (
+                            isCreator &&
+                            payload.new.creator_phone &&
+                            !payload.new.creator_bet_deducted
+                        ) {
+                            await recordTransaction({
+                                player_phone: payload.new.creator_phone,
+                                transaction_type: 'bet',
+                                amount: -payload.new.bet,
+                                description: `Bet for card game ${gameState.gameCode}`,
+                                status: 'completed'
+                            });
+                            await supabase.from('card_games')
+                                .update({ creator_bet_deducted: true })
+                                .eq('code', gameState.gameCode);
+                        }
+                        // Deduct for opponent if not yet done
+                        if (
+                            isOpponent &&
+                            payload.new.opponent_phone &&
+                            !payload.new.opponent_bet_deducted
+                        ) {
+                            await recordTransaction({
+                                player_phone: payload.new.opponent_phone,
+                                transaction_type: 'bet',
+                                amount: -payload.new.bet,
+                                description: `Bet for card game ${gameState.gameCode}`,
+                                status: 'completed'
+                            });
+                            await supabase.from('card_games')
+                                .update({ opponent_bet_deducted: true })
+                                .eq('code', gameState.gameCode);
+                        }
                     }
+                    // --- END BET DEDUCTION LOGIC ---
 
                     // Update game state
                     gameState.status = payload.new.status;
@@ -320,8 +362,6 @@ async function setupRealtimeUpdates() {
                     gameState.mustPlaySuit = payload.new.must_play_suit || false;
                     gameState.currentSuitToMatch = payload.new.current_suit_to_match || '';
                     gameState.discardPile = payload.new.discard_pile ? safeParseJSON(payload.new.discard_pile) : [];
-
-                    const isCreator = gameState.playerRole === 'creator';
 
                     if (isCreator) {
                         gameState.playerHand = safeParseJSON(payload.new.creator_hand) || [];
@@ -351,15 +391,11 @@ async function setupRealtimeUpdates() {
                         )) {
                         
                         const newCard = safeParseJSON(payload.new.last_card);
-                        
                         // Determine if this was an opponent's play
                         // The current_player in the payload is the NEXT player to play
                         // So if current_player is us, then the opponent just played
                         const isOpponentPlay = payload.new.current_player === users.phone;
-                        
                         if (isOpponentPlay && newCard) {
-                            console.log('Opponent played:', newCard); // Debug log
-                            
                             // Play appropriate sound for opponent's move
                             if (newCard.value === 'A' && newCard.suit === 'spades') {
                                 soundEffects.specialCard.play();
@@ -371,10 +407,11 @@ async function setupRealtimeUpdates() {
                         }
                     }
 
+                    // Game end and win payout
                     if (payload.new.status === 'finished') {
                         const isWinner = payload.new.winner === users.phone;
                         const amount = Math.floor(gameState.betAmount * 1.8);
-                        
+
                         // Only record win transaction if winner
                         if (isWinner) {
                             await recordTransaction({
@@ -385,7 +422,7 @@ async function setupRealtimeUpdates() {
                                 status: 'completed'
                             });
                         }
-                        
+
                         showGameResult(isWinner, amount);
                     }
 
