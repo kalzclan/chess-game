@@ -421,6 +421,15 @@ async function setupRealtimeUpdates() {
                                 description: `Won card game ${gameState.gameCode}`,
                                 status: 'completed'
                             });
+
+//to recored the data on the bet
+                     const totalPrizePool = gameData.bet * 2; // Both players' bets
+        const winnerPrize = Math.floor(totalPrizePool * 0.9); // 90% to winner
+        const houseCut = totalPrizePool - winnerPrize; // 10% to house
+  updateHouseBalance(houseCut);
+
+///upto here
+
                         }
 
                         showGameResult(isWinner, amount);
@@ -491,7 +500,31 @@ function canPlayCard(card) {
     return card.suit === gameState.currentSuit ||
            card.value === gameState.lastCard.value;
 }
-
+async function updateHouseBalance(amount) {
+    try {
+        const { data: house, error } = await supabase
+            .from('house_balance')
+            .select('balance')
+            .eq('id', 1)
+            .single();
+  
+        if (error) throw error;
+  
+        const newBalance = (house?.balance || 0) + amount;
+  
+        const { error: updateError } = await supabase
+            .from('house_balance')
+            .update({ balance: newBalance })
+            .eq('id', 1);
+  
+        if (updateError) throw updateError;
+  
+        return newBalance;
+    } catch (error) {
+        console.error('House balance update error:', error);
+        throw error;
+    }
+}
 async function playCard(cardIndex) {
     try {
         const users = JSON.parse(localStorage.getItem('user')) || {};
