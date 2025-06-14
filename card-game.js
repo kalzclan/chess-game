@@ -131,27 +131,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
 if (backBtn) {
- let isProcessingExit = false; // Track exit state
+    let isProcessingExit = false; // Track exit state to prevent multiple clicks
     
     backBtn.addEventListener('click', async () => {
-        if (isProcessingExit || gameState.status === 'finished') return;
-        isProcessingExit = true;
+        // Prevent multiple clicks while processing
+        if (isProcessingExit || gameState.status === 'finished') {
+            return;
+        }
         
+        isProcessingExit = true;
+        backBtn.disabled = true; // Visual feedback
+        backBtn.textContent = 'Processing...';
+
         const users = JSON.parse(localStorage.getItem('user')) || {};
         const isCreator = gameState.playerRole === 'creator';
+        const opponentPhone = isCreator ? gameState.opponent.phone : gameState.creator.phone;
 
         try {
-            // Get current game state with lock to prevent race conditions
+            // Get current game state with FOR UPDATE lock to prevent race conditions
             const { data: gameData, error: fetchError } = await supabase
                 .from('card_games')
-                .select('creator_moves, opponent_moves, is_refund_processed, last_card')
+                .select(`
+                    creator_moves, 
+                    opponent_moves, 
+                    creator_bet_deducted, 
+                    opponent_bet_deducted,
+                    last_card,
+                    is_refund_processed,
+                    status
+                `)
                 .eq('code', gameState.gameCode)
                 .single();
 
             if (fetchError) throw fetchError;
 
-            // Prevent refund if already processed
-            if (gameData.is_refund_processed) {
+            // If game is already finished, just redirect
+            if (gameData.status === 'finished') {
                 window.location.href = 'home.html';
                 return;
             }
@@ -170,31 +185,46 @@ if (backBtn) {
             // Only mark as finished if game was actually played
             if (gameWasPlayed) {
                 updateData.status = 'finished';
-                updateData.winner = isCreator ? gameState.opponent.phone : gameState.creator.phone;
+                updateData.winner = opponentPhone;
                 
+                // Deduct house cut only if game was played
                 const houseCut = Math.floor(gameState.betAmount * 0.2);
                 await updateHouseBalance(houseCut);
-            } else {
-                // Process refund if player hasn't made any moves
-                if (playerMoves === 0 && (isCreator ? gameData.creator_bet_deducted : gameData.opponent_bet_deducted)) {
-                    const refundAmount = gameState.betAmount;
-                    
-                    await recordTransaction({
-                        player_phone: users.phone,
-                        transaction_type: 'refund',
-                        amount: refundAmount,
-                        description: `Refund for unfinished game ${gameState.gameCode}`,
-                        status: 'completed'
-                    });
+                
+                // Redirect immediately for played games
+                window.location.href = 'home.html';
+            } 
+            // Process refund only if:
+            // 1. Player hasn't made any moves
+            // 2. Refund hasn't been processed yet
+            // 3. Player's bet was actually deducted
+            else if (playerMoves === 0 && 
+                    !gameData.is_refund_processed && 
+                    (isCreator ? gameData.creator_bet_deducted : gameData.opponent_bet_deducted)) {
+                
+                const refundAmount = gameState.betAmount;
+                
+                // Process refund transaction
+                await recordTransaction({
+                    player_phone: users.phone,
+                    transaction_type: 'refund',
+                    amount: refundAmount,
+                    description: `Refund for unfinished game ${gameState.gameCode}`,
+                    status: 'completed'
+                });
 
-                    updateData.is_refund_processed = true;
-                    updateData.refunded_player = users.phone;
-                    
-                    showRefundNotification(refundAmount);
-                }
+                // Mark refund as processed
+                updateData.is_refund_processed = true;
+                updateData.refunded_player = users.phone;
+                
+                // Show refund notification
+                showRefundNotification(refundAmount);
+            } else {
+                // For cases where no refund is due, just redirect
+                window.location.href = 'home.html';
             }
 
-            // Update game state
+            // Update game state in database
             const { error } = await supabase
                 .from('card_games')
                 .update(updateData)
@@ -202,18 +232,14 @@ if (backBtn) {
 
             if (error) throw error;
 
-            // Redirect unless we're showing refund notification
-            if (!updateData.is_refund_processed) {
-                window.location.href = 'home.html';
-            }
-
         } catch (error) {
             console.error('Error handling game exit:', error);
             displayMessage(gameStatusEl, 'Error processing exit. Please try again.', 'error');
         } finally {
             isProcessingExit = false;
+            backBtn.disabled = false;
+            backBtn.textContent = 'Back';
         }
-        
     });
 }
 });
