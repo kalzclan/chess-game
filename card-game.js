@@ -1907,7 +1907,8 @@ function getRandomMessage(isWinner) {
 }
 function showGameResult(isWinner, amount) {
  gameState.status = 'finished';
-    
+        const message = getRandomMessage(isWinner);
+
     // Remove all card click handlers
     if (playerHandEl) {
         const cards = playerHandEl.querySelectorAll('.card');
