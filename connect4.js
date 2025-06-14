@@ -107,9 +107,7 @@ let gameState = {
     betDeducted: false,
     didWeWin: false,
     lastMoveColumn: -1,
-    winningCells: [],
-    creatorMoves: 0,
-    opponentMoves: 0
+    winningCells: []
 };
 
 // --- Transaction Handling ---
@@ -246,6 +244,21 @@ async function handleGameWin(winningPlayer, winningCells) {
         
         if (error) throw error;
 
+        // Award prize to winner
+        const { data: winnerData } = await supabase
+            .from('users')
+            .select('balance')
+            .eq('phone', winningPlayer.phone)
+            .single();
+
+        if (winnerData) {
+            const newBalance = winnerData.balance + winnerPrize;
+            await supabase
+                .from('users')
+                .update({ balance: newBalance })
+                .eq('phone', winningPlayer.phone);
+        }
+
         // Record transaction for winner
         await recordTransaction({
             player_phone: winningPlayer.phone,
@@ -312,6 +325,20 @@ async function handleGameDraw() {
         const phone = localStorage.getItem('phone');
         
         // Refund current player
+        const { data: userData } = await supabase
+            .from('users')
+            .select('balance')
+            .eq('phone', phone)
+            .single();
+
+        if (userData) {
+            const newBalance = userData.balance + refundAmount;
+            await supabase
+                .from('users')
+                .update({ balance: newBalance })
+                .eq('phone', phone);
+        }
+
         await recordTransaction({
             player_phone: phone,
             transaction_type: 'refund',
@@ -531,102 +558,112 @@ function copyGameCode() {
     });
 }
 
-function showOpponentLeftNotification(opponentName) {
-    const modal = document.createElement('div');
-    modal.className = 'modern-modal-overlay';
-    modal.innerHTML = `
-        <div class="modern-modal">
-            <h2 class="modal-title">⚠️ Opponent Left</h2>
-            <div class="modern-dialog-content">
-                <p>${opponentName} has left the game.</p>
-                <p>You can exit to get your bet refunded.</p>
-            </div>
-            <div class="modern-dialog-actions">
-                <button id="opponent-left-ok-btn" class="modern-btn">
-                    Continue Playing
-                </button>
-                <button id="opponent-left-exit-btn" class="modern-btn primary">
-                    Exit and Get Refund
-                </button>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    injectModernDialogCSS();
-    
-    modal.querySelector('#opponent-left-ok-btn').addEventListener('click', () => {
-        modal.remove();
-    });
-    
-    modal.querySelector('#opponent-left-exit-btn').addEventListener('click', () => {
-        modal.remove();
-        backBtn.click(); // Trigger the back button logic
-    });
-}
-
-function showRefundNotification(amount) {
-    const modal = document.createElement('div');
-    modal.className = 'modern-modal-overlay';
-    modal.innerHTML = `
-        <div class="modern-modal">
-            <h2 class="modal-title">💰 Refund Processed</h2>
-            <div class="modern-dialog-content">
-                <p>Your bet of ${formatBalance(amount)} has been refunded.</p>
-                <p>No moves were made in the game.</p>
-            </div>
-            <div class="modern-dialog-actions">
-                <button id="refund-close-btn" class="modern-btn primary">
-                    Return to Home
-                </button>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    injectModernDialogCSS();
-    
-    modal.querySelector('#refund-close-btn').addEventListener('click', () => {
-        modal.remove();
-        window.location.href = '/';
-    });
-}
-
-function injectModernDialogCSS() {
-    if (document.getElementById('modern-dialog-css')) return;
-    const style = document.createElement('style');
-    style.id = 'modern-dialog-css';
-    style.textContent = `
-    .modern-modal-overlay {
-        background: rgba(34, 36, 38, 0.46);
-        position: fixed; z-index: 1999; left: 0; top: 0; width: 100vw; height: 100vh;
-        display: flex; align-items: center; justify-content: center;
-        animation: fadein 0.12s;
-    }
-    .modern-modal {
-        background: #fff; border-radius: 18px; min-width: 290px; max-width: 94vw;
-        box-shadow: 0 10px 38px #0b2b1f0f, 0 4px 18px #0b2b1f28;
-        padding: 32px 24px 18px 24px; position: relative; font-family: "Inter",sans-serif;
-        text-align: center; animation: popup-in 0.17s;
-    }
-    .modal-title { font-size: 1.4em; color: #173e25; font-weight: 700; margin-bottom: 11px; }
-    .modern-dialog-content { color: #4e5b5c; font-size: 1em; margin-bottom: 15px; }
-    .modern-dialog-actions { display: flex; gap: 10px; margin-top: 13px; justify-content: center; }
-    .modern-btn {
-        border: none; outline: none; border-radius: 9px;
-        padding: 9px 18px; font-size: 1em; font-weight: 600; background: #e0e0e0; color: #173e25;
-        cursor: pointer; transition: background 0.13s, color 0.13s;
-    }
-    .modern-btn.primary { background: #43a047; color: #fff; }
-    .modern-btn.primary:hover { background: #388e3c; }
-    .modern-btn:hover { background: #c8c8c8; }
-    @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes popup-in { from { transform: scale(0.93); opacity: 0.7; } to { transform: scale(1); opacity:1; } }
-    `;
-    document.head.appendChild(style);
-}
-
 // --- Game Management Functions ---
+async function deductBetAmount() {
+    if (gameState.betDeducted) return;
+
+    try {
+        const phone = localStorage.getItem('phone');
+        const isCreator = gameState.playerRole === 'creator';
+        
+        // Get current game state to check bet status
+        const { data: gameData, error: fetchError } = await supabase
+            .from('connect_four_games')
+            .select('bet, creator_bet_deducted, opponent_bet_deducted, status')
+            .eq('code', gameState.gameCode)
+            .single();
+
+        if (fetchError) throw fetchError;
+        if (!gameData) {
+            console.warn("Game data not found for bet deduction.");
+            return;
+        }
+
+        // Check if bet already deducted for this player
+        const betAlreadyDeducted = isCreator ? 
+            gameData.creator_bet_deducted : 
+            gameData.opponent_bet_deducted;
+
+        if (betAlreadyDeducted) {
+            console.log('Bet already deducted for this player');
+            gameState.betDeducted = true;
+            gameState.betAmount = gameData.bet;
+            return;
+        }
+
+        gameState.betAmount = gameData.bet;
+
+        // Check if game is ready for bet deduction
+        // For creator: deduct immediately when creating game
+        // For opponent: deduct when joining an existing game
+        const shouldDeduct = (isCreator && gameData.status === 'waiting') || 
+                            (!isCreator && gameData.status === 'ongoing');
+
+        if (!shouldDeduct) {
+            console.log('Not the right time to deduct bet yet');
+            return;
+        }
+
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('balance')
+            .eq('phone', phone)
+            .single();
+
+        if (userError) throw userError;
+
+        if (userData && userData.balance >= gameState.betAmount) {
+            // Deduct from user balance
+            const newBalance = userData.balance - gameState.betAmount;
+            const { error: updateError } = await supabase
+                .from('users')
+                .update({ balance: newBalance })
+                .eq('phone', phone);
+
+            if (updateError) throw updateError;
+
+            // Mark bet as deducted for this player in game record
+            const updateField = isCreator ? 'creator_bet_deducted' : 'opponent_bet_deducted';
+            const { error: betUpdateError } = await supabase
+                .from('connect_four_games')
+                .update({ 
+                    [updateField]: true,
+                    // If opponent is joining, also update game status to ongoing
+                    ...(!isCreator && gameData.status === 'waiting' ? { status: 'ongoing' } : {})
+                })
+                .eq('code', gameState.gameCode);
+
+            if (betUpdateError) throw betUpdateError;
+
+            gameState.betDeducted = true;
+            showNotification(`Bet of ${formatBalance(gameState.betAmount)} deducted`, 'info');
+
+            // Record transaction
+            await recordTransaction({
+                player_phone: phone,
+                transaction_type: 'bet',
+                amount: -gameState.betAmount,
+                description: `Connect Four game bet`,
+                status: 'completed'
+            });
+
+            // If both bets are now deducted, update the game status if needed
+            if (gameData.creator_bet_deducted && !isCreator) {
+                await supabase
+                    .from('connect_four_games')
+                    .update({ status: 'ongoing' })
+                    .eq('code', gameState.gameCode);
+            }
+        } else {
+            displayMessage(gameStatusMessage, 'Insufficient balance to join game. Redirecting...', 'error');
+            setTimeout(() => window.location.href = '/', 3000);
+        }
+    } catch (error) {
+        console.error('Error deducting bet amount:', error);
+        displayMessage(gameStatusMessage, 'Error deducting bet. Please try again.', 'error');
+    }
+}
+
 async function updateGameInDatabase() {
     try {
         await supabase
@@ -635,9 +672,7 @@ async function updateGameInDatabase() {
                 board: gameState.board,
                 current_turn: gameState.currentTurn,
                 moves: gameState.moves,
-                status: gameState.gameStatus,
-                creator_moves: gameState.creatorMoves,
-                opponent_moves: gameState.opponentMoves
+                status: gameState.gameStatus
             })
             .eq('code', gameState.gameCode);
     } catch (error) {
@@ -714,8 +749,7 @@ function setupRealtimeUpdates() {
             async (payload) => {
                 console.log('Realtime payload received:', payload);
                 
-                const users = JSON.parse(localStorage.getItem('user')) || {};
-                const phone = users.phone;
+                const phone = localStorage.getItem('phone');
                 const isCreator = gameState.playerRole === 'creator';
                 
                 // Handle game cancellation first
@@ -724,65 +758,32 @@ function setupRealtimeUpdates() {
                     return;
                 }
                 
-                // --- IMPROVED BET DEDUCTION LOGIC ---
-                if (payload.new.status === 'ongoing') {
-                    // Deduct for creator if not yet done
-                    if (
-                        isCreator &&
-                        payload.new.creator_phone &&
-                        !payload.new.creator_bet_deducted
-                    ) {
-                        await recordTransaction({
-                            player_phone: payload.new.creator_phone,
-                            transaction_type: 'bet',
-                            amount: -payload.new.bet,
-                            description: `Bet for Connect Four game ${gameState.gameCode}`,
-                            status: 'completed'
-                        });
-                        await supabase.from('connect_four_games')
-                            .update({ creator_bet_deducted: true })
-                            .eq('code', gameState.gameCode);
-                        showNotification(`Your bet of ${formatBalance(payload.new.bet)} deducted`, 'info');
-                    }
-                    // Deduct for opponent if not yet done
-                    if (
-                        !isCreator &&
-                        payload.new.opponent_phone &&
-                        !payload.new.opponent_bet_deducted
-                    ) {
-                        await recordTransaction({
-                            player_phone: payload.new.opponent_phone,
-                            transaction_type: 'bet',
-                            amount: -payload.new.bet,
-                            description: `Bet for Connect Four game ${gameState.gameCode}`,
-                            status: 'completed'
-                        });
-                        await supabase.from('connect_four_games')
-                            .update({ opponent_bet_deducted: true })
-                            .eq('code', gameState.gameCode);
-                        showNotification(`Your bet of ${formatBalance(payload.new.bet)} deducted`, 'info');
+                // Handle bet deduction updates
+                if ((payload.new.creator_bet_deducted || payload.new.opponent_bet_deducted) && 
+                    !gameState.betDeducted) {
+                    
+                    const ourBetDeducted = isCreator ? 
+                        payload.new.creator_bet_deducted : 
+                        payload.new.opponent_bet_deducted;
+                    
+                    if (ourBetDeducted) {
+                        gameState.betDeducted = true;
+                        gameState.betAmount = payload.new.bet;
+                        showNotification(`Bet of ${formatBalance(payload.new.bet)} deducted`, 'info');
                     }
                 }
                 
-                // Handle leaver notifications
-                if (payload.new.leaver && payload.new.leaver !== phone) {
-                    // Check if game wasn't played and current player hasn't been refunded
-                    const currentPlayerRefunded = gameState.playerRole === 'creator' ? 
-                        payload.new.creator_refunded : payload.new.opponent_refunded;
-                    
-                    if (payload.new.moves.length === 0 && !currentPlayerRefunded) {
-                        const leaverName = payload.new.leaver === payload.new.creator_phone ? 
-                            payload.new.creator_username : payload.new.opponent_username;
-                        showOpponentLeftNotification(leaverName);
-                    }
-                }
-
                 // Handle refund notifications
                 if (payload.new.creator_refunded || payload.new.opponent_refunded) {
                     const wasRefunded = isCreator ? 
                         payload.new.creator_refunded : 
                         payload.new.opponent_refunded;
                     
+                    const otherPlayerRefunded = isCreator ?
+                        payload.new.opponent_refunded :
+                        payload.new.creator_refunded;
+                    
+                    // Check if current player was refunded
                     if (wasRefunded && !(isCreator ? gameState.creator_refunded : gameState.opponent_refunded)) {
                         const refundAmount = gameState.betAmount;
                         
@@ -793,12 +794,35 @@ function setupRealtimeUpdates() {
                             gameState.opponent_refunded = true;
                         }
                         
+                        // Update user balance locally
+                        const { data: userData } = await supabase
+                            .from('users')
+                            .select('balance')
+                            .eq('phone', phone)
+                            .single();
+                        
+                        if (userData) {
+                            const newBalance = userData.balance + refundAmount;
+                            await supabase
+                                .from('users')
+                                .update({ balance: newBalance })
+                                .eq('phone', phone);
+                        }
+                        
                         showNotification(`You've been refunded ${formatBalance(refundAmount)}`, 'success');
                         
                         // Show refund modal if game hasn't started
                         if (payload.new.moves.length === 0) {
-                            showRefundNotification(refundAmount);
+                            showRefundResult({
+                                amount: refundAmount,
+                                opponentLeft: otherPlayerRefunded
+                            });
                         }
+                    }
+                    
+                    // Check if other player was refunded
+                    if (otherPlayerRefunded) {
+                        showNotification('Opponent has left and been refunded', 'info');
                     }
                 }
                 
@@ -807,8 +831,6 @@ function setupRealtimeUpdates() {
                 gameState.board = payload.new.board || gameState.board;
                 gameState.currentTurn = payload.new.current_turn;
                 gameState.moves = payload.new.moves || [];
-                gameState.creatorMoves = payload.new.creator_moves || 0;
-                gameState.opponentMoves = payload.new.opponent_moves || 0;
                 gameState.creator_refunded = payload.new.creator_refunded || false;
                 gameState.opponent_refunded = payload.new.opponent_refunded || false;
                 
@@ -824,6 +846,7 @@ function setupRealtimeUpdates() {
                         gameState.currentTurn = gameState.creator.phone;
                         updateGameInDatabase();
                     }
+                    deductBetAmount();
                     showNotification('Opponent has joined!', 'success');
                 }
 
@@ -835,34 +858,14 @@ function setupRealtimeUpdates() {
                     }
                 }
 
+                updateGameUI();
+
                 // Handle game completion
                 if (payload.new.status === 'finished') {
-                    const isWinner = payload.new.winner === phone;
-                    const amount = Math.floor(gameState.betAmount * 1.8);
-
-                    // Only record win transaction if winner
-                    if (isWinner) {
-                        await recordTransaction({
-                            player_phone: phone,
-                            transaction_type: 'win',
-                            amount: amount,
-                            description: `Won Connect Four game ${gameState.gameCode}`,
-                            status: 'completed'
-                        });
-
-                        const houseCut = Math.floor(gameState.betAmount * 0.2);
-                        await updateHouseBalance(houseCut);
-                    }
-
-                    // Only show game over if moves were made
-                    if (payload.new.moves && payload.new.moves.length > 0) {
-                        setTimeout(() => {
-                            showFinalResult(payload.new);
-                        }, 500);
-                    }
+                    setTimeout(() => {
+                        showFinalResult(payload.new);
+                    }, 500);
                 }
-
-                updateGameUI();
             }
         )
         .subscribe((status, err) => {
@@ -877,6 +880,187 @@ function setupRealtimeUpdates() {
         });
 
     return channel;
+}
+
+// Helper function to show refund result modal
+function showRefundResult({ amount, opponentLeft }) {
+    const modal = document.createElement('div');
+    modal.className = 'refund-modal active';
+    modal.innerHTML = `
+        <div class="refund-modal-content">
+            <h3>Game Refund Processed</h3>
+            <p>You've received a refund of ${formatBalance(amount)}</p>
+            ${opponentLeft ? 
+                '<p>The opponent has also left the game.</p>' : 
+                '<p>The game will continue if the opponent stays.</p>'}
+            <button id="refund-close-btn" class="btn primary">OK</button>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    modal.querySelector('#refund-close-btn').addEventListener('click', () => {
+        modal.remove();
+        if (opponentLeft) {
+            window.location.href = '/';
+        }
+    });
+}
+
+// --- Game Exit Handling ---
+async function leaveGame() {
+    const phone = localStorage.getItem('phone');
+    const isCreator = gameState.playerRole === 'creator';
+    const opponentJoined = !!gameState.opponent.phone;
+    
+    if (gameState.gameStatus === 'finished') {
+        window.location.href = '/';
+        return;
+    }
+
+    if (confirm('Are you sure you want to leave this game?')) {
+        try {
+            // Get current game state to check moves
+            const { data: gameData, error: fetchError } = await supabase
+                .from('connect_four_games')
+                .select('moves, creator_bet_deducted, opponent_bet_deducted')
+                .eq('code', gameState.gameCode)
+                .single();
+
+            if (fetchError) throw fetchError;
+
+            const movesMade = gameData.moves && gameData.moves.length > 0;
+            const betDeducted = isCreator ? 
+                gameData.creator_bet_deducted : 
+                gameData.opponent_bet_deducted;
+
+            if (!movesMade && betDeducted) {
+                // No moves made - process refund
+                const refundAmount = gameState.betAmount;
+                
+                // Record refund transaction
+                await recordTransaction({
+                    player_phone: phone,
+                    transaction_type: 'refund',
+                    amount: refundAmount,
+                    description: `Refund for unfinished Connect Four game`,
+                    status: 'completed'
+                });
+
+                // Update user balance
+                const { data: userData } = await supabase
+                    .from('users')
+                    .select('balance')
+                    .eq('phone', phone)
+                    .single();
+
+                if (userData) {
+                    const newBalance = userData.balance + refundAmount;
+                    await supabase
+                        .from('users')
+                        .update({ balance: newBalance })
+                        .eq('phone', phone);
+                }
+
+                // Mark player as refunded in game record
+                const updateField = isCreator ? 'creator_refunded' : 'opponent_refunded';
+                await supabase
+                    .from('connect_four_games')
+                    .update({ 
+                        [updateField]: true,
+                        status: 'cancelled',
+                        result: 'early_exit_refund'
+                    })
+                    .eq('code', gameState.gameCode);
+
+                showNotification(`You've been refunded ${formatBalance(refundAmount)}`, 'success');
+                setTimeout(() => window.location.href = '/', 2000);
+                return;
+            }
+
+            // If moves were made or bet wasn't deducted, proceed with normal exit handling
+            if (isCreator) {
+                if (!opponentJoined) {
+                    await supabase
+                        .from('connect_four_games')
+                        .update({
+                            status: 'cancelled',
+                            result: 'creator_left_early'
+                        })
+                        .eq('code', gameState.gameCode);
+                    
+                    showNotification('Game cancelled', 'info');
+                } else {
+                    // Creator forfeits - opponent wins
+                    const winnerPrize = Math.floor(gameState.betAmount * 2 * 0.9);
+                    
+                    await supabase
+                        .from('connect_four_games')
+                        .update({
+                            status: 'finished',
+                            winner: gameState.opponent.phone,
+                            result: 'forfeit'
+                        })
+                        .eq('code', gameState.gameCode);
+                    
+                    // Award prize to opponent
+                    const { data: opponentData } = await supabase
+                        .from('users')
+                        .select('balance')
+                        .eq('phone', gameState.opponent.phone)
+                        .single();
+
+                    if (opponentData) {
+                        await supabase
+                            .from('users')
+                            .update({ balance: opponentData.balance + winnerPrize })
+                            .eq('phone', gameState.opponent.phone);
+                    }
+                    
+                    // Record loss for creator
+                    await recordTransaction({
+                        player_phone: phone,
+                        transaction_type: 'loss',
+                        amount: -gameState.betAmount,
+                        description: `Forfeited Connect Four game`,
+                        status: 'completed'
+                    });
+                    
+                    showNotification('You forfeited - opponent wins', 'info');
+                }
+            } else {
+                // Opponent forfeits - creator wins
+                const winnerPrize = Math.floor(gameState.betAmount * 2 * 0.9);
+                
+                await supabase
+                    .from('connect_four_games')
+                    .update({
+                        status: 'finished',
+                        winner: gameState.creator.phone,
+                        result: 'forfeit'
+                    })
+                    .eq('code', gameState.gameCode);
+                
+                // Record loss for opponent
+                await recordTransaction({
+                    player_phone: phone,
+                    transaction_type: 'loss',
+                    amount: -gameState.betAmount,
+                    description: `Forfeited Connect Four game`,
+                    status: 'completed'
+                });
+                
+                showNotification('You forfeited - creator wins', 'info');
+            }
+        } catch (error) {
+            console.error('Error leaving game:', error);
+            showNotification('Error leaving game', 'error');
+        } finally {
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 1000);
+        }
+    }
 }
 
 // --- House Balance Management ---
@@ -908,8 +1092,7 @@ async function updateHouseBalance(amount) {
 
 // --- Move Handling ---
 async function dropPiece(col) {
-    const users = JSON.parse(localStorage.getItem('user')) || {};
-    const phone = users.phone;
+    const phone = localStorage.getItem('phone');
     
     if (gameState.gameStatus !== 'ongoing') {
         showNotification('Game is not active', 'error');
@@ -938,13 +1121,6 @@ async function dropPiece(col) {
         // Update local board
         gameState.board[row][col] = playerNumber;
         gameState.lastMoveColumn = col;
-        
-        // Track moves
-        if (gameState.playerRole === 'creator') {
-            gameState.creatorMoves++;
-        } else {
-            gameState.opponentMoves++;
-        }
         
         // Add move to history
         const moveData = {
@@ -1010,62 +1186,6 @@ async function loadGameData() {
             return;
         }
 
-        const users = JSON.parse(localStorage.getItem('user')) || {};
-        gameState.playerRole = gameData.creator_phone === users.phone ? 'creator' : 'opponent';
-
-        // --- IMPROVED BET DEDUCTION LOGIC ---
-        const isCreator = gameState.playerRole === 'creator';
-
-        if (gameData.status === 'ongoing') {
-            // For creator
-            if (
-                isCreator &&
-                gameData.creator_phone &&
-                !gameData.creator_bet_deducted
-            ) {
-                try {
-                    await recordTransaction({
-                        player_phone: gameData.creator_phone,
-                        transaction_type: 'bet',
-                        amount: -gameData.bet,
-                        description: `Bet for Connect Four game ${gameState.gameCode}`,
-                        status: 'completed'
-                    });
-                    await supabase.from('connect_four_games')
-                        .update({ creator_bet_deducted: true })
-                        .eq('code', gameState.gameCode);
-                    showNotification(`Your bet of ${formatBalance(gameData.bet)} deducted`, 'info');
-                } catch (error) {
-                    console.error('Error deducting bet (creator):', error);
-                    displayMessage(gameStatusMessage, 'Error deducting bet. Please refresh.', 'error');
-                }
-            }
-            // For opponent
-            if (
-                !isCreator &&
-                gameData.opponent_phone &&
-                !gameData.opponent_bet_deducted
-            ) {
-                try {
-                    await recordTransaction({
-                        player_phone: gameData.opponent_phone,
-                        transaction_type: 'bet',
-                        amount: -gameData.bet,
-                        description: `Bet for Connect Four game ${gameState.gameCode}`,
-                        status: 'completed'
-                    });
-                    await supabase.from('connect_four_games')
-                        .update({ opponent_bet_deducted: true })
-                        .eq('code', gameState.gameCode);
-                    showNotification(`Your bet of ${formatBalance(gameData.bet)} deducted`, 'info');
-                } catch (error) {
-                    console.error('Error deducting bet (opponent):', error);
-                    displayMessage(gameStatusMessage, 'Error deducting bet. Please refresh.', 'error');
-                }
-            }
-        }
-        // --- END BET DEDUCTION LOGIC ---
-
         Object.assign(gameState, {
             betAmount: gameData.bet,
             gameStatus: gameData.status,
@@ -1079,15 +1199,26 @@ async function loadGameData() {
             },
             board: gameData.board || gameState.board,
             currentTurn: gameData.current_turn,
-            moves: gameData.moves || [],
-            creatorMoves: gameData.creator_moves || 0,
-            opponentMoves: gameData.opponent_moves || 0
+            moves: gameData.moves || []
         });
 
-        if (gameState.opponent.phone && gameState.gameStatus === 'waiting') {
-            gameState.gameStatus = 'ongoing';
-            gameState.currentTurn = gameState.creator.phone;
-            await updateGameInDatabase();
+        const phone = localStorage.getItem('phone');
+        gameState.playerRole = gameData.creator_phone === phone ? 'creator' : 'opponent';
+
+        // Check if we need to deduct bet
+        const isCreator = gameState.playerRole === 'creator';
+        const betAlreadyDeducted = isCreator ? 
+            gameData.creator_bet_deducted : 
+            gameData.opponent_bet_deducted;
+
+        if (!betAlreadyDeducted) {
+            // For creator: deduct immediately when loading the game
+            // For opponent: deduct only if joining an existing game
+            if (isCreator || gameData.creator_phone) {
+                await deductBetAmount();
+            }
+        } else {
+            gameState.betDeducted = true;
         }
 
         if (gameState.gameStatus === 'finished') {
@@ -1102,109 +1233,6 @@ async function loadGameData() {
         console.error('Game load error:', error);
         displayMessage(gameStatusMessage, `Failed to load game: ${error.message}`, 'error');
         setTimeout(() => window.location.href = '/', 3000);
-    }
-}
-
-// --- Game Exit Handling ---
-async function leaveGame() {
-    const users = JSON.parse(localStorage.getItem('user')) || {};
-    const phone = users.phone;
-    const isCreator = gameState.playerRole === 'creator';
-    
-    if (gameState.gameStatus === 'finished') {
-        window.location.href = '/';
-        return;
-    }
-
-    if (confirm('Are you sure you want to leave this game?')) {
-        let isProcessingExit = false;
-        
-        if (isProcessingExit) return;
-        isProcessingExit = true;
-
-        try {
-            // Get current game state with all needed fields
-            const { data: gameData, error: fetchError } = await supabase
-                .from('connect_four_games')
-                .select(`
-                    creator_moves, 
-                    opponent_moves,
-                    creator_bet_deducted,
-                    opponent_bet_deducted,
-                    moves,
-                    creator_refunded,
-                    opponent_refunded,
-                    status
-                `)
-                .eq('code', gameState.gameCode)
-                .single();
-
-            if (fetchError) throw fetchError;
-
-            // Check if current player already got refund
-            const alreadyRefunded = isCreator ? gameData.creator_refunded : gameData.opponent_refunded;
-            if (alreadyRefunded) {
-                window.location.href = '/';
-                return;
-            }
-
-            // Determine if game was played
-            const gameWasPlayed = gameData.moves && gameData.moves.length > 0;
-            const playerMoves = isCreator ? gameData.creator_moves : gameData.opponent_moves;
-            const betDeducted = isCreator ? gameData.creator_bet_deducted : gameData.opponent_bet_deducted;
-
-            const updateData = {
-                updated_at: new Date().toISOString(),
-                leaver: phone
-            };
-
-            if (gameWasPlayed) {
-                // Game was played - normal finish
-                updateData.status = 'finished';
-                updateData.winner = isCreator ? gameState.opponent.phone : gameState.creator.phone;
-                const houseCut = Math.floor(gameState.betAmount * 0.2);
-                await updateHouseBalance(houseCut);
-                window.location.href = '/';
-            } else if (playerMoves === 0 && betDeducted) {
-                // Process individual refund
-                const refundAmount = gameState.betAmount;
-                
-                await recordTransaction({
-                    player_phone: phone,
-                    transaction_type: 'refund',
-                    amount: refundAmount,
-                    description: `Refund for unfinished Connect Four game ${gameState.gameCode}`,
-                    status: 'completed'
-                });
-
-                // Mark this specific player as refunded
-                if (isCreator) {
-                    updateData.creator_refunded = true;
-                } else {
-                    updateData.opponent_refunded = true;
-                }
-
-                updateData.refunded_player = phone;
-                showRefundNotification(refundAmount);
-            } else {
-                // No refund due - just redirect
-                window.location.href = '/';
-            }
-
-            // Update game state
-            const { error } = await supabase
-                .from('connect_four_games')
-                .update(updateData)
-                .eq('code', gameState.gameCode);
-
-            if (error) throw error;
-
-        } catch (error) {
-            console.error('Error handling exit:', error);
-            displayMessage(gameStatusMessage, 'Error processing exit', 'error');
-        } finally {
-            isProcessingExit = false;
-        }
     }
 }
 
@@ -1232,16 +1260,13 @@ function setupEventListeners() {
         displayMessage(gameStatusMessage, 'Viewing completed game', 'info');
     });
     
-    // Back button with improved exit handling
-    if (backBtn) {
-        backBtn.addEventListener('click', async () => {
-            if (gameState.gameStatus === 'finished') {
-                window.location.href = '/';
-            } else {
-                await leaveGame();
-            }
-        });
-    }
+    backBtn.addEventListener('click', async () => {
+        if (gameState.gameStatus === 'finished') {
+            window.location.href = '/';
+        } else {
+            await leaveGame();
+        }
+    });
 
     // Initialize audio on first user interaction
     document.addEventListener('click', initializeAudio, { once: true });
@@ -1270,7 +1295,6 @@ async function initializeGame() {
 window.addEventListener('beforeunload', async (e) => {
     if (gameState.gameStatus === 'finished') return;
     
-    const users = JSON.parse(localStorage.getItem('user')) || {};
     const isCreator = gameState.playerRole === 'creator';
     const opponentJoined = !!gameState.opponent.phone;
     
@@ -1312,5 +1336,5 @@ window.addEventListener('beforeunload', async (e) => {
         console.error('Error handling page unload:', error);
     }
 });
-
 document.addEventListener('DOMContentLoaded', initializeGame);
+
