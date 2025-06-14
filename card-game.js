@@ -1874,8 +1874,37 @@ async function recordTransaction(transactionData) {
         throw error;
     }
 }
+// Funny/encouraging messages
+const loserMessages = [
+    "Better luck next time!",
+    "Even champions stumble. You'll bounce back!",
+    "You were *so* close... if you squint hard enough.",
+    "The game said no, but we say go again!",
+    "A loss? Or just a plot twist in your comeback story?",
+    "One step closer to greatness... statistically speaking.",
+    "Hey, at least your luck can't get worse... right?",
+    "Every miss teaches the aim!",
+    "You dodged winning this time. Tactical?",
+    "A true gambler knows the pain. Welcome to the club!"
+];
 
-
+const winnerMessages = [
+    "🎉 You absolutely crushed it! 🎉",
+    "Boom! You made it rain ETB! ☔",
+    "Luck loves you. Don't let it go!",
+    "Your instincts were on fire 🔥",
+    "Some say it’s luck. We say it’s skill!",
+    "You're now officially a legend (for today)!",
+    "That was smoother than butter on injera 🧈",
+    "You + Winning = True Love ❤️",
+    "ETB secured. Drinks on you!",
+    "Alert: Jackpot Destroyer spotted! 🚨"
+];
+// Function to randomly pick a message
+function getRandomMessage(isWinner) {
+    const messages = isWinner ? winnerMessages : loserMessages;
+    return messages[Math.floor(Math.random() * messages.length)];
+}
 function showGameResult(isWinner, amount) {
  gameState.status = 'finished';
     
@@ -1908,7 +1937,7 @@ function showGameResult(isWinner, amount) {
     modal.innerHTML = `
         <div class="result-content">
             <h2>${isWinner ? '🎉 You Won! 🎉' : '😢 Game Over'}</h2>
-            <p>${isWinner ? `You won ${amount} ETB!` : 'Better luck next time'}</p>
+            <p>${isWinner ? message : message}</p>
             <div class="transaction-details">
                 <p><strong>Game Code:</strong> ${gameState.gameCode}</p>
                 <p><strong>Your Bet:</strong> ${gameState.betAmount} ETB</p>
