@@ -131,33 +131,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
 if (backBtn) {
-    let isProcessingExit = false; // Track exit state to prevent multiple clicks
+    let isProcessingExit = false;
     
     backBtn.addEventListener('click', async () => {
-        // Prevent multiple clicks while processing
-        if (isProcessingExit || gameState.status === 'finished') {
-            return;
-        }
-        
+        if (isProcessingExit || gameState.status === 'finished') return;
         isProcessingExit = true;
-        backBtn.disabled = true; // Visual feedback
+        backBtn.disabled = true;
         backBtn.textContent = 'Processing...';
 
         const users = JSON.parse(localStorage.getItem('user')) || {};
         const isCreator = gameState.playerRole === 'creator';
-        const opponentPhone = isCreator ? gameState.opponent.phone : gameState.creator.phone;
 
         try {
-            // Get current game state with FOR UPDATE lock to prevent race conditions
+            // Get current game state with all needed fields
             const { data: gameData, error: fetchError } = await supabase
                 .from('card_games')
                 .select(`
                     creator_moves, 
-                    opponent_moves, 
-                    creator_bet_deducted, 
+                    opponent_moves,
+                    creator_bet_deducted,
                     opponent_bet_deducted,
                     last_card,
-                    is_refund_processed,
+                    creator_refunded,
+                    opponent_refunded,
                     status
                 `)
                 .eq('code', gameState.gameCode)
@@ -165,46 +161,34 @@ if (backBtn) {
 
             if (fetchError) throw fetchError;
 
-            // If game is already finished, just redirect
-            if (gameData.status === 'finished') {
+            // Check if current player already got refund
+            const alreadyRefunded = isCreator ? gameData.creator_refunded : gameData.opponent_refunded;
+            if (alreadyRefunded) {
                 window.location.href = 'home.html';
                 return;
             }
 
-            // Determine if game was actually played
+            // Determine if game was played
             const gameWasPlayed = gameData.last_card !== null;
             const playerMoves = isCreator ? gameData.creator_moves : gameData.opponent_moves;
-            const opponentMoves = isCreator ? gameData.opponent_moves : gameData.creator_moves;
+            const betDeducted = isCreator ? gameData.creator_bet_deducted : gameData.opponent_bet_deducted;
 
-            // Prepare update data
             const updateData = {
                 updated_at: new Date().toISOString(),
                 leaver: users.phone
             };
 
-            // Only mark as finished if game was actually played
             if (gameWasPlayed) {
+                // Game was played - normal finish
                 updateData.status = 'finished';
-                updateData.winner = opponentPhone;
-                
-                // Deduct house cut only if game was played
+                updateData.winner = isCreator ? gameState.opponent.phone : gameState.creator.phone;
                 const houseCut = Math.floor(gameState.betAmount * 0.2);
                 await updateHouseBalance(houseCut);
-                
-                // Redirect immediately for played games
                 window.location.href = 'home.html';
-            } 
-            // Process refund only if:
-            // 1. Player hasn't made any moves
-            // 2. Refund hasn't been processed yet
-            // 3. Player's bet was actually deducted
-            else if (playerMoves === 0 && 
-                    !gameData.is_refund_processed && 
-                    (isCreator ? gameData.creator_bet_deducted : gameData.opponent_bet_deducted)) {
-                
+            } else if (playerMoves === 0 && betDeducted) {
+                // Process individual refund
                 const refundAmount = gameState.betAmount;
                 
-                // Process refund transaction
                 await recordTransaction({
                     player_phone: users.phone,
                     transaction_type: 'refund',
@@ -213,18 +197,21 @@ if (backBtn) {
                     status: 'completed'
                 });
 
-                // Mark refund as processed
-                updateData.is_refund_processed = true;
+                // Mark this specific player as refunded
+                if (isCreator) {
+                    updateData.creator_refunded = true;
+                } else {
+                    updateData.opponent_refunded = true;
+                }
+
                 updateData.refunded_player = users.phone;
-                
-                // Show refund notification
                 showRefundNotification(refundAmount);
             } else {
-                // For cases where no refund is due, just redirect
+                // No refund due - just redirect
                 window.location.href = 'home.html';
             }
 
-            // Update game state in database
+            // Update game state
             const { error } = await supabase
                 .from('card_games')
                 .update(updateData)
@@ -233,8 +220,8 @@ if (backBtn) {
             if (error) throw error;
 
         } catch (error) {
-            console.error('Error handling game exit:', error);
-            displayMessage(gameStatusEl, 'Error processing exit. Please try again.', 'error');
+            console.error('Error handling exit:', error);
+            displayMessage(gameStatusEl, 'Error processing exit', 'error');
         } finally {
             isProcessingExit = false;
             backBtn.disabled = false;
@@ -443,9 +430,13 @@ async function setupRealtimeUpdates() {
 // Inside the realtime updates handler, add this condition:
 // Inside the realtime updates handler:
 // Inside the realtime updates handler:
+// In your realtime subscription:
 if (payload.new.leaver && payload.new.leaver !== users.phone) {
-    // Show opponent left notification only if game wasn't played
-    if (!payload.new.last_card) {
+    // Check if game wasn't played and current player hasn't been refunded
+    const currentPlayerRefunded = gameState.playerRole === 'creator' ? 
+        payload.new.creator_refunded : payload.new.opponent_refunded;
+    
+    if (!payload.new.last_card && !currentPlayerRefunded) {
         const leaverName = payload.new.leaver === payload.new.creator_phone ? 
             payload.new.creator_username : payload.new.opponent_username;
         showOpponentLeftNotification(leaverName);
