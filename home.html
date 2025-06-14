@@ -431,6 +431,11 @@
       background: linear-gradient(to right, #F3E5F5, white);
     }
     
+    .game-card-5 {
+      border-left-color: #607D8B;
+      background: linear-gradient(to right, #ECEFF1, white);
+    }
+    
     .game-card-1 .game-icon {
       background: linear-gradient(135deg, #2E7D32, #4CAF50);
     }
@@ -445,6 +450,10 @@
     
     .game-card-4 .game-icon {
       background: linear-gradient(135deg, #7B1FA2, #9C27B0);
+    }
+    
+    .game-card-5 .game-icon {
+      background: linear-gradient(135deg, #455A64, #607D8B);
     }
   </style>
 </head>
@@ -645,19 +654,31 @@
         <span class="material-icons game-arrow">chevron_right</span>
       </div>
       
-<div class="game game-card-3" onclick="showComingSoon()">
-  <div class="game-content">
-    <div class="game-icon">
-      <span class="material-icons">grid_on</span>
-    </div>
-    <div class="game-info">
-      <div class="game-title">Checkers</div>
-      <div class="game-desc">Strategic board game</div>
-    </div>
-  </div>
-  <span class="material-icons game-arrow">chevron_right</span>
-</div>
-
+      <div class="game game-card-3" onclick="showComingSoon()">
+        <div class="game-content">
+          <div class="game-icon">
+            <span class="material-icons">grid_on</span>
+          </div>
+          <div class="game-info">
+            <div class="game-title">Checkers</div>
+            <div class="game-desc">Strategic board game</div>
+          </div>
+        </div>
+        <span class="material-icons game-arrow">chevron_right</span>
+      </div>
+      
+      <div class="game game-card-5" onclick="location.href='lobbyconnect4.html'">
+        <div class="game-content">
+          <div class="game-icon">
+            <span class="material-icons">view_column</span>
+          </div>
+          <div class="game-info">
+            <div class="game-title">Connect Four</div>
+            <div class="game-desc">Drop discs and connect four to win</div>
+          </div>
+        </div>
+        <span class="material-icons game-arrow">chevron_right</span>
+      </div>
     </div>
   </main>
 <!-- Coming Soon Modal -->
@@ -683,4 +704,3 @@
   </div>
 </body>
 </html>
-
