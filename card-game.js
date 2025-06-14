@@ -72,8 +72,6 @@ let gameState = {
     isSuitChangeBlocked: false,
     betAmount: 0,
     winRecorded: false,
-        hasGameStarted: false, // Add this line
-
     lastCardChangeTimestamp: null // Add this to track when last card changed
 };
 
@@ -130,145 +128,117 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (gameStatusEl) gameStatusEl.textContent = 'Game initialization failed';
     }
     
-// --- 5. Update the backBtn event listener for refund logic ---
 if (backBtn) {
     backBtn.addEventListener('click', async () => {
-        // If already finished, redirect
         if (gameState.status === 'finished') {
             window.location.href = 'home.html';
             return;
         }
+
         const users = JSON.parse(localStorage.getItem('user')) || {};
         const isCreator = gameState.playerRole === 'creator';
         const opponentPhone = isCreator ? gameState.opponent.phone : gameState.creator.phone;
 
-        // Fetch latest game state to avoid race conditions
+        // Fetch latest game data to check hands and bets
         const { data: gameData, error } = await supabase
             .from('card_games')
-            .select('*')
+            .select('creator_hand, opponent_hand, creator_bet_deducted, opponent_bet_deducted, creator_phone, opponent_phone, bet, status')
             .eq('code', gameState.gameCode)
             .single();
 
         if (error) {
-            console.error('Error fetching game for leave:', error);
-            displayMessage(gameStatusEl, 'Error. Please try again.');
+            displayMessage(gameStatusEl, 'Error checking game state. Please try again.', 'error');
             return;
         }
 
-        // Check if bets were deducted and the game hasn't started
-        const betsDeducted = !!gameData.creator_bet_deducted && !!gameData.opponent_bet_deducted;
-        const hasGameStarted = !!gameData.has_game_started;
+        // If both bets were deducted, check if either player played
+        const creatorHandInit = safeParseJSON(localStorage.getItem('creatorInitialHand'));
+        const opponentHandInit = safeParseJSON(localStorage.getItem('opponentInitialHand'));
+        const creatorHand = safeParseJSON(gameData.creator_hand) || [];
+        const opponentHand = safeParseJSON(gameData.opponent_hand) || [];
 
-        if (betsDeducted && !hasGameStarted) {
+        // On first join, cache the initial hands for both roles
+        // (do this after loadGameData for both players)
+        if (!creatorHandInit && isCreator) {
+            localStorage.setItem('creatorInitialHand', JSON.stringify(creatorHand));
+        }
+        if (!opponentHandInit && !isCreator) {
+            localStorage.setItem('opponentInitialHand', JSON.stringify(opponentHand));
+        }
+
+        const creatorPlayed = hasPlayerPlayed(creatorHandInit || creatorHand, creatorHand);
+        const opponentPlayed = hasPlayerPlayed(opponentHandInit || opponentHand, opponentHand);
+
+        // Both bets deducted & neither played: refund
+        if (gameData.creator_bet_deducted && gameData.opponent_bet_deducted && !creatorPlayed && !opponentPlayed) {
             // Refund both players
+            const refundAmount = gameData.bet;
             try {
                 // Refund creator
-                if (gameData.creator_phone) {
-                    await refundTransaction({
-                        player_phone: gameData.creator_phone,
-                        amount: gameData.bet,
-                        description: `Bet refund for abandoned card game ${gameState.gameCode}`
-                    });
-                }
-                // Refund opponent
+                await recordTransaction({
+                    player_phone: gameData.creator_phone,
+                    transaction_type: 'refund',
+                    amount: refundAmount,
+                    description: `Refund for card game ${gameState.gameCode}`,
+                    status: 'completed'
+                });
+                await supabase.from('users')
+                    .update({ balance: supabase.literal(`balance + ${refundAmount}`) })
+                    .eq('phone', gameData.creator_phone);
+
+                // Refund opponent (if exists)
                 if (gameData.opponent_phone) {
-                    await refundTransaction({
+                    await recordTransaction({
                         player_phone: gameData.opponent_phone,
-                        amount: gameData.bet,
-                        description: `Bet refund for abandoned card game ${gameState.gameCode}`
+                        transaction_type: 'refund',
+                        amount: refundAmount,
+                        description: `Refund for card game ${gameState.gameCode}`,
+                        status: 'completed'
                     });
+                    await supabase.from('users')
+                        .update({ balance: supabase.literal(`balance + ${refundAmount}`) })
+                        .eq('phone', gameData.opponent_phone);
                 }
-                // Optionally, delete or mark the game as abandoned
-                await supabase
-                    .from('card_games')
-                    .update({
-                        status: 'abandoned',
-                        updated_at: new Date().toISOString()
-                    })
+
+                // Mark game finished and status as "refunded"
+                await supabase.from('card_games')
+                    .update({ status: 'refunded', winner: null, updated_at: new Date().toISOString() })
                     .eq('code', gameState.gameCode);
-                showNotification('Bets refunded to both players.', 'success');
-            } catch (refundError) {
-                console.error('Error refunding bets:', refundError);
-                displayMessage(gameStatusEl, 'Refund error. Please contact support.', 'error');
-            } finally {
-                window.location.href = 'home.html';
+
+                // Show refund dialog only to the leaver
+                showRefundDialog(refundAmount);
+
+                // Clean up cached hands
+                localStorage.removeItem('creatorInitialHand');
+                localStorage.removeItem('opponentInitialHand');
+            } catch (err) {
+                displayMessage(gameStatusEl, 'Refund failed. Please contact support.', 'error');
             }
             return;
         }
 
-        // --- Otherwise, regular leave logic: declare opponent winner ---
+        // Otherwise: make opponent the winner (normal forfeit)
         const updateData = {
             status: 'finished',
             winner: opponentPhone,
             updated_at: new Date().toISOString()
         };
         try {
-            const { error } = await supabase
+            await supabase
                 .from('card_games')
                 .update(updateData)
                 .eq('code', gameState.gameCode);
-            if (error) throw error;
+
             window.location.href = 'home.html';
         } catch (error) {
-            console.error('Error declaring winner:', error);
             displayMessage(gameStatusEl, 'Error declaring winner. Please try again.', 'error');
         }
     });
 }
+
+
 });
 
-// Place this function somewhere with your modal helpers:
-function showRefundDialog() {
-    // Block further gameplay
-    gameState.status = 'abandoned';
-
-    // Remove all card click handlers
-    if (playerHandEl) {
-        const cards = playerHandEl.querySelectorAll('.card');
-        cards.forEach(card => {
-            card.style.pointerEvents = 'none';
-            card.style.opacity = '0.7';
-        });
-    }
-
-    // Disable action buttons
-    if (drawCardBtn) {
-        drawCardBtn.style.pointerEvents = 'none';
-        drawCardBtn.style.opacity = '0.5';
-    }
-    if (passTurnBtn) {
-        passTurnBtn.style.pointerEvents = 'none';
-        passTurnBtn.style.opacity = '0.5';
-    }
-
-    // Show modal
-    const resultModal = document.createElement('div');
-    resultModal.className = `game-result-modal lose`; // Use lose for neutral
-    resultModal.innerHTML = `
-        <div class="result-content">
-            <h2>Game Abandoned</h2>
-            <p>This game was canceled before it started. Your bet has been refunded.</p>
-            <div class="transaction-details">
-                <p><strong>Game Code:</strong> ${gameState.gameCode}</p>
-                <p><strong>Your Bet:</strong> ${gameState.betAmount} ETB</p>
-                <p><strong>Status:</strong> Refunded</p>
-            </div>
-            <button id="result-close-btn">Return to Home</button>
-        </div>
-    `;
-
-    document.body.appendChild(resultModal);
-    soundEffects.notification.play();
-
-    // Close button handler
-    const closeBtn = resultModal.querySelector('#result-close-btn');
-    if (closeBtn) {
-        closeBtn.addEventListener('click', () => {
-            resultModal.remove();
-            window.location.href = 'home.html';
-        });
-    }
-}
 async function loadGameData() {
     try {
         const { data: gameData, error } = await supabase
@@ -283,7 +253,6 @@ async function loadGameData() {
             setTimeout(() => window.location.href = '/', 3000);
             return;
         }
-    gameState.hasGameStarted = !!gameData.has_game_started; // Add this line
 
         const users = JSON.parse(localStorage.getItem('user')) || {};
         gameState.playerRole = gameData.creator_phone === users.phone ? 'creator' : 'opponent';
@@ -407,11 +376,6 @@ async function setupRealtimeUpdates() {
                     // --- NEW BET DEDUCTION LOGIC ---
                     const isCreator = gameState.playerRole === 'creator';
                     const isOpponent = gameState.playerRole === 'opponent';
-    gameState.hasGameStarted = !!payload.new.has_game_started; // Add this line
-if (payload.new.status === 'abandoned') {
-                        showRefundDialog();
-                        return; // block further UI/game updates
-                    }
 
                     if (payload.new.status === 'ongoing') {
                         // Deduct for creator if not yet done
@@ -550,48 +514,6 @@ if (payload.new.status === 'abandoned') {
 
     return channel;
 }
-
-
-// --- 4. Add a refundTransaction function ---
-async function refundTransaction({player_phone, amount, description}) {
-    try {
-        // Get user balance
-        const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('balance')
-            .eq('phone', player_phone)
-            .single();
-        if (userError) throw userError;
-        const balance_before = userData?.balance || 0;
-        const balance_after = balance_before + amount;
-
-        // Add refund transaction
-        const { error } = await supabase
-            .from('player_transactions')
-            .insert({
-                player_phone,
-                transaction_type: 'refund',
-                amount,
-                balance_before,
-                balance_after,
-                description,
-                status: 'completed',
-                created_at: new Date().toISOString()
-            });
-        if (error) throw error;
-
-        // Update user balance
-        const { error: updateError } = await supabase
-            .from('users')
-            .update({ balance: balance_after })
-            .eq('phone', player_phone);
-        if (updateError) throw updateError;
-    } catch (error) {
-        console.error('Failed to refund transaction:', error);
-        throw error;
-    }
-}
-
 function canPlayCard(card) {
     // If no last card played, any card can be played
     if (!gameState.lastCard) return true;
@@ -723,10 +645,7 @@ async function processCardPlay(cardsToPlay) {
         
         const isCreator = gameState.playerRole === 'creator';
         const opponentPhone = isCreator ? gameState.opponent.phone : gameState.creator.phone;
-    if (!gameState.hasGameStarted) {
-        gameState.hasGameStarted = true;
-        updateData.has_game_started = true; // <-- Add this line
-    }
+
         // Remove cards from hand
         cardsToPlay.forEach(cardToRemove => {
             const index = gameState.playerHand.findIndex(
@@ -2007,4 +1926,32 @@ function displayConnectionError(message) {
     setTimeout(() => {
         errorElement.remove();
     }, 5000);
+}
+
+// Add this helper for refund dialog (showRefundDialog)
+function showRefundDialog(refundedAmount) {
+    const modal = document.createElement('div');
+    modal.className = 'game-result-modal win'; // reuse styles
+    modal.innerHTML = `
+        <div class="result-content">
+            <h2>💸 Bet Refunded</h2>
+            <p>Your bet of ${refundedAmount} ETB has been refunded because the game did not start.</p>
+            <button id="refund-close-btn">Return to Home</button>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    const closeBtn = modal.querySelector('#refund-close-btn');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            modal.remove();
+            window.location.href = 'home.html';
+        });
+    }
+}
+
+// Utility: Checks if a player has played at least one card
+function hasPlayerPlayed(initialHand, currentHand) {
+    if (!Array.isArray(initialHand) || !Array.isArray(currentHand)) return false;
+    // If current hand is smaller, player played
+    return currentHand.length < initialHand.length;
 }
