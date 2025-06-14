@@ -1877,32 +1877,13 @@ async function recordTransaction(transactionData) {
 
 
 function showGameResult(isWinner, amount) {
-    // Block further gameplay
-    gameState.status = 'finished';
+    // First check if another result modal is already showing
+    if (document.querySelector('.game-result-modal')) return;
+
+    const modal = document.createElement('div');
+    modal.className = `game-result-modal ${isWinner ? 'win' : 'lose'}`;
     
-    // Remove all card click handlers
-    if (playerHandEl) {
-        const cards = playerHandEl.querySelectorAll('.card');
-        cards.forEach(card => {
-            card.style.pointerEvents = 'none';
-            card.style.opacity = '0.7';
-        });
-    }
-    
-    // Disable action buttons
-    if (drawCardBtn) {
-        drawCardBtn.style.pointerEvents = 'none';
-        drawCardBtn.style.opacity = '0.5';
-    }
-    if (passTurnBtn) {
-        passTurnBtn.style.pointerEvents = 'none';
-        passTurnBtn.style.opacity = '0.5';
-    }
-    
-    // Create modal
-    const resultModal = document.createElement('div');
-    resultModal.className = `game-result-modal ${isWinner ? 'win' : 'lose'}`;
-    resultModal.innerHTML = `
+    modal.innerHTML = `
         <div class="result-content">
             <h2>${isWinner ? '🎉 You Won! 🎉' : '😢 Game Over'}</h2>
             <p>${isWinner ? `You won ${amount} ETB!` : 'Better luck next time'}</p>
@@ -1914,35 +1895,20 @@ function showGameResult(isWinner, amount) {
             <button id="result-close-btn">Return to Home</button>
         </div>
     `;
+
+    document.body.appendChild(modal);
     
-    document.body.appendChild(resultModal);
-    
-    // Add confetti effect for wins
+    // Only winner gets confetti
     if (isWinner) {
         createConfettiEffect();
-    }
-    
-    // Play appropriate sound
-    if (isWinner) {
         soundEffects.win.play();
     } else {
         soundEffects.lose.play();
     }
-    
-    // Close button handler
-    const closeBtn = resultModal.querySelector('#result-close-btn');
-    if (closeBtn) {
-        closeBtn.addEventListener('click', () => {
-            resultModal.remove();
-            window.location.href = 'home.html';
-        });
-    }
-    
-    // Make modal non-closable by clicking outside
-    resultModal.addEventListener('click', (e) => {
-        if (e.target === resultModal) {
-            e.stopPropagation();
-        }
+
+    modal.querySelector('#result-close-btn').addEventListener('click', () => {
+        modal.remove();
+        window.location.href = 'home.html';
     });
 }
 
