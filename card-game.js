@@ -217,6 +217,58 @@ if (backBtn) {
 }
 });
 
+// Place this function somewhere with your modal helpers:
+function showRefundDialog() {
+    // Block further gameplay
+    gameState.status = 'abandoned';
+
+    // Remove all card click handlers
+    if (playerHandEl) {
+        const cards = playerHandEl.querySelectorAll('.card');
+        cards.forEach(card => {
+            card.style.pointerEvents = 'none';
+            card.style.opacity = '0.7';
+        });
+    }
+
+    // Disable action buttons
+    if (drawCardBtn) {
+        drawCardBtn.style.pointerEvents = 'none';
+        drawCardBtn.style.opacity = '0.5';
+    }
+    if (passTurnBtn) {
+        passTurnBtn.style.pointerEvents = 'none';
+        passTurnBtn.style.opacity = '0.5';
+    }
+
+    // Show modal
+    const resultModal = document.createElement('div');
+    resultModal.className = `game-result-modal lose`; // Use lose for neutral
+    resultModal.innerHTML = `
+        <div class="result-content">
+            <h2>Game Abandoned</h2>
+            <p>This game was canceled before it started. Your bet has been refunded.</p>
+            <div class="transaction-details">
+                <p><strong>Game Code:</strong> ${gameState.gameCode}</p>
+                <p><strong>Your Bet:</strong> ${gameState.betAmount} ETB</p>
+                <p><strong>Status:</strong> Refunded</p>
+            </div>
+            <button id="result-close-btn">Return to Home</button>
+        </div>
+    `;
+
+    document.body.appendChild(resultModal);
+    soundEffects.notification.play();
+
+    // Close button handler
+    const closeBtn = resultModal.querySelector('#result-close-btn');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            resultModal.remove();
+            window.location.href = 'home.html';
+        });
+    }
+}
 async function loadGameData() {
     try {
         const { data: gameData, error } = await supabase
@@ -356,6 +408,10 @@ async function setupRealtimeUpdates() {
                     const isCreator = gameState.playerRole === 'creator';
                     const isOpponent = gameState.playerRole === 'opponent';
     gameState.hasGameStarted = !!payload.new.has_game_started; // Add this line
+if (payload.new.status === 'abandoned') {
+                        showRefundDialog();
+                        return; // block further UI/game updates
+                    }
 
                     if (payload.new.status === 'ongoing') {
                         // Deduct for creator if not yet done
