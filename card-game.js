@@ -72,6 +72,8 @@ let gameState = {
     isSuitChangeBlocked: false,
     betAmount: 0,
     winRecorded: false,
+        hasGameStarted: false, // Add this line
+
     lastCardChangeTimestamp: null // Add this to track when last card changed
 };
 
@@ -128,35 +130,84 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (gameStatusEl) gameStatusEl.textContent = 'Game initialization failed';
     }
     
-   if (backBtn) {
+// --- 5. Update the backBtn event listener for refund logic ---
+if (backBtn) {
     backBtn.addEventListener('click', async () => {
-        // Check if the game is finished
+        // If already finished, redirect
         if (gameState.status === 'finished') {
-            // If the game is finished, simply redirect to home
             window.location.href = 'home.html';
             return;
         }
-
         const users = JSON.parse(localStorage.getItem('user')) || {};
         const isCreator = gameState.playerRole === 'creator';
         const opponentPhone = isCreator ? gameState.opponent.phone : gameState.creator.phone;
 
-        // Update the game state to declare the opponent as the winner
+        // Fetch latest game state to avoid race conditions
+        const { data: gameData, error } = await supabase
+            .from('card_games')
+            .select('*')
+            .eq('code', gameState.gameCode)
+            .single();
+
+        if (error) {
+            console.error('Error fetching game for leave:', error);
+            displayMessage(gameStatusEl, 'Error. Please try again.');
+            return;
+        }
+
+        // Check if bets were deducted and the game hasn't started
+        const betsDeducted = !!gameData.creator_bet_deducted && !!gameData.opponent_bet_deducted;
+        const hasGameStarted = !!gameData.has_game_started;
+
+        if (betsDeducted && !hasGameStarted) {
+            // Refund both players
+            try {
+                // Refund creator
+                if (gameData.creator_phone) {
+                    await refundTransaction({
+                        player_phone: gameData.creator_phone,
+                        amount: gameData.bet,
+                        description: `Bet refund for abandoned card game ${gameState.gameCode}`
+                    });
+                }
+                // Refund opponent
+                if (gameData.opponent_phone) {
+                    await refundTransaction({
+                        player_phone: gameData.opponent_phone,
+                        amount: gameData.bet,
+                        description: `Bet refund for abandoned card game ${gameState.gameCode}`
+                    });
+                }
+                // Optionally, delete or mark the game as abandoned
+                await supabase
+                    .from('card_games')
+                    .update({
+                        status: 'abandoned',
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('code', gameState.gameCode);
+                showNotification('Bets refunded to both players.', 'success');
+            } catch (refundError) {
+                console.error('Error refunding bets:', refundError);
+                displayMessage(gameStatusEl, 'Refund error. Please contact support.', 'error');
+            } finally {
+                window.location.href = 'home.html';
+            }
+            return;
+        }
+
+        // --- Otherwise, regular leave logic: declare opponent winner ---
         const updateData = {
             status: 'finished',
-            winner: opponentPhone, // Set the winner as the opponent
+            winner: opponentPhone,
             updated_at: new Date().toISOString()
         };
-
         try {
             const { error } = await supabase
                 .from('card_games')
                 .update(updateData)
                 .eq('code', gameState.gameCode);
-
             if (error) throw error;
-
-            // Redirect to home page or show a message
             window.location.href = 'home.html';
         } catch (error) {
             console.error('Error declaring winner:', error);
@@ -180,6 +231,7 @@ async function loadGameData() {
             setTimeout(() => window.location.href = '/', 3000);
             return;
         }
+    gameState.hasGameStarted = !!gameData.has_game_started; // Add this line
 
         const users = JSON.parse(localStorage.getItem('user')) || {};
         gameState.playerRole = gameData.creator_phone === users.phone ? 'creator' : 'opponent';
@@ -303,6 +355,7 @@ async function setupRealtimeUpdates() {
                     // --- NEW BET DEDUCTION LOGIC ---
                     const isCreator = gameState.playerRole === 'creator';
                     const isOpponent = gameState.playerRole === 'opponent';
+    gameState.hasGameStarted = !!payload.new.has_game_started; // Add this line
 
                     if (payload.new.status === 'ongoing') {
                         // Deduct for creator if not yet done
@@ -441,6 +494,48 @@ async function setupRealtimeUpdates() {
 
     return channel;
 }
+
+
+// --- 4. Add a refundTransaction function ---
+async function refundTransaction({player_phone, amount, description}) {
+    try {
+        // Get user balance
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('balance')
+            .eq('phone', player_phone)
+            .single();
+        if (userError) throw userError;
+        const balance_before = userData?.balance || 0;
+        const balance_after = balance_before + amount;
+
+        // Add refund transaction
+        const { error } = await supabase
+            .from('player_transactions')
+            .insert({
+                player_phone,
+                transaction_type: 'refund',
+                amount,
+                balance_before,
+                balance_after,
+                description,
+                status: 'completed',
+                created_at: new Date().toISOString()
+            });
+        if (error) throw error;
+
+        // Update user balance
+        const { error: updateError } = await supabase
+            .from('users')
+            .update({ balance: balance_after })
+            .eq('phone', player_phone);
+        if (updateError) throw updateError;
+    } catch (error) {
+        console.error('Failed to refund transaction:', error);
+        throw error;
+    }
+}
+
 function canPlayCard(card) {
     // If no last card played, any card can be played
     if (!gameState.lastCard) return true;
@@ -572,7 +667,10 @@ async function processCardPlay(cardsToPlay) {
         
         const isCreator = gameState.playerRole === 'creator';
         const opponentPhone = isCreator ? gameState.opponent.phone : gameState.creator.phone;
-
+    if (!gameState.hasGameStarted) {
+        gameState.hasGameStarted = true;
+        updateData.has_game_started = true; // <-- Add this line
+    }
         // Remove cards from hand
         cardsToPlay.forEach(cardToRemove => {
             const index = gameState.playerHand.findIndex(
