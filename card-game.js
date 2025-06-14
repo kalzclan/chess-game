@@ -1890,14 +1890,14 @@ const loserMessages = [
 
 const winnerMessages = [
     "🎉 You absolutely crushed it! 🎉",
-    "Boom! You made it rain ETB! ☔",
+    "Boom! You made it rain Birr! ☔",
     "Luck loves you. Don't let it go!",
     "Your instincts were on fire 🔥",
     "Some say it’s luck. We say it’s skill!",
     "You're now officially a legend (for today)!",
     "That was smoother than butter on injera 🧈",
     "You + Winning = True Love ❤️",
-    "ETB secured. Drinks on you!",
+    "Birr secured. Drinks on you!",
     "Alert: Jackpot Destroyer spotted! 🚨"
 ];
 // Function to randomly pick a message
@@ -1937,7 +1937,7 @@ function showGameResult(isWinner, amount) {
     
     modal.innerHTML = `
         <div class="result-content">
-            <h2>${isWinner ? '🎉 You Won! 🎉' : '😢 Game Over'}</h2>
+            <h2>${isWinner ? '🎉 You Won! 🎉' : 'Game Over'}</h2>
             <p>${isWinner ? message : message}</p>
             <div class="transaction-details">
                 <p><strong>Game Code:</strong> ${gameState.gameCode}</p>
