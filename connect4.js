@@ -227,8 +227,8 @@ async function handleGameWin(winningPlayer, winningCells) {
 
     try {
         const totalPrizePool = gameState.betAmount * 2;
-        const winnerPrize = Math.floor(totalPrizePool * 0.9);
-        const houseCut = totalPrizePool - winnerPrize;
+        const winnerPrize = Math.floor(totalPrizePool * 0.9); // 90% to winner
+        const houseCut = totalPrizePool - winnerPrize; // 10% to house
 
         // Update database with winner
         const { error } = await supabase
@@ -264,7 +264,7 @@ async function handleGameWin(winningPlayer, winningCells) {
             player_phone: winningPlayer.phone,
             transaction_type: 'win',
             amount: winnerPrize,
-            description: `Won Connect Four game`,
+            description: `Won Connect Four game (${gameState.gameCode})`,
             status: 'completed'
         });
 
@@ -283,6 +283,8 @@ async function handleGameWin(winningPlayer, winningCells) {
             showNotification(`You won ${formatBalance(winnerPrize)}!`, 'success');
         } else {
             playLoseSound();
+            // Record loss for the losing player (no money deducted, just for history)
+            
         }
 
         // Show result after animation
@@ -691,28 +693,17 @@ async function showFinalResult(gameData) {
         resultTitle.textContent = isWinner ? 'You Won!' : 'You Lost!';
         resultMessage.textContent = isWinner
             ? `You got four in a row and won ${formatBalance(gameData.prize_amount)}!`
-            : `Your opponent got four in a row! Better luck next time.`;
+            : `Your opponent got four in a row!`;
         
         resultAmount.textContent = isWinner 
             ? `+${formatBalance(gameData.prize_amount)}` 
-            : `-${formatBalance(gameState.betAmount)}`;
+            : `No money lost`;
         
-        resultAmount.className = isWinner ? 'result-amount win' : 'result-amount lose';
-        
-        // Record loss transaction for loser
-        if (!isWinner && !gameState.didWeWin) {
-            await recordTransaction({
-                player_phone: phone,
-                transaction_type: 'loss',
-                amount: -gameState.betAmount,
-                description: `Lost Connect Four game`,
-                status: 'completed'
-            });
-        }
+        resultAmount.className = isWinner ? 'result-amount win' : 'result-amount';
     } else if (gameData.result === 'draw') {
         resultTitle.textContent = 'Draw!';
-        resultMessage.textContent = 'The board is full with no winner. You received a refund.';
-        resultAmount.textContent = `+${formatBalance(gameData.refund_amount)}`;
+        resultMessage.textContent = 'The board is full with no winner.';
+        resultAmount.textContent = `No money lost`;
         resultAmount.className = 'result-amount';
     }
     
