@@ -72,7 +72,9 @@ let gameState = {
     isSuitChangeBlocked: false,
     betAmount: 0,
     winRecorded: false,
-    lastCardChangeTimestamp: null // Add this to track when last card changed
+    lastCardChangeTimestamp: null ,// Add this to track when last card changed
+      creatorMoves: 0,
+    opponentMoves: 0
 };
 
 // --- Initialize Game ---
@@ -130,7 +132,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     
 if (backBtn) {
     backBtn.addEventListener('click', async () => {
-        // Check if the game is finished
         if (gameState.status === 'finished') {
             window.location.href = 'home.html';
             return;
@@ -140,68 +141,61 @@ if (backBtn) {
         const isCreator = gameState.playerRole === 'creator';
         const opponentPhone = isCreator ? gameState.opponent.phone : gameState.creator.phone;
 
-        // Get current game state to check bet deductions
-        const { data: gameData, error: fetchError } = await supabase
-            .from('card_games')
-            .select('creator_bet_deducted, opponent_bet_deducted, last_card, creator_hand, opponent_hand')
-            .eq('code', gameState.gameCode)
-            .single();
-
-        if (fetchError) {
-            console.error('Error fetching game data:', fetchError);
-            window.location.href = 'home.html';
-            return;
-        }
-
-        // Check if both players have played at least one card
-        const hasPlayed = (gameData.last_card !== null) || 
-                         (gameData.creator_hand && JSON.parse(gameData.creator_hand).length < 7) ||
-                         (gameData.opponent_hand && JSON.parse(gameData.opponent_hand).length < 7);
-
-        // Prepare update data
-        const updateData = {
-            status: 'finished',
-            winner: opponentPhone,
-            updated_at: new Date().toISOString()
-        };
-
         try {
-            // If bets were deducted but no cards were played, refund both players
-            if (!hasPlayed && (gameData.creator_bet_deducted || gameData.opponent_bet_deducted)) {
+            // Get current game state with move history
+            const { data: gameData, error: fetchError } = await supabase
+                .from('card_games')
+                .select('creator_moves, opponent_moves, creator_bet_deducted, opponent_bet_deducted')
+                .eq('code', gameState.gameCode)
+                .single();
+
+            if (fetchError) throw fetchError;
+
+            // Check if current player has made any moves
+            const playerMoves = isCreator ? gameData.creator_moves : gameData.opponent_moves;
+            const hasPlayerMoved = playerMoves && playerMoves.length > 0;
+
+            // Check if opponent has made any moves
+            const opponentMoves = isCreator ? gameData.opponent_moves : gameData.creator_moves;
+            const hasOpponentMoved = opponentMoves && opponentMoves.length > 0;
+
+            // Special case: Creator can leave after first move if opponent hasn't moved
+            const allowCreatorLeave = isCreator && hasPlayerMoved && !hasOpponentMoved;
+
+            // Prepare update data
+            const updateData = {
+                status: 'finished',
+                updated_at: new Date().toISOString(),
+                winner: hasPlayerMoved ? opponentPhone : null
+            };
+
+            // Process refund only if player hasn't made any moves (or special creator case)
+            if ((!hasPlayerMoved || allowCreatorLeave) && 
+                (isCreator ? gameData.creator_bet_deducted : gameData.opponent_bet_deducted)) {
+                
                 const refundAmount = gameState.betAmount;
                 
-                // Refund creator if bet was deducted
-                if (gameData.creator_bet_deducted) {
-                    await recordTransaction({
-                        player_phone: gameState.creator.phone,
-                        transaction_type: 'refund',
-                        amount: refundAmount,
-                        description: `Refund for unfinished game ${gameState.gameCode}`,
-                        status: 'completed'
-                    });
-                }
+                await recordTransaction({
+                    player_phone: users.phone,
+                    transaction_type: 'refund',
+                    amount: refundAmount,
+                    description: `Refund for unfinished game ${gameState.gameCode}`,
+                    status: 'completed'
+                });
+
+                updateData.is_refund_processed = true;
+                updateData.refunded_player = users.phone;
+                updateData.leaver = users.phone;
                 
-                // Refund opponent if bet was deducted
-                if (gameData.opponent_bet_deducted) {
-                    await recordTransaction({
-                        player_phone: gameState.opponent.phone,
-                        transaction_type: 'refund',
-                        amount: refundAmount,
-                        description: `Refund for unfinished game ${gameState.gameCode}`,
-                        status: 'completed'
-                    });
-                }
-                
-                // Update game record to show refunds
-                updateData.is_refunded = true;
-                updateData.winner = null; // No winner since game wasn't played
-                
-                // Show refund notification
                 showRefundNotification(refundAmount);
             } else {
-                // Game was played - no refunds, opponent wins
-                const houseCut = Math.floor(gameState.betAmount * 0.2);
-                await updateHouseBalance(houseCut);
+                // Regular game end - no refund
+                if (hasPlayerMoved) {
+                    const houseCut = Math.floor(gameState.betAmount * 0.2);
+                    await updateHouseBalance(houseCut);
+                }
+                
+                window.location.href = 'home.html';
             }
 
             // Update game status
@@ -212,15 +206,39 @@ if (backBtn) {
 
             if (error) throw error;
 
-            // Redirect to home page
-            window.location.href = 'home.html';
         } catch (error) {
-            console.error('Error declaring winner:', error);
-            displayMessage(gameStatusEl, 'Error declaring winner. Please try again.', 'error');
+            console.error('Error handling game exit:', error);
+            displayMessage(gameStatusEl, 'Error processing exit. Please try again.', 'error');
         }
     });
 }
 });
+function showOpponentLeftNotification(opponentName) {
+    const modal = document.createElement('div');
+    modal.className = 'modern-modal-overlay';
+    modal.innerHTML = `
+        <div class="modern-modal">
+            <h2 class="modal-title">⚠️ Opponent Left</h2>
+            <div class="modern-dialog-content">
+                <p>${opponentName} has left the game.</p>
+                <p>You can now exit to get your bet refunded.</p>
+            </div>
+            <div class="modern-dialog-actions">
+                <button id="opponent-left-close-btn" class="modern-btn primary">
+                    OK
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    injectModernDialogCSS();
+    
+    modal.querySelector('#opponent-left-close-btn').addEventListener('click', () => {
+        modal.remove();
+    });
+}
+
 function showRefundNotification(amount) {
     const modal = document.createElement('div');
     modal.className = 'modern-modal-overlay';
@@ -228,12 +246,12 @@ function showRefundNotification(amount) {
         <div class="modern-modal">
             <h2 class="modal-title">💰 Refund Processed</h2>
             <div class="modern-dialog-content">
-                <p>You've been refunded ${amount} ETB because the game ended before any cards were played.</p>
-                <p>The bet amount has been returned to your account.</p>
+                <p>Your bet of ${amount} ETB has been refunded.</p>
+                <p>No moves were made in the game.</p>
             </div>
             <div class="modern-dialog-actions">
                 <button id="refund-close-btn" class="modern-btn primary">
-                    OK
+                    Return to Home
                 </button>
             </div>
         </div>
@@ -385,9 +403,18 @@ async function setupRealtimeUpdates() {
                     const isCreator = gameState.playerRole === 'creator';
                     const isOpponent = gameState.playerRole === 'opponent';
 // Inside the realtime updates handler, add this condition:
-if (payload.new.status === 'finished' && payload.new.is_refunded) {
+// Inside the realtime updates handler:
+if (payload.new.status === 'finished' && payload.new.leaver) {
     const users = JSON.parse(localStorage.getItem('user')) || {};
-    if (users.phone === payload.new.creator_phone || users.phone === payload.new.opponent_phone) {
+    
+    // Show to opponent that player left
+    if (users.phone && users.phone !== payload.new.leaver) {
+        showOpponentLeftNotification(payload.new.leaver === payload.new.creator_phone ? 
+            payload.new.creator_username : payload.new.opponent_username);
+    }
+    
+    // Show refund notification to leaver if applicable
+    if (users.phone === payload.new.refunded_player) {
         showRefundNotification(payload.new.bet);
     }
 }
@@ -659,6 +686,12 @@ async function processCardPlay(cardsToPlay) {
         
         const isCreator = gameState.playerRole === 'creator';
         const opponentPhone = isCreator ? gameState.opponent.phone : gameState.creator.phone;
+ // Track moves
+        if (isCreator) {
+            gameState.creatorMoves++;
+        } else {
+            gameState.opponentMoves++;
+        }
 
         // Remove cards from hand
         cardsToPlay.forEach(cardToRemove => {
