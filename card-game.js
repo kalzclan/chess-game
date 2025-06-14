@@ -1877,6 +1877,28 @@ async function recordTransaction(transactionData) {
 
 
 function showGameResult(isWinner, amount) {
+ gameState.status = 'finished';
+    
+    // Remove all card click handlers
+    if (playerHandEl) {
+        const cards = playerHandEl.querySelectorAll('.card');
+        cards.forEach(card => {
+            card.style.pointerEvents = 'none';
+            card.style.opacity = '0.7';
+        });
+    }
+    
+    // Disable action buttons
+    if (drawCardBtn) {
+        drawCardBtn.style.pointerEvents = 'none';
+        drawCardBtn.style.opacity = '0.5';
+    }
+    if (passTurnBtn) {
+        passTurnBtn.style.pointerEvents = 'none';
+        passTurnBtn.style.opacity = '0.5';
+    }
+    
+
     // First check if another result modal is already showing
     if (document.querySelector('.game-result-modal')) return;
 
@@ -1897,7 +1919,8 @@ function showGameResult(isWinner, amount) {
     `;
 
     document.body.appendChild(modal);
-    
+      // Add confetti effect for wins
+
     // Only winner gets confetti
     if (isWinner) {
         createConfettiEffect();
