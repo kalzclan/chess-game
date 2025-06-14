@@ -131,24 +131,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
 if (backBtn) {
+ let isProcessingExit = false; // Track exit state
+    
     backBtn.addEventListener('click', async () => {
-        if (gameState.status === 'finished') {
-            window.location.href = 'home.html';
-            return;
-        }
-
+        if (isProcessingExit || gameState.status === 'finished') return;
+        isProcessingExit = true;
+        
         const users = JSON.parse(localStorage.getItem('user')) || {};
         const isCreator = gameState.playerRole === 'creator';
 
         try {
-            // Get current game state
+            // Get current game state with lock to prevent race conditions
             const { data: gameData, error: fetchError } = await supabase
                 .from('card_games')
-                .select('creator_moves, opponent_moves, creator_bet_deducted, opponent_bet_deducted, last_card')
+                .select('creator_moves, opponent_moves, is_refund_processed, last_card')
                 .eq('code', gameState.gameCode)
                 .single();
 
             if (fetchError) throw fetchError;
+
+            // Prevent refund if already processed
+            if (gameData.is_refund_processed) {
+                window.location.href = 'home.html';
+                return;
+            }
 
             // Determine if game was actually played
             const gameWasPlayed = gameData.last_card !== null;
@@ -204,7 +210,10 @@ if (backBtn) {
         } catch (error) {
             console.error('Error handling game exit:', error);
             displayMessage(gameStatusEl, 'Error processing exit. Please try again.', 'error');
+        } finally {
+            isProcessingExit = false;
         }
+        
     });
 }
 });
